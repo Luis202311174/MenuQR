@@ -58,7 +58,7 @@ export default function SlugSidebar({
       case "ready":
         return "Preparing";
       case "completed":
-        return "Order Delivered";
+        return "Order Complete";
       default:
         return "Unknown";
     }
@@ -94,19 +94,35 @@ export default function SlugSidebar({
     }
   };
 
+  const downloadQR = async () => {
+    try {
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "qr-code.png";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      window.open(qrUrl, "_blank");
+    }
+  };
+
   return (
     <aside className="space-y-6">
-
       {/* QR */}
       <div className="border border-gray-300 rounded-2xl bg-white shadow-lg p-5 text-center">
         <div className="mx-auto h-48 w-48 mb-4 rounded-lg overflow-hidden border border-gray-300 shadow-md">
-          <img
-            src={qrUrl}
-            alt="Scan QR"
-            className="w-full h-full object-cover"
-          />
+          <img src={qrUrl} alt="Scan QR" className="w-full h-full object-cover" />
         </div>
         <p className="font-bold text-lg">SCAN THE QR</p>
+        <button
+          onClick={downloadQR}
+          className="mt-4 w-full rounded-2xl bg-[#E23838] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c22f2f] transition"
+        >
+          Download QR
+        </button>
       </div>
 
       {tableId && (
@@ -118,16 +134,26 @@ export default function SlugSidebar({
       {/* Orders */}
       <div className="border border-gray-300 rounded-2xl bg-white shadow-lg p-5">
         <h3 className="font-bold text-lg mb-1">📋 Order</h3>
-        
+
         {currentOrder ? (
           <div className="space-y-3">
             <div className="mb-3 pb-3 border-b border-gray-200">
-              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-2">Status & Progress</p>
-              <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(currentOrder.status)}`}>
+              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-2">
+                Status & Progress
+              </p>
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(
+                  currentOrder.status
+                )}`}
+              >
                 {getStatusText(currentOrder.status)}
               </span>
               <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                <div className={`h-2 rounded-full transition-all ${getProgressColor(currentOrder.status)} ${getProgressWidth(currentOrder.status)}`}></div>
+                <div
+                  className={`h-2 rounded-full transition-all ${getProgressColor(
+                    currentOrder.status
+                  )} ${getProgressWidth(currentOrder.status)}`}
+                ></div>
               </div>
               <div className="mt-2 text-xs text-gray-600">
                 {currentOrder.status === "pending" && "Pay at the Counter"}
@@ -136,10 +162,12 @@ export default function SlugSidebar({
                 {currentOrder.status === "completed" && "Order delivered! Would you like to order again?"}
               </div>
             </div>
-            
+
             <div>
               <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-1">Order ID</p>
-              <p className="font-mono text-sm bg-gray-100 p-2 rounded border border-gray-200">{currentOrder.id.slice(0, 8)}...</p>
+              <p className="font-mono text-sm bg-gray-100 p-2 rounded border border-gray-200">
+                {currentOrder.id.slice(0, 8)}...
+              </p>
             </div>
 
             <div>
@@ -155,8 +183,12 @@ export default function SlugSidebar({
             </div>
 
             <div className="border-t pt-3">
-              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-2">Total Amount</p>
-              <p className="text-2xl font-black text-[#E23838]">₱{currentOrder.total_amount?.toFixed(2)}</p>
+              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-2">
+                Total Amount
+              </p>
+              <p className="text-2xl font-black text-[#E23838]">
+                ₱{currentOrder.total_amount?.toFixed(2)}
+              </p>
             </div>
           </div>
         ) : cartItems.length > 0 ? (
@@ -169,7 +201,9 @@ export default function SlugSidebar({
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-1">Items ({cartItems.length})</p>
+              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-1">
+                Items ({cartItems.length})
+              </p>
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {cartItems.map((item, idx) => (
                   <p key={idx} className="text-sm text-gray-700 flex justify-between">
@@ -181,7 +215,9 @@ export default function SlugSidebar({
             </div>
 
             <div className="border-t pt-3">
-              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-2">Total Amount</p>
+              <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-2">
+                Total Amount
+              </p>
               <p className="text-2xl font-black text-[#E23838]">₱{cartTotal.toFixed(2)}</p>
             </div>
           </div>

@@ -1,16 +1,27 @@
 import { supabase } from "@/lib/supabaseClient";
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+
 export const handleTableSession = async (tableId: string) => {
-  // 1. Get table
-  const { data: table, error } = await supabase
-    .from("tables")
-    .select("*")
-    .eq("id", tableId)
-    .single();
+  const decodedTableId = decodeURIComponent(tableId || "");
 
-  if (error || !table) throw new Error("Invalid table");
+  const tableQuery = isUuid(decodedTableId)
+    ? supabase.from("tables").select("*").eq("id", decodedTableId)
+    : supabase
+        .from("tables")
+        .select("*")
+        .or(`table_number.eq.${decodedTableId},qr_code.eq.${decodedTableId}`);
 
-  // 🔥 2. Check if existing session is still ACTIVE
+  const { data: table, error } = await tableQuery.single();
+
+  if (error || !table) {
+    console.warn("Table session: invalid table identifier", tableId, error?.message);
+    return null;
+  }
+
   if (table.current_session_id) {
     const { data: session } = await supabase
       .from("table_sessions")
@@ -20,32 +31,35 @@ export const handleTableSession = async (tableId: string) => {
       .single();
 
     if (session) {
-      return session.id; // ✅ reuse only if active
+      return session.id;
     }
   }
 
-  // 🔥 3. Create NEW session
   const { data: newSession, error: sessionError } = await supabase
     .from("table_sessions")
     .insert({
-      table_id: tableId,
+      table_id: table.id,
       active: true,
     })
     .select()
     .single();
 
   if (sessionError || !newSession) {
-    throw new Error("Failed to create session");
+    console.error("Failed to create table session", sessionError);
+    return null;
   }
 
-  // 🔥 4. Update table
-  await supabase
+  const { error: updateError } = await supabase
     .from("tables")
     .update({
       current_session_id: newSession.id,
       status: "occupied",
     })
-    .eq("id", tableId);
+    .eq("id", table.id);
+
+  if (updateError) {
+    console.error("Failed to update table after creating session", updateError);
+  }
 
   return newSession.id;
 };

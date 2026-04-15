@@ -30,17 +30,32 @@ export default function TableQRPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [tableNumber, setTableNumber] = useState("");
 
-  // =========================
-  // GET BASE URL (works everywhere)
-  // =========================
+  const handleDownloadQR = async (qrUrl: string, tableNumber: string) => {
+    try {
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      a.href = url;
+      a.download = `table-${tableNumber}-qr.png`;
+      document.body.appendChild(a);
+      a.click();
+
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("Failed to download QR");
+    }
+  };
+
   const getBaseUrl = () => {
     if (typeof window !== "undefined") return window.location.origin;
     return process.env.NEXT_PUBLIC_SITE_URL || "";
   };
 
-  // =========================
-  // AUTH + BUSINESS FETCH
-  // =========================
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -225,16 +240,21 @@ export default function TableQRPage() {
                   />
                 )}
 
-                <div className="text-sm mb-2">
-                  Status: {table.status}
-                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDownloadQR(table.qr_code, table.table_number)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded"
+                  >
+                    Download
+                  </button>
 
-                <button
-                  onClick={() => handleDeleteTable(table.id)}
-                  className="bg-red-500 text-white px-3 py-1 rounded"
-                >
-                  Delete
-                </button>
+                  <button
+                    onClick={() => handleDeleteTable(table.id)}
+                    className="bg-red-500 text-white px-3 py-1 rounded"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
 

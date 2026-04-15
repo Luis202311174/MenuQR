@@ -12,6 +12,7 @@ export default function BusinessSidebar() {
     { label: "Orders", path: "/business/orders" },
     { label: "Reports", path: "/business/reports" },
     { label: "Table QR", path: "/business/tableqr" },
+    { label: "Configure Business", path: "/business/settings" },
   ];
 
   return (

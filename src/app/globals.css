@@ -32,3 +32,9 @@ body {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}

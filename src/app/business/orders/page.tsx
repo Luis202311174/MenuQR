@@ -26,6 +26,7 @@ export default function BusinessOrdersPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
 
   const channelRef = useRef<any>(null);
 
@@ -209,20 +210,24 @@ export default function BusinessOrdersPage() {
 
   // ✅ Complete order
   const completeOrder = async (order: Order) => {
-    console.log("OWNER completeOrder()", { order });
+    if (!businessId || completingOrderId === order.id) return;
 
-    await supabase
-      .from("orders")
-      .update({ status: "completed" })
-      .eq("id", order.id);
+    setCompletingOrderId(order.id);
 
-    setOrders((prev) => prev.filter((o) => o.id !== order.id));
-    await handleOrderCompleted(order);
+    try {
+      console.log("OWNER completeOrder()", { order });
+
+      await supabase
+        .from("orders")
+        .update({ status: "completed" })
+        .eq("id", order.id);
+
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      await handleOrderCompleted(order);
+    } finally {
+      setCompletingOrderId(null);
+    }
   };
-
-  if (!authChecked || !session) {
-    return <div className="p-10">Loading...</div>;
-  }
 
   return (
     <div className="min-h-screen bg-[#FCFBF4]">
@@ -299,9 +304,10 @@ export default function BusinessOrdersPage() {
                       {order.status === "ready" && (
                         <button
                           onClick={() => completeOrder(order)}
-                          className="bg-green-600 text-white px-4 py-2 rounded"
+                          disabled={completingOrderId === order.id}
+                          className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
                         >
-                          Order Delivered
+                          {completingOrderId === order.id ? "Completing..." : "Order Delivered"}
                         </button>
                       )}
                     </div>

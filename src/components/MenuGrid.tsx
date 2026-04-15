@@ -6,7 +6,7 @@ type MenuItem = {
   price: number;
   category?: string;
   image_url?: string;
-  status?: string;
+  availability?: boolean;
 };
 
 export default function MenuGrid({
@@ -43,11 +43,11 @@ export default function MenuGrid({
               <div className="flex justify-between items-center mb-2">
                 <p className="text-2xl font-black text-[#E23838]">₱{item.price}</p>
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                  item.status === "available"
+                  item.availability
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                 }`}>
-                  {item.status === "available" ? "Available" : "Not Available"}
+                  {item.availability ? "Available" : "Not Available"}
                 </span>
               </div>
             </div>
@@ -64,9 +64,9 @@ export default function MenuGrid({
               {onAddToCart && isDineIn && (
                 <button
                   onClick={() => onAddToCart(item)}
-                  disabled={item.status !== "available"}
+                  disabled={!item.availability}
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold text-white transition-all shadow-md hover:shadow-lg ${
-                    item.status === "available"
+                    item.availability === true
                       ? "bg-[#E23838] hover:bg-[#c22f2f]"
                       : "bg-gray-400 cursor-not-allowed"
                   }`}

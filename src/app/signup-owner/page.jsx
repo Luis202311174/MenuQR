@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic"; // ✅ MUST be before usage
+
 import { supabase } from "../../lib/supabaseClient";
 import { generateSlug } from "../../utils/generateSlug";
 import { v4 as uuidv4 } from "uuid";
+import StoreHoursPicker from "@/components/StoreHoursPicker";
 
 export default function SignupBusinessPage() {
   const router = useRouter();
@@ -18,12 +21,14 @@ export default function SignupBusinessPage() {
   const [otherCtgry, setOtherCtgry] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [storeEmail, setStoreEmail] = useState("");
-  const [storeOpen, setStoreOpen] = useState("");
-  const [storeClose, setStoreClose] = useState("");
+  const [storeHours, setStoreHours] = useState({ open: "", close: "" });
   const [logoFile, setLogoFile] = useState(null);
+  const [coordinates, setCoordinates] = useState(null);
+  const MapPicker = dynamic(() => import("@/components/MapPicker"), {
+    ssr: false,
+  });
 
   const [loading, setLoading] = useState(false);
-  // privacy agreement for business users
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
 
@@ -120,7 +125,7 @@ export default function SignupBusinessPage() {
     e.preventDefault();
     setLoading(true);
 
-    if (!businessName.trim() || !address.trim() || !storeCategory || !contactNumber.trim() || !storeEmail.trim() || !storeOpen || !storeClose) {
+    if (!businessName.trim() || !address.trim() || !storeCategory || !contactNumber.trim() || !storeEmail.trim() || !storeHours.open || !storeHours.close) {
       setLoading(false);
       return alert("Please fill in all required fields (Business name, address, category, contact number, contact email, open and close hours)");
     }
@@ -195,10 +200,12 @@ export default function SignupBusinessPage() {
         name: businessName,
         description,
         address,
+        latitude: coordinates?.lat || null,
+        longitude: coordinates?.lng || null,
         store_category: storeCategory.toLowerCase(),
         other_ctgry: storeCategory === "other" ? otherCtgry : null,
         contact_info: `${contactNumber} / ${storeEmail}`,
-        store_hours: `${storeOpen} - ${storeClose}`,
+        store_hours: `${storeHours.open} - ${storeHours.close}`,
         logo_url: logoUrl,
         slug: slug,
       });
@@ -291,6 +298,17 @@ export default function SignupBusinessPage() {
                   rows={3}
                 />
               </div>
+            </section>
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                Location Picker
+              </h2>
+
+              <MapPicker
+                coordinates={coordinates}
+                setCoordinates={setCoordinates}
+              />
+
               <div>
                 <label className="text-sm font-medium text-gray-700">Address</label>
                 <input
@@ -334,79 +352,7 @@ export default function SignupBusinessPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Store hours</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Opening</label>
-                  <select
-                    value={storeOpen}
-                    onChange={(e) => setStoreOpen(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-3"
-                    required
-                  >
-                    <option value="">Opening</option>
-                    <option value="1:00 AM">1:00 AM</option>
-                    <option value="2:00 AM">2:00 AM</option>
-                    <option value="3:00 AM">3:00 AM</option>
-                    <option value="4:00 AM">4:00 AM</option>
-                    <option value="5:00 AM">5:00 AM</option>
-                    <option value="6:00 AM">6:00 AM</option>
-                    <option value="7:00 AM">7:00 AM</option>
-                    <option value="8:00 AM">8:00 AM</option>
-                    <option value="9:00 AM">9:00 AM</option>
-                    <option value="10:00 AM">10:00 AM</option>
-                    <option value="11:00 AM">11:00 AM</option>
-                    <option value="12:00 PM">12:00 PM</option>
-                    <option value="1:00 PM">1:00 PM</option>
-                    <option value="2:00 PM">2:00 PM</option>
-                    <option value="3:00 PM">3:00 PM</option>
-                    <option value="4:00 PM">4:00 PM</option>
-                    <option value="5:00 PM">5:00 PM</option>
-                    <option value="6:00 PM">6:00 PM</option>
-                    <option value="7:00 PM">7:00 PM</option>
-                    <option value="8:00 PM">8:00 PM</option>
-                    <option value="9:00 PM">9:00 PM</option>
-                    <option value="10:00 PM">10:00 PM</option>
-                    <option value="11:00 PM">11:00 PM</option>
-                    <option value="12:00 MN">12:00 MN</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Closing</label>
-                  <select
-                    value={storeClose}
-                    onChange={(e) => setStoreClose(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-3"
-                    required
-                  >
-                    <option value="">Closing</option>
-                    <option value="1:00 AM">1:00 AM</option>
-                    <option value="2:00 AM">2:00 AM</option>
-                    <option value="3:00 AM">3:00 AM</option>
-                    <option value="4:00 AM">4:00 AM</option>
-                    <option value="5:00 AM">5:00 AM</option>
-                    <option value="6:00 AM">6:00 AM</option>
-                    <option value="7:00 AM">7:00 AM</option>
-                    <option value="8:00 AM">8:00 AM</option>
-                    <option value="9:00 AM">9:00 AM</option>
-                    <option value="10:00 AM">10:00 AM</option>
-                    <option value="11:00 AM">11:00 AM</option>
-                    <option value="12:00 PM">12:00 PM</option>
-                    <option value="1:00 PM">1:00 PM</option>
-                    <option value="2:00 PM">2:00 PM</option>
-                    <option value="3:00 PM">3:00 PM</option>
-                    <option value="4:00 PM">4:00 PM</option>
-                    <option value="5:00 PM">5:00 PM</option>
-                    <option value="6:00 PM">6:00 PM</option>
-                    <option value="7:00 PM">7:00 PM</option>
-                    <option value="8:00 PM">8:00 PM</option>
-                    <option value="9:00 PM">9:00 PM</option>
-                    <option value="10:00 PM">10:00 PM</option>
-                    <option value="11:00 PM">11:00 PM</option>
-                    <option value="12:00 MN">12:00 MN</option>
-                  </select>
-                </div>
-              </div>
+              <StoreHoursPicker value={storeHours} onChange={setStoreHours} />
             </section>
 
             <section className="space-y-3">
