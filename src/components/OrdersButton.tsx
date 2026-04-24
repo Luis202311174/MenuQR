@@ -3,7 +3,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClipboardList, faShoppingCart, faReceipt, faCreditCard, faQrcode, faMoneyBillWave } from "@fortawesome/free-solid-svg-icons";
 import { OrderData } from "@/utils/fetchActiveOrder";
 import { getOrderStatusLabel, getStatusColor } from "@/utils/orderStatusManager";
-import { processSessionPayment } from "@/utils/paymentManager";
 import { storeSessionReceipt } from "@/utils/receiptManager";
 
 interface CartItem {
@@ -33,9 +32,17 @@ interface OrdersButtonProps {
   unpaidOrders?: OrderData[]; // New: Unpaid orders in the session
   onPayBill?: () => void; // New: Pay the bill handler
   badgeCount?: number;
-  sessionId?: string;
-  businessId?: string;
+  paymentSettings?: {
+    cash: boolean;
+    gcash: boolean;
+  };
+  sessionId: string;
+  businessId: string;
   tableId?: string;
+  orderCompleteModal?: boolean;
+  onPaymentComplete?: (method: "cash" | "gcash") => void;
+  completedOrder?: OrderData | null;
+  onCloseOrderCompleteModal?: () => void;
   showOrderMoreModal?: boolean;
   onCloseOrderMoreModal?: () => void;
 }
@@ -57,24 +64,73 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
   badgeCount,
   sessionId,
   businessId,
+  orderCompleteModal,
+  completedOrder,
+  onCloseOrderCompleteModal,
   tableId,
+  paymentSettings, // 🔥 ADD THIS
+  onPaymentComplete, // 🔥 ADD THIS
 }) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"cart" | "status" | "receipts">("cart");
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"gcash" | "cash" | null>(null);
   const [showOrderAgainModal, setShowOrderAgainModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"gcash" | "cash" | null>(null);
 
-  // Calculate totals for unpaid orders
-  const unpaidTotal = unpaidOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
+  const enabledMethods = useMemo(() => {
+    return {
+      cash: paymentSettings?.cash ?? true,
+      gcash: paymentSettings?.gcash ?? false,
+    };
+  }, [paymentSettings]);
+
+  const openPaymentFlow = () => {
+    const cashEnabled = paymentSettings?.cash ?? true;
+    const gcashEnabled = paymentSettings?.gcash ?? false;
+
+    const available = [cashEnabled, gcashEnabled].filter(Boolean).length;
+
+    if (available === 0) {
+      alert("No payment methods available");
+      return;
+    }
+
+    if (available === 1) {
+      const method = cashEnabled ? "cash" : "gcash";
+      handlePaymentMethodSelect(method);
+      return;
+    }
+
+    setShowPaymentModal(true);
+  };
+
+  const computedUnpaidOrders = useMemo(() => {
+    return sessionOrders.filter(
+      (order) =>
+        !order.is_paid &&
+        ["served", "completed"].includes(order.status)
+    );
+  }, [sessionOrders]);
+
+  const unpaidTotal = useMemo(() => {
+    return computedUnpaidOrders.reduce(
+      (sum, order) => sum + Number(order.total_amount),
+      0
+    );
+  }, [computedUnpaidOrders]);
   const sessionTotal = sessionOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
+  
+  console.log("UNPAID ORDERS:", unpaidOrders);
+  console.log("UNPAID TOTAL:", unpaidTotal);
 
   // Check if there are any served orders
   const servedOrders = sessionOrders.filter((order) => order.status === "served");
   const shouldShowOrderAgainPrompt =
-    servedOrders.length > 0 && cartItems.length === 0 && unpaidOrders.length === 0;
+    servedOrders.length > 0 &&
+    cartItems.length === 0 &&
+    computedUnpaidOrders.length === 0;
 
   // 🔹 derive displayedStatus from currentOrder
   const displayedStatus = useMemo(() => {
@@ -101,26 +157,30 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
     }
 
     setProcessingPayment(true);
+
     try {
       setSelectedPaymentMethod(method);
 
-      // Process payment through payment manager
-      await processSessionPayment(sessionId, method);
+      if (onPaymentComplete) {
+        await onPaymentComplete(method);
+      }
 
+      // ✅ SHOW SUCCESS FIRST
       setPaymentSuccess(true);
-      setShowPaymentModal(false);
-      setSelectedPaymentMethod(null);
 
-      // Call parent callback if provided
+      setTimeout(() => {
+        setPaymentSuccess(false);
+        setShowPaymentModal(false);
+
+        if (onPayBill) {
+          onPayBill(); // ✅ runs AFTER delay
+        }
+      }, 3500);
+
       if (onPayBill) {
         onPayBill();
       }
 
-      // Show success message
-      setTimeout(() => {
-        alert("Payment processed successfully!");
-        setPaymentSuccess(false);
-      }, 500);
     } catch (error) {
       console.error("Payment processing error:", error);
       alert("Payment processing failed. Please try again.");
@@ -262,43 +322,9 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
                       </button>
                     </>
                   ) : (
-                    <div className="space-y-3">
-                      <p className="text-gray-500 text-center">Cart is empty</p>
-
-                      {/* Session Orders Summary */}
-                      {unpaidOrders.length > 0 && (
-                        <div className="border rounded-lg p-3 bg-gray-50">
-                          <h4 className="font-medium text-[#E23838] mb-2">Current Session Orders</h4>
-                          {unpaidOrders.map((order) => (
-                            <div key={order.id} className="text-sm mb-2">
-                              <div className="flex justify-between">
-                                <span>Order #{order.id.slice(-6)}</span>
-                                <span>₱{Number(order.total_amount).toFixed(2)}</span>
-                              </div>
-                              <div className="text-xs text-gray-500 capitalize">
-                                Status: {order.status}
-                              </div>
-                            </div>
-                          ))}
-                          <hr className="my-2" />
-                          <div className="flex justify-between font-bold">
-                            <span>Unpaid Total</span>
-                            <span>₱{unpaidTotal.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Pay the Bill Button */}
-                      {unpaidOrders.length > 0 && (
-                        <button
-                          onClick={() => setShowPaymentModal(true)}
-                          className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium"
-                        >
-                          <FontAwesomeIcon icon={faCreditCard} className="mr-2" />
-                          Pay the Bill (₱{unpaidTotal.toFixed(2)})
-                        </button>
-                      )}
-                    </div>
+                    <p className="text-sm text-gray-500 text-center">
+                      Your cart is empty
+                    </p>
                   )}
                 </>
               )}
@@ -424,84 +450,134 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
 
       {/* Order More Prompt Modal */}
       {showOrderMoreModal && (
-        <div className="fixed inset-0 z-[1100] bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
-            <h3 className="text-lg font-bold text-center mb-4">Order Submitted!</h3>
-            <p className="text-center text-gray-600 mb-6">Would you like to order more items?</p>
-            <div className="flex gap-3">
+        <div className="fixed inset-0 z-[1100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 text-center animate-scaleIn">
+            
+            {/* Icon */}
+            <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-full bg-green-100">
+              <span className="text-green-600 text-2xl">✓</span>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              Order Submitted!
+            </h3>
+
+            {/* Subtitle */}
+            <p className="text-gray-500 text-sm mb-6">
+              Your order is being prepared.  
+              Want to add more items or proceed to payment?
+            </p>
+
+            {/* Actions */}
+            <div className="space-y-3">
               <button
                 onClick={() => handleOrderMore(true)}
-                className="flex-1 py-2 bg-[#E23838] hover:bg-red-700 text-white rounded-md font-medium"
+                className="w-full py-3 bg-[#E23838] hover:bg-red-700 text-white rounded-xl font-semibold transition"
               >
-                Order More
+                🍽️ Add More Items
               </button>
+
               <button
-                onClick={() => handleOrderMore(false)}
-                className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium"
+                onClick={openPaymentFlow}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition"
               >
-                Pay Bill
+                💳 Pay Bill
               </button>
             </div>
+
+            {/* Optional subtle hint */}
+            <p className="text-xs text-gray-400 mt-4">
+              You can still order again after this
+            </p>
           </div>
         </div>
       )}
 
       {/* Payment Method Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-[1100] bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
-            <h3 className="text-lg font-bold text-center mb-4">Choose Payment Method</h3>
-            <p className="text-center text-gray-600 mb-6">
-              Total to pay: ₱{unpaidTotal.toFixed(2)}
-            </p>
-            {paymentSuccess && (
-              <div className="mb-4 p-3 bg-green-100 text-green-800 rounded text-center">
-                ✓ Payment processed successfully!
+        <div className="fixed inset-0 z-[1100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-scaleIn">
+            
+            {/* Header */}
+            <div className="bg-[#E23838] px-6 py-4 text-center">
+              <h3 className="text-lg font-bold text-white">
+                Complete Payment
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-5">
+              
+              {/* 💰 TOTAL DISPLAY (THIS IS THE KEY PART) */}
+              <div className="bg-gray-50 border rounded-2xl p-4 text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">
+                  Total Amount
+                </p>
+                <p className="text-3xl font-bold text-[#E23838] mt-1">
+                  ₱{unpaidTotal.toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {computedUnpaidOrders.length} unpaid order(s)
+                </p>
               </div>
-            )}
-            <div className="space-y-3">
-              <button
-                onClick={() => handlePaymentMethodSelect("gcash")}
-                disabled={processingPayment || paymentSuccess}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md font-medium flex items-center justify-center"
-              >
-                {processingPayment ? (
-                  <>
-                    <span className="mr-2">Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <FontAwesomeIcon icon={faQrcode} className="mr-2" />
-                    GCash QR Code
-                  </>
+
+              {paymentSuccess && (
+                <div className="p-4 bg-green-100 text-green-800 rounded-xl text-center text-sm font-medium animate-pulse">
+                  ✓ Payment successful! Closing...
+                </div>
+              )}
+
+              {/* Payment Options */}
+              <div className="space-y-3">
+                
+                {enabledMethods.gcash && (
+                  <button
+                    onClick={() => handlePaymentMethodSelect("gcash")}
+                    disabled={processingPayment || paymentSuccess}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-semibold flex items-center justify-center transition"
+                  >
+                    {processingPayment ? (
+                      "Processing..."
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                        Pay with GCash
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
-              <button
-                onClick={() => handlePaymentMethodSelect("cash")}
-                disabled={processingPayment || paymentSuccess}
-                className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-md font-medium flex items-center justify-center"
-              >
-                {processingPayment ? (
-                  <>
-                    <span className="mr-2">Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <FontAwesomeIcon icon={faMoneyBillWave} className="mr-2" />
-                    Cash
-                  </>
+
+                {enabledMethods.cash && (
+                  <button
+                    onClick={() => handlePaymentMethodSelect("cash")}
+                    disabled={processingPayment || paymentSuccess}
+                    className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl font-semibold flex items-center justify-center transition"
+                  >
+                    {processingPayment ? (
+                      "Processing..."
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faMoneyBillWave} className="mr-2" />
+                        Pay with Cash
+                      </>
+                    )}
+                  </button>
                 )}
+
+              </div>
+
+              {/* Footer */}
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setPaymentSuccess(false);
+                  setSelectedPaymentMethod(null);
+                }}
+                className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition"
+              >
+                Cancel
               </button>
             </div>
-            <button
-              onClick={() => {
-                setShowPaymentModal(false);
-                setPaymentSuccess(false);
-              }}
-              className="mt-3 w-full py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-md"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}
@@ -526,6 +602,66 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
               >
                 Pay Bill
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {orderCompleteModal && completedOrder && (
+        <div className="fixed inset-0 z-[1200] bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+            <div className="bg-[#E23838] px-6 py-5">
+              <h2 className="text-2xl font-bold text-white">Order Complete</h2>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <p className="text-gray-700 text-lg font-semibold">
+                Thank you for ordering!
+              </p>
+              <p className="text-gray-600">
+                Your order is complete and has been completed.
+              </p>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-sm uppercase tracking-wider text-gray-500">
+                    Order ID
+                  </p>
+                  <p className="font-semibold text-gray-800">
+                    {completedOrder.id.slice(0, 8)}...
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {completedOrder.items.map((item: any, index: number) => (
+                    <div
+                      key={index}
+                      className="flex justify-between text-sm text-gray-700"
+                    >
+                      <span>{item.name}</span>
+                      <span className="font-semibold text-[#E23838]">
+                        ₱{item.price}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 border-t border-gray-200 pt-3 flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Total</span>
+                  <span className="text-lg font-bold text-[#E23838]">
+                    ₱{completedOrder.total_amount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={onCloseOrderCompleteModal}
+                  className="rounded-2xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

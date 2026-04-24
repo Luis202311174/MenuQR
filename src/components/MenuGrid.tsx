@@ -14,12 +14,14 @@ type MenuItem = {
 export default function MenuGrid({
   items,
   onAddToCart,
-  onViewItem,
-  isDineIn, // <- add this prop
+  viewItem,
+  setViewItem,
+  isDineIn,
 }: {
   items: MenuItem[];
   onAddToCart?: (item: MenuItem) => void;
-  onViewItem?: (item: MenuItem) => void;
+  viewItem?: MenuItem | null;
+  setViewItem?: (item: MenuItem | null) => void;
   isDineIn?: boolean;
 }) {
   return (
@@ -55,9 +57,8 @@ export default function MenuGrid({
             </div>
 
             <div className="flex gap-2">
-              {onViewItem && isDineIn && (
-                <button
-                  onClick={() => onViewItem(item)}
+              {setViewItem && isDineIn && (
+                <button onClick={() => setViewItem(item)}
                   className="flex-1 rounded-lg bg-[#E23838] px-3 py-2 text-sm font-bold text-white hover:bg-[#c22f2f] transition-all shadow-md hover:shadow-lg"
                 >
                   View
@@ -85,6 +86,61 @@ export default function MenuGrid({
           </div>
         </div>
       ))}
+
+      {viewItem && setViewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl rounded-2xl border-2 border-black bg-white shadow-2xl overflow-hidden">
+            <div className="bg-[#E23838] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-2xl font-bold text-white tracking-tight">
+                {viewItem.name}
+              </h3>
+              <button
+                onClick={() => setViewItem(null)}
+                className="rounded-lg border border-white px-3 py-1 text-sm font-semibold text-white hover:bg-white hover:text-[#E23838] transition"
+              >
+                Back
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[160px_minmax(0,1fr)] gap-4 p-6">
+              <div className="h-44 w-full rounded-xl border-2 border-black bg-gray-100 overflow-hidden">
+                {viewItem.image_url ? (
+                  <img
+                    src={viewItem.image_url}
+                    alt={viewItem.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm font-semibold text-gray-500">
+                    No image
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-base text-[#E23838] font-bold">Description</p>
+                <p className="text-gray-700 leading-relaxed">
+                  {viewItem.description || viewItem.menu_desc || "No description available."}
+                </p>
+
+                <div className="mt-4 border-t border-gray-200 pt-3">
+                  <p className="text-sm text-gray-500">Price</p>
+                  <p className="text-2xl font-extrabold text-[#E23838]">
+                    ₱{viewItem.price}
+                  </p>
+                </div>
+
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-sm text-gray-500">Category</p>
+                  <p className="text-sm text-gray-700">
+                    {viewItem.category || "Unknown"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

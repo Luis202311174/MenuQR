@@ -31,9 +31,15 @@ export default function SlugSidebar({
       case "received":
         return "bg-blue-100 text-blue-800";
       case "ready":
+        return "bg-indigo-100 text-indigo-800";
+      case "served":
         return "bg-green-100 text-green-800";
       case "completed":
         return "bg-purple-100 text-purple-800";
+      case "paid":
+        return "bg-emerald-100 text-emerald-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -44,11 +50,17 @@ export default function SlugSidebar({
       case "pending":
         return "Unpaid";
       case "received":
-        return "Paid";
+        return "Order Received";
       case "ready":
         return "Preparing";
+      case "served":
+        return "Served";
       case "completed":
-        return "Order Complete";
+        return "Completed";
+      case "paid":
+        return "Paid";
+      case "cancelled":
+        return "Cancelled";
       default:
         return "Unknown";
     }
@@ -57,12 +69,18 @@ export default function SlugSidebar({
   const getProgressWidth = (status: string) => {
     switch (status) {
       case "pending":
-        return "w-1/4";
+        return "w-[10%]";
       case "received":
-        return "w-2/4";
+        return "w-[30%]";
       case "ready":
-        return "w-3/4";
+        return "w-[55%]";
+      case "served":
+        return "w-[80%]";
       case "completed":
+        return "w-full";
+      case "paid":
+        return "w-[25%]"; // optional logic
+      case "cancelled":
         return "w-full";
       default:
         return "w-0";
@@ -76,9 +94,15 @@ export default function SlugSidebar({
       case "received":
         return "bg-blue-500";
       case "ready":
+        return "bg-indigo-500";
+      case "served":
         return "bg-green-500";
       case "completed":
         return "bg-purple-500";
+      case "paid":
+        return "bg-emerald-500";
+      case "cancelled":
+        return "bg-red-500";
       default:
         return "bg-gray-500";
     }
@@ -146,10 +170,13 @@ export default function SlugSidebar({
                 ></div>
               </div>
               <div className="mt-2 text-xs text-gray-600">
-                {currentOrder.status === "pending" && "Pay at the Counter"}
-                {currentOrder.status === "received" && "Order is being prepared"}
-                {currentOrder.status === "ready" && "Order is ready for pickup"}
-                {currentOrder.status === "completed" && "Order delivered! Would you like to order again?"}
+                {currentOrder.status === "pending" && "Please pay at the counter"}
+                {currentOrder.status === "received" && "Order received, preparing soon"}
+                {currentOrder.status === "ready" && "Your order is being prepared"}
+                {currentOrder.status === "served" && "Order has been served"}
+                {currentOrder.status === "completed" && "Order complete. Thank you!"}
+                {currentOrder.status === "paid" && "Payment confirmed"}
+                {currentOrder.status === "cancelled" && "Order has been cancelled"}
               </div>
             </div>
 

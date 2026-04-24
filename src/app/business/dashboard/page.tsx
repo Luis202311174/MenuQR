@@ -4,7 +4,7 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import BusinessSidebar from "@/components/BusinessSidebar";
+import BusinessSidebar from "@/components/business/BusinessSidebar";
 
 export default function BusinessDashboardPage() {
   const router = useRouter();

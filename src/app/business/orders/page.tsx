@@ -3,7 +3,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/BusinessSidebar";
+import BusinessSidebar from "@/components/business/BusinessSidebar";
+import BusinessOrderTile from "@/components/business/BusinessOrderTile";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGear } from "@fortawesome/free-solid-svg-icons";
+import BusinessSettingsPaymentModal from "@/components/business/BusinessSettingsPaymentModal";
 import {
   confirmOrderReceived,
   confirmOrderPaid,
@@ -47,6 +51,38 @@ export default function BusinessOrdersPage() {
     orderId: string;
     orderNumber: string;
   } | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState({
+    cash: true,
+    gcash: false,
+  });
+
+  useEffect(() => {
+    if (!businessId) return;
+
+    const loadSettings = async () => {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("cash_enabled, gcash_enabled")
+        .eq("id", businessId)
+        .maybeSingle(); // 👈 better than single()
+
+      if (error) {
+        console.error("loadSettings error:", error);
+        return;
+      }
+
+      if (!data) return;
+
+      setPaymentSettings({
+        cash: data.cash_enabled ?? true,
+        gcash: data.gcash_enabled ?? false,
+      });
+    };
+
+    loadSettings();
+  }, [businessId]);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const channelRef = useRef<any>(null);
 
@@ -240,7 +276,7 @@ export default function BusinessOrdersPage() {
           break;
       }
     } catch (error: any) {
-      console.error("Error updating order status:", error);
+      console.error("Error updating order status:", JSON.stringify(error, null, 2));
       alert(`Failed to update order status: ${error.message}`);
     } finally {
       setProcessingOrderId(null);
@@ -367,15 +403,41 @@ export default function BusinessOrdersPage() {
         <main className="space-y-8">
           <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">
-                  Order Management
-                </p>
-                <h1 className="text-3xl font-bold text-slate-900 mt-1">Live Orders</h1>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">
+                    Order Management
+                  </p>
+                  <h1 className="text-3xl font-bold text-slate-900 mt-1">Live Orders</h1>
+                </div>
               </div>
               <div className="rounded-3xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
                 {orders.length} active orders
               </div>
+            </div>
+            <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+              {/* Helper text */}
+              <p className="text-sm text-slate-500">
+                Configure how customers can pay for their orders.
+              </p>
+
+              {/* Button */}
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="group inline-flex items-center gap-2 px-4 py-2.5 
+                          rounded-xl border border-slate-200 bg-white 
+                          text-sm font-semibold text-slate-700 shadow-sm
+                          hover:bg-slate-900 hover:text-white hover:border-slate-900
+                          transition-all duration-200"
+              >
+                <FontAwesomeIcon
+                  icon={faGear}
+                  className="text-sm transition-transform duration-200 group-hover:rotate-90"
+                />
+                <span>Select Payment Option</span>
+              </button>
+
             </div>
           </div>
 
@@ -440,180 +502,21 @@ export default function BusinessOrdersPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {orders.map((order) => {
-                const getStatusBgColor = (status: string, isPaid?: boolean) => {
-                  switch (status) {
-                    case "pending":
-                      return "bg-[#FCEAEA] border-[#F5C6C6] text-[#9B1C1C]";
-                    case "received":
-                      return isPaid
-                        ? "bg-[#E0F2FE] border-[#7DD3FC] text-[#0C4A6E]"
-                        : "bg-[#FFF7E0] border-[#F3D87B] text-[#8F5A00]";
-                    case "paid":
-                      return "bg-[#E0F2FE] border-[#7DD3FC] text-[#0C4A6E]";
-                    case "preparing":
-                      return "bg-[#F3E8FF] border-[#E9D5FF] text-[#6B21A8]";
-                    case "ready":
-                      return "bg-[#ECFDF5] border-[#A7F3D0] text-[#065F46]";
-                    case "served":
-                      return "bg-[#F0FDF4] border-[#BBEF63] text-[#15803D]";
-                    case "cancelled":
-                      return "bg-[#FEE2E2] border-[#FCA5A5] text-[#DC2626]";
-                    default:
-                      return "bg-slate-50 border-slate-200 text-slate-700";
-                  }
-                };
-
-                return (
-                  <div
-                    key={order.id}
-                    className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
-                  >
-                    <div className="bg-slate-50 px-4 py-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${getStatusBgColor(order.status, order.is_paid)} `}>
-                            {displayStatusLabel(order.status, order.is_paid)}
-                          </span>
-                          <div className="mt-2 space-y-1 text-xs text-slate-500">
-                            <p>{new Date(order.created_at).toLocaleString()}</p>
-                            <p>Table: {order.table?.table_number || "N/A"}</p>
-                          </div>
-                        </div>
-                        <div className="rounded-full border border-[#F5C6C6] bg-[#FEF3F2] px-3 py-1 text-right text-sm font-semibold text-[#9B1C1C]">
-                          ₱{Number(order.total_amount).toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      <div className="mb-3 flex items-center justify-between border-b border-slate-200 pb-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Items</p>
-                        <p className="text-[11px] text-slate-500">Qty</p>
-                      </div>
-
-                      <div className="space-y-2 py-2">
-                        {Object.values(
-                          (order.items || []).reduce((acc: Record<string, any>, item: any) => {
-                            const key = `${item.id || item.name}-${item.price}`;
-                            const qty = Number(item.quantity ?? 1);
-
-                            if (!acc[key]) {
-                              acc[key] = {
-                                ...item,
-                                quantity: qty,
-                              };
-                            } else {
-                              acc[key].quantity += qty;
-                            }
-
-                            return acc;
-                          }, {})
-                        ).map((item: any, i: number) => (
-                          <div key={i} className="flex items-center justify-between gap-4 text-sm text-slate-800">
-                            <div className="space-y-0.5">
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-[11px] text-slate-500">₱{item.price}</p>
-                            </div>
-                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
-                              {item.quantity}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="rounded-full bg-slate-100 px-3 py-2 text-[11px] text-slate-600">
-                          Order ID: <span className="font-semibold text-slate-900">{order.id.slice(0, 8)}...</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {/* PENDING - Initial Accept & Ask Payment Status */}
-                          {order.status === "pending" || (order.status === "received" && order.is_paid === undefined) && (
-                            <button
-                              onClick={() => setPaymentStatusModal({ orderId: order.id, orderNumber: order.id.slice(0, 8) })}
-                              disabled={processingOrderId === order.id}
-                              className="rounded-full bg-[#E23838] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#C12727] disabled:opacity-50"
-                            >
-                              🔔 Accept Order
-                            </button>
-                          )}
-
-                          {/* RECEIVED (UNPAID) - Multiple options */}
-                          {order.status === "received" && !order.is_paid && (
-                            <>
-                              <button
-                                onClick={() => updateOrderStatus(order.id, "preparing")}
-                                disabled={processingOrderId === order.id}
-                                className="rounded-full bg-[#F2B90F] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#D49D0E] disabled:opacity-50"
-                              >
-                                👨‍🍳 Start Preparing
-                              </button>
-                              <button
-                                onClick={() => markAsPaid(order.id)}
-                                disabled={processingOrderId === order.id}
-                                className="rounded-full bg-[#10B981] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#059669] disabled:opacity-50"
-                              >
-                                💰 Pay the Bill
-                              </button>
-                              <button
-                                onClick={() => setCancelOrderModal({ orderId: order.id, orderNumber: order.id.slice(0, 8) })}
-                                disabled={processingOrderId === order.id}
-                                className="rounded-full bg-[#DC2626] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#B91C1C] disabled:opacity-50"
-                              >
-                                ❌ Cancel Order
-                              </button>
-                            </>
-                          )}
-
-                          {/* PAID - Move to Preparing */}
-                          {order.status === "paid" && (
-                            <button
-                              onClick={() => updateOrderStatus(order.id, "preparing")}
-                              disabled={processingOrderId === order.id}
-                              className="rounded-full bg-[#8B5CF6] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#7C3AED] disabled:opacity-50"
-                            >
-                              👨‍🍳 Start Preparing
-                            </button>
-                          )}
-
-                          {/* PREPARING - Mark Ready */}
-                          {order.status === "preparing" && (
-                            <button
-                              onClick={() => updateOrderStatus(order.id, "ready")}
-                              disabled={processingOrderId === order.id}
-                              className="rounded-full bg-[#F2B90F] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#D49D0E] disabled:opacity-50"
-                            >
-                              📦 Mark Ready
-                            </button>
-                          )}
-
-                          {/* READY - Mark Served */}
-                          {order.status === "ready" && (
-                            <button
-                              onClick={() => updateOrderStatus(order.id, "served")}
-                              disabled={processingOrderId === order.id}
-                              className="rounded-full bg-[#0F766E] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#115E52] disabled:opacity-50"
-                            >
-                              🍽️ Mark Served
-                            </button>
-                          )}
-
-                          {/* SERVED - Mark Completed */}
-                          {order.status === "served" && (
-                            <button
-                              onClick={() => completeOrder(order)}
-                              disabled={completingOrderId === order.id}
-                              className="rounded-full bg-[#15803D] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#166534] disabled:opacity-50"
-                            >
-                              ✅ Complete Order
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {orders.map((order) => (
+                <BusinessOrderTile
+                  key={order.id}
+                  order={order}
+                  displayStatusLabel={displayStatusLabel}
+                  getStatusBgColor={getStatusColor}
+                  processingOrderId={processingOrderId}
+                  completingOrderId={completingOrderId}
+                  updateOrderStatus={updateOrderStatus}
+                  markAsPaid={markAsPaid}
+                  setPaymentStatusModal={setPaymentStatusModal}
+                  setCancelOrderModal={setCancelOrderModal}
+                  completeOrder={completeOrder}
+                />
+              ))}
             </div>
             </div>
           ) : (
@@ -725,6 +628,29 @@ export default function BusinessOrdersPage() {
           </div>
         </div>
       )}
+      <BusinessSettingsPaymentModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialCash={paymentSettings.cash}
+        initialGcash={paymentSettings.gcash}
+        onSave={async (data) => {
+          setPaymentSettings(data);
+          setSettingsOpen(false);
+
+          const { error } = await supabase
+            .from("businesses")
+            .update({
+              cash_enabled: data.cash,
+              gcash_enabled: data.gcash,
+            })
+            .eq("id", businessId);
+
+          if (error) {
+            console.error(error);
+            alert("Failed to save payment settings");
+          }
+        }}
+      />
     </div>
   );
 }

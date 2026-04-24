@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/BusinessSidebar";
+import BusinessSidebar from "@/components/business/BusinessSidebar";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,

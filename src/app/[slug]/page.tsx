@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import MenuGrid from "@/components/MenuGrid";
 import SlugSidebar from "@/components/SlugSidebar";
-import BusinessHeader from "@/components/BusinessHeader";
+import BusinessHeader from "@/components/business/BusinessHeader";
 import OrdersButton from "@/components/OrdersButton";
 import { loadBusinessPageData } from "@/utils/loadBusinessPageData";
 import { fetchActiveOrderByTable, fetchUnpaidOrdersBySession, fetchAllOrdersBySession, OrderData } from "@/utils/fetchActiveOrder";
@@ -41,6 +41,8 @@ type Business = {
     fp?: string;
     gr?: string;
   };
+  cash_enabled?: boolean;
+  gcash_enabled?: boolean;
 };
 
 export default function BusinessPage() {
@@ -70,6 +72,26 @@ export default function BusinessPage() {
   const currentOrderIdRef = useRef<string | null>(null);
   const isDineIn = !!tableId && !!sessionId && !tableInvalid;
   const orderStatus = (currentOrder?.status as string) || "none";
+
+  const finalizePayment = async (method: "cash" | "gcash") => {
+    if (!sessionId || !business) return;
+
+    const { error } = await supabase
+      .from("orders")
+      .update({ is_paid: true, status: "paid", payment_method: method })
+      .eq("session_id", sessionId)
+      .eq("is_paid", false);
+
+    if (error) throw error;
+
+    const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+    setSessionOrders(allSessionOrders);
+
+    const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+    setUnpaidOrders(unpaidSessionOrders);
+
+    setNotification({ message: "Payment successful", type: "success" });
+  };
 
   useEffect(() => {
     currentOrderIdRef.current = currentOrderId;
@@ -278,17 +300,25 @@ export default function BusinessPage() {
       setNotification({ message: "Payment processed successfully!", type: "success" });
       setShowOrderMoreModal(false);
 
-      // End the session after payment
-      if (tableId) {
-        await endTableSession(sessionId, tableId);
-        router.replace(`/${slug}`);
-        router.refresh();
-      }
-
     } catch (error: any) {
       console.error("Payment error:", error);
       setNotification({ message: "Failed to process payment", type: "error" });
     }
+  };
+
+  const endSessionAndExit = async () => {
+    if (!sessionId || !tableId) return;
+
+    // prevent double calls
+    if (isCompleting) return;
+
+    await endTableSession(sessionId, tableId);
+
+    setCurrentOrder(null);
+    setSessionOrders([]);
+    setUnpaidOrders([]);
+
+    router.replace(`/${slug}`);
   };
 
   const handleOrderCompleted = async (order: OrderData) => {
@@ -299,6 +329,11 @@ export default function BusinessPage() {
     setCurrentOrder(order);
     setCurrentOrderId(order.id);
     setOrderCompleteModal(true);
+
+    // ✅ END SESSION HERE (move logic from payment)
+    if (sessionId && tableId) {
+      await endSessionAndExit();
+    }
   };
 
   const closeOrderCompleteModal = async () => {
@@ -307,13 +342,6 @@ export default function BusinessPage() {
     setCurrentOrderId(null);
     currentOrderIdRef.current = null;
     setCartItems([]);
-
-    if (sessionId && tableId) {
-      await endTableSession(sessionId, tableId);
-    }
-
-    router.replace(`/${slug}`);
-    router.refresh();
     setCompletedOrder(null);
     setIsCompleting(false);
   };
@@ -458,7 +486,8 @@ export default function BusinessPage() {
                       <MenuGrid
                         items={items}
                         onAddToCart={handleAddToCart}
-                        onViewItem={setViewItem}
+                        viewItem={viewItem}
+                        setViewItem={setViewItem}
                         isDineIn={isDineIn}
                       />
                     </div>
@@ -490,63 +519,21 @@ export default function BusinessPage() {
         currentOrder={currentOrder}
         sessionOrders={sessionOrders}
         unpaidOrders={unpaidOrders}
+        paymentSettings={{
+          cash: business?.cash_enabled ?? false,
+          gcash: business?.gcash_enabled ?? false,
+        }}
+        sessionId={sessionId!}
+        businessId={business!.id}
+        tableId={tableId!}
         onPayBill={handlePayBill}
         showOrderMoreModal={showOrderMoreModal}
+        orderCompleteModal={orderCompleteModal}
+        onPaymentComplete={finalizePayment}
+        completedOrder={completedOrder}
+        onCloseOrderCompleteModal={closeOrderCompleteModal}
         onCloseOrderMoreModal={() => setShowOrderMoreModal(false)}
       />
-
-      {viewItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-xl rounded-2xl border-2 border-black bg-white shadow-2xl overflow-hidden">
-            <div className="bg-[#E23838] px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-2xl font-bold text-white tracking-tight">
-                {viewItem.name}
-              </h3>
-              <button
-                onClick={() => setViewItem(null)}
-                className="rounded-lg border border-white px-3 py-1 text-sm font-semibold text-white hover:bg-white hover:text-[#E23838] transition"
-              >
-                Back
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-[160px_minmax(0,1fr)] gap-4 p-6">
-              <div className="h-44 w-full rounded-xl border-2 border-black bg-gray-100 overflow-hidden">
-                {viewItem.image_url ? (
-                  <img
-                    src={viewItem.image_url}
-                    alt={viewItem.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm font-semibold text-gray-500">
-                    No image
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                <p className="text-base text-[#E23838] font-bold">
-                  Description
-                </p>
-                <p className="text-gray-700 leading-relaxed">
-                  {viewItem.description || viewItem.menu_desc || "No description available."}
-                </p>
-                <div className="mt-4 border-t border-gray-200 pt-3">
-                  <p className="text-sm text-gray-500">Price</p>
-                  <p className="text-2xl font-extrabold text-[#E23838]">
-                    ₱{viewItem.price}
-                  </p>
-                </div>
-                <div className="border-t border-gray-200 pt-3">
-                  <p className="text-sm text-gray-500">Category</p>
-                  <p className="text-sm text-gray-700">
-                    {viewItem.category || "Unknown"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {notification && (
         <div className="fixed top-6 right-6 z-[2000] animate-slide-in">
@@ -563,67 +550,6 @@ export default function BusinessPage() {
               >
                 ✕
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {orderCompleteModal && (
-        <div className="fixed inset-0 z-[2000] bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
-            <div className="bg-[#E23838] px-6 py-5">
-              <h2 className="text-2xl font-bold text-white">Order Complete</h2>
-            </div>
-            <div className="p-6 space-y-6">
-              <p className="text-gray-700 text-lg font-semibold">
-                Thank you for ordering!
-              </p>
-              <p className="text-gray-600">
-                Your order is complete and has been completed.
-              </p>
-
-              {completedOrder && (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-sm uppercase tracking-wider text-gray-500">
-                      Order ID
-                    </p>
-                    <p className="font-semibold text-gray-800">
-                      {completedOrder.id.slice(0, 8)}...
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    {completedOrder.items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex justify-between text-sm text-gray-700"
-                      >
-                        <span>{item.name}</span>
-                        <span className="font-semibold text-[#E23838]">
-                          ₱{item.price}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 border-t border-gray-200 pt-3 flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Total</span>
-                    <span className="text-lg font-bold text-[#E23838]">
-                      ₱{completedOrder.total_amount.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <button
-                  onClick={closeOrderCompleteModal}
-                  className="w-full rounded-2xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
-                >
-                  Close
-                </button>
-              </div>
             </div>
           </div>
         </div>

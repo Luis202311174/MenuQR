@@ -1,23 +1,22 @@
 import { supabase } from "@/lib/supabaseClient";
 
-export type OrderStatus = "received" | "paid" | "preparing" | "ready" | "served" | "completed" | "cancelled";
+export type OrderStatus =
+  | "pending"   // ✅ ADD THIS
+  | "received"
+  | "paid"
+  | "preparing"
+  | "ready"
+  | "served"
+  | "completed"
+  | "cancelled";
 export type PaymentStatus = "unpaid" | "paid";
 
-/**
- * Order Status Flow:
- * UNPAID: received -> preparing -> ready -> served -> completed
- * PAID: paid -> preparing -> ready -> served -> completed
- * CANCELLED: Any status -> cancelled (void order)
- */
 
 export interface OrderStatusTransition {
   orderId: string;
   newStatus: OrderStatus;
 }
 
-/**
- * Confirm order received - Business acknowledges receipt (order stays unpaid)
- */
 export async function confirmOrderReceived(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
@@ -30,9 +29,6 @@ export async function confirmOrderReceived(orderId: string) {
   return data;
 }
 
-/**
- * Confirm order paid - Business acknowledges payment received
- */
 export async function confirmOrderPaid(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
@@ -45,9 +41,6 @@ export async function confirmOrderPaid(orderId: string) {
   return data;
 }
 
-/**
- * Mark order as preparing
- */
 export async function markOrderPreparing(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
@@ -60,9 +53,6 @@ export async function markOrderPreparing(orderId: string) {
   return data;
 }
 
-/**
- * Mark order as ready
- */
 export async function markOrderReady(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
@@ -75,9 +65,6 @@ export async function markOrderReady(orderId: string) {
   return data;
 }
 
-/**
- * Mark order as served
- */
 export async function markOrderServed(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
@@ -90,9 +77,6 @@ export async function markOrderServed(orderId: string) {
   return data;
 }
 
-/**
- * Mark order as completed
- */
 export async function markOrderCompleted(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
@@ -105,11 +89,10 @@ export async function markOrderCompleted(orderId: string) {
   return data;
 }
 
-/**
- * Get display label for order status
- */
 export function getOrderStatusLabel(status: OrderStatus, isPaid?: boolean): string {
   switch (status) {
+    case "pending":
+      return "Pending Confirmation";
     case "received":
       return isPaid ? "Paid - Preparing" : "Received - Unpaid";
     case "paid":
@@ -129,11 +112,9 @@ export function getOrderStatusLabel(status: OrderStatus, isPaid?: boolean): stri
   }
 }
 
-/**
- * Get next valid status transitions
- */
 export function getNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
   const transitions: Record<OrderStatus, OrderStatus[]> = {
+    pending: ["received", "cancelled"],
     received: ["preparing", "paid", "cancelled"],
     paid: ["preparing", "cancelled"],
     preparing: ["ready", "cancelled"],
@@ -145,16 +126,10 @@ export function getNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
   return transitions[currentStatus] || [];
 }
 
-/**
- * Check if order can transition to a new status
- */
 export function canTransitionTo(currentStatus: OrderStatus, newStatus: OrderStatus): boolean {
   return getNextStatuses(currentStatus).includes(newStatus);
 }
 
-/**
- * Get status color for UI
- */
 export function getStatusColor(status: OrderStatus, isPaid?: boolean): string {
   switch (status) {
     case "received":

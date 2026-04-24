@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/BusinessSidebar";
-import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/BusinessMenuCard";
+import BusinessSidebar from "@/components/business/BusinessSidebar";
+import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import {
   fetchMenuItems as loadMenuItems,
   uploadMenuImage,

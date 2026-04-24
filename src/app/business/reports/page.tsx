@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/BusinessSidebar";
+import BusinessSidebar from "@/components/business/BusinessSidebar";
 import ReceiptModal, { DailySale, OrderReceipt } from "@/components/ReceiptModal";
 
 export default function BusinessReportsPage() {

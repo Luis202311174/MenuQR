@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import BusinessSidebar from "@/components/BusinessSidebar";
+import BusinessSidebar from "@/components/business/BusinessSidebar";
 import jsPDF from "jspdf";
 
 interface ITable {
