@@ -45,36 +45,37 @@ export default function MenuGrid({
   const [optionGroups, setOptionGroups] = useState<CustomerOptionGroup[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [qty, setQty] = useState(1);
-  const [modalType, setModalType] = useState<"addons" | "no-addons" | null>(null);
+  
+  const requestIdRef = useRef(0);
   
   useEffect(() => {
     if (!viewItem) {
       setOptionGroups([]);
       setSelectedOptions({});
       setQty(1);
+      requestIdRef.current = 0; // 👈 reset async guard
     }
   }, [viewItem]);
 
   const handleOpenItem = async (item: MenuItem) => {
-    try {
-      const groups = await fetchMenuItemWithOptions(item.id);
+    const requestId = ++requestIdRef.current;
 
-      setOptionGroups(groups);
+    const groups = await fetchMenuItemWithOptions(item.id);
 
-      const initialSelection: Record<string, string[]> = {};
-      groups.forEach((group) => {
-        initialSelection[group.id] = [];
-      });
+    // ignore stale responses
+    if (requestId !== requestIdRef.current) return;
 
-      setSelectedOptions(initialSelection);
-      setQty(1);
+    setOptionGroups(groups);
 
-      setModalType(groups.length > 0 ? "addons" : "no-addons");
+    const initialSelection: Record<string, string[]> = {};
+    groups.forEach((group) => {
+      initialSelection[group.id] = [];
+    });
 
-      setViewItem(item);
-    } catch (error) {
-      console.error(error);
-    }
+    setSelectedOptions(initialSelection);
+    setQty(1);
+
+    setViewItem(item);
   };
 
   const handleOptionSelect = (groupId: string, optionId: string, isMultiple: boolean) => {
@@ -143,9 +144,6 @@ export default function MenuGrid({
 
     return true;
   };
-
-  // Check if item has add-ons
-  const hasAddons = optionGroups.length > 0;
 
   const handleAddToCart = () => {
     if (!validateSelections()) return;
@@ -277,8 +275,7 @@ export default function MenuGrid({
         </div>
       ))}
 
-      {/* Conditional Modal - With or Without Add-ons */}
-      {viewItem && modalType === "addons" && (
+      {viewItem && optionGroups.length > 0 && (
         <MenuItemWithAddonsModal
           viewItem={viewItem}
           setViewItem={setViewItem}
@@ -289,7 +286,7 @@ export default function MenuGrid({
         />
       )}
 
-      {viewItem && modalType === "no-addons" && (
+      {viewItem && optionGroups.length === 0 && (
         <MenuItemNoAddonsModal
           viewItem={viewItem}
           setViewItem={setViewItem}
