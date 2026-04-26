@@ -1,9 +1,7 @@
 ﻿"use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { fetchMenuItemWithOptions, CustomerOptionGroup, CustomerOption } from "@/utils/customerMenuUtils";
-import MenuItemWithAddonsModal from "./MenuItemWithAddonsModal";
-import MenuItemNoAddonsModal from "./MenuItemNoAddonsModal";
+import React, { useState } from "react";
+import MenuItemModal from "./MenuItemModal";
 
 type MenuItem = {
   id: string;
@@ -21,13 +19,12 @@ type CartItemWithOptions = MenuItem & {
   name: string;
   qty: number;
   base_price: number;
-
   selected_options: {
     group_name: string;
     option_name: string;
     price_modifier: number;
   }[];
-}
+};
 
 export default function MenuGrid({
   items,
@@ -42,161 +39,8 @@ export default function MenuGrid({
   setViewItem: (item: MenuItem | null) => void;
   isDineIn?: boolean;
 }) {
-  const [optionGroups, setOptionGroups] = useState<CustomerOptionGroup[]>([]);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
-  const [qty, setQty] = useState(1);
-  
-  const requestIdRef = useRef(0);
-  
-  useEffect(() => {
-    if (!viewItem) {
-      setOptionGroups([]);
-      setSelectedOptions({});
-      setQty(1);
-      requestIdRef.current = 0; // 👈 reset async guard
-    }
-  }, [viewItem]);
-
-  const handleOpenItem = async (item: MenuItem) => {
-    const requestId = ++requestIdRef.current;
-
-    const groups = await fetchMenuItemWithOptions(item.id);
-
-    // ignore stale responses
-    if (requestId !== requestIdRef.current) return;
-
-    setOptionGroups(groups);
-
-    const initialSelection: Record<string, string[]> = {};
-    groups.forEach((group) => {
-      initialSelection[group.id] = [];
-    });
-
-    setSelectedOptions(initialSelection);
-    setQty(1);
-
+  const handleOpenItem = (item: MenuItem) => {
     setViewItem(item);
-  };
-
-  const handleOptionSelect = (groupId: string, optionId: string, isMultiple: boolean) => {
-    setSelectedOptions((prev) => {
-      const current = prev[groupId] || [];
-
-      if (isMultiple) {
-        // For multiple select (checkbox)
-        if (current.includes(optionId)) {
-          return {
-            ...prev,
-            [groupId]: current.filter((id) => id !== optionId),
-          };
-        } else {
-          return {
-            ...prev,
-            [groupId]: [...current, optionId],
-          };
-        }
-      } else {
-        // For single select (radio)
-        return {
-          ...prev,
-          [groupId]: current[0] === optionId ? [] : [optionId],
-        };
-      }
-    });
-  };
-
-  const calculateAddonsTotal = (): number => {
-    let total = 0;
-
-    optionGroups.forEach((group) => {
-      const selected = selectedOptions[group.id] || [];
-      selected.forEach((optionId) => {
-        const option = group.menu_item_options.find((o) => o.id === optionId);
-        if (option) {
-          total += option.price_modifier;
-        }
-      });
-    });
-
-    return total;
-  };
-
-  const validateSelections = (): boolean => {
-    for (const group of optionGroups) {
-      const selected = selectedOptions[group.id] || [];
-      const count = selected.length;
-
-      if (group.is_required && count === 0) {
-        alert(`"${group.name}" is required`);
-        return false;
-      }
-
-      if (count < group.min_select) {
-        alert(`Select at least ${group.min_select} option(s) for "${group.name}"`);
-        return false;
-      }
-
-      if (count > group.max_select) {
-        alert(`Select at most ${group.max_select} option(s) for "${group.name}"`);
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const handleAddToCart = () => {
-    if (!validateSelections()) return;
-    if (!viewItem || !onAddToCart) return;
-
-    const addonsTotal = calculateAddonsTotal();
-
-    // ✅ FORMAT OPTIONS HERE
-    const formattedOptions = optionGroups.flatMap(group => {
-      const selectedIds = selectedOptions[group.id] || [];
-
-      return selectedIds.map(optionId => {
-        const opt = group.menu_item_options.find(o => o.id === optionId);
-        if (!opt) return null;
-
-        return {
-          group_name: group.name,
-          option_name: opt.name,
-          price_modifier: opt.price_modifier,
-        };
-      }).filter(
-        (opt): opt is {
-          group_name: string;
-          option_name: string;
-          price_modifier: number;
-        } => opt !== null
-      );
-    });
-
-    // ✅ SEND CORRECT STRUCTURE
-    onAddToCart({
-      ...viewItem,
-      menu_item_id: viewItem.id,
-      qty,
-      base_price: viewItem.price,
-      selected_options: formattedOptions,
-    });
-
-    setViewItem(null);
-  };
-
-  const handleAddToCartNoAddons = () => {
-    if (!viewItem || !onAddToCart) return;
-
-    onAddToCart({
-      ...viewItem,
-      menu_item_id: viewItem.id,
-      qty,
-      base_price: viewItem.price,
-      selected_options: [],
-    } as any);
-
-    setViewItem(null);
   };
 
   return (
@@ -275,22 +119,11 @@ export default function MenuGrid({
         </div>
       ))}
 
-      {viewItem && optionGroups.length > 0 && (
-        <MenuItemWithAddonsModal
+      {viewItem && (
+        <MenuItemModal
           viewItem={viewItem}
           setViewItem={setViewItem}
-          optionGroups={optionGroups}
-          selectedOptions={selectedOptions}
-          onOptionSelect={handleOptionSelect}
-          onAddToCart={handleAddToCart}
-        />
-      )}
-
-      {viewItem && optionGroups.length === 0 && (
-        <MenuItemNoAddonsModal
-          viewItem={viewItem}
-          setViewItem={setViewItem}
-          onAddToCart={handleAddToCartNoAddons}
+          onAddToCart={onAddToCart}
         />
       )}
     </div>
