@@ -46,7 +46,7 @@
 
     const [business, setBusiness] = useState<Business | null>(null);
     const [menuItems, setMenuItems] = useState<any[]>([]);
-    const [categoryFilter, setCategoryFilter] = useState("All");
+    const [categoryFilter, setCategoryFilter] = useState<string[]>(["All"]);
     const [searchFilter, setSearchFilter] = useState("");
     const [cartItems, setCartItems] = useState<any[]>([]);
     const [currentOrder, setCurrentOrder] = useState<OrderData | null>(null);
@@ -229,7 +229,7 @@
 
     const filteredMenuItems = menuItems.filter((item) => {
       const categoryMatches =
-        categoryFilter === "All" || item.category === categoryFilter;
+        categoryFilter.includes("All") || categoryFilter.includes(item.category || "");
       const searchMatches =
         searchFilter === "" ||
         item.name.toLowerCase().includes(searchFilter.toLowerCase());
@@ -238,7 +238,7 @@
 
     const orderedCategories = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
 
-    const groupedMenuItems = filteredMenuItems.reduce((grouped, item) => {
+    const allGroupedMenuItems = menuItems.reduce((grouped, item) => {
       const category = item.category || "Other";
       if (!grouped[category]) grouped[category] = [];
       grouped[category].push(item);
@@ -246,9 +246,16 @@
     }, {} as Record<string, typeof menuItems>);
 
     const categoryKeys = [
-      ...orderedCategories.filter((cat) => groupedMenuItems[cat]),
-      ...Object.keys(groupedMenuItems).filter((cat) => !orderedCategories.includes(cat)).sort(),
+      ...orderedCategories.filter((cat) => allGroupedMenuItems[cat]),
+      ...Object.keys(allGroupedMenuItems).filter((cat) => !orderedCategories.includes(cat)).sort(),
     ];
+
+    const groupedMenuItems = filteredMenuItems.reduce((grouped, item) => {
+      const category = item.category || "Other";
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(item);
+      return grouped;
+    }, {} as Record<string, typeof menuItems>);
 
     const handleAddToCart = (item: any) => {
       if (item.availability === false || item.is_available === false) {
@@ -566,7 +573,7 @@
     if (!business) return <div className="p-6 text-center">Loading...</div>;
 
     return (
-      <div className="min-h-screen bg-[#FCFBF4] px-4 py-6 sm:px-6 md:px-10">
+      <div className="min-h-screen bg-[#FCFBF4] px-4 py-6 pb-28 sm:px-6 md:px-10">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <main className="space-y-6 lg:order-2">
             <BusinessHeader business={business} />
@@ -589,13 +596,13 @@
                     />
                   </div>
 
-                  <div className="w-[140px] min-w-[140px] sm:w-[220px]">
+                  <div className="hidden w-[140px] min-w-[140px] sm:block sm:w-[220px]">
                     <label className="hidden text-sm text-gray-700 sm:block">
                       Category
                     </label>
                     <select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      value={categoryFilter[0] || "All"}
+                      onChange={(e) => setCategoryFilter([e.target.value])}
                       className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-[#E23838]"
                     >
                       <option value="All">All Categories</option>
@@ -611,7 +618,7 @@
 
               {filteredMenuItems.length > 0 ? (
                 <div className="space-y-8">
-                  {categoryKeys.map((category) => {
+                  {categoryKeys.filter((category) => groupedMenuItems[category] && groupedMenuItems[category].length > 0).map((category) => {
                     const items = groupedMenuItems[category];
                     return (
                       <div key={category}>
@@ -690,6 +697,39 @@
           onCloseOrderCompleteModal={closeOrderCompleteModal}
           onCloseOrderMoreModal={() => setShowOrderMoreModal(false)}
         />
+
+        {categoryKeys.length > 0 && (
+          <div className="fixed inset-x-0 bottom-0 z-40 sm:hidden bg-white border-t border-gray-200 shadow-[0_-12px_50px_rgba(15,23,42,0.08)]">
+            <div className="max-w-[1400px] mx-auto px-2 py-3 overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-1 whitespace-nowrap min-w-max">
+                {['All', ...categoryKeys].map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => {
+                      if (category === 'All') {
+                        setCategoryFilter(['All']);
+                      } else if (categoryFilter.includes('All')) {
+                        setCategoryFilter([category]);
+                      } else if (categoryFilter.includes(category)) {
+                        const updated = categoryFilter.filter(cat => cat !== category);
+                        setCategoryFilter(updated.length === 0 ? ['All'] : updated);
+                      } else {
+                        setCategoryFilter([...categoryFilter, category]);
+                      }
+                    }}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition flex-shrink-0 ${
+                      categoryFilter.includes(category)
+                        ? 'border-[#E23838] bg-[#E23838] text-white'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {notification && (
           <div className="fixed top-6 right-6 z-[2000] animate-slide-in">

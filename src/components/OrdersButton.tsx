@@ -246,11 +246,11 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
       {/* Floating Button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-[999] w-16 h-16 rounded-full bg-[#E23838] text-white shadow-lg flex items-center justify-center hover:bg-red-700 transition"
+        className="fixed bottom-20 right-4 z-[999] w-14 h-14 rounded-full bg-[#E23838] text-white shadow-lg flex items-center justify-center hover:bg-red-700 transition sm:bottom-6 sm:right-6 sm:w-16 sm:h-16"
       >
-        <FontAwesomeIcon icon={faClipboardList} size="2x" />
+        <FontAwesomeIcon icon={faClipboardList} size="lg" />
         {badgeCount && badgeCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
             {badgeCount}
           </span>
         )}
