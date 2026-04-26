@@ -45,6 +45,7 @@ export default function MenuGrid({
   const [optionGroups, setOptionGroups] = useState<CustomerOptionGroup[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [qty, setQty] = useState(1);
+  const [modalType, setModalType] = useState<"addons" | "no-addons" | null>(null);
   
   useEffect(() => {
     if (!viewItem) {
@@ -57,6 +58,7 @@ export default function MenuGrid({
   const handleOpenItem = async (item: MenuItem) => {
     try {
       const groups = await fetchMenuItemWithOptions(item.id);
+
       setOptionGroups(groups);
 
       const initialSelection: Record<string, string[]> = {};
@@ -66,9 +68,12 @@ export default function MenuGrid({
 
       setSelectedOptions(initialSelection);
       setQty(1);
+
+      setModalType(groups.length > 0 ? "addons" : "no-addons");
+
       setViewItem(item);
     } catch (error) {
-      console.error("Failed to load option groups:", error);
+      console.error(error);
     }
   };
 
@@ -273,7 +278,7 @@ export default function MenuGrid({
       ))}
 
       {/* Conditional Modal - With or Without Add-ons */}
-      {viewItem && setViewItem && hasAddons && (
+      {viewItem && modalType === "addons" && (
         <MenuItemWithAddonsModal
           viewItem={viewItem}
           setViewItem={setViewItem}
@@ -284,7 +289,7 @@ export default function MenuGrid({
         />
       )}
 
-      {viewItem && setViewItem && !hasAddons && (
+      {viewItem && modalType === "no-addons" && (
         <MenuItemNoAddonsModal
           viewItem={viewItem}
           setViewItem={setViewItem}
