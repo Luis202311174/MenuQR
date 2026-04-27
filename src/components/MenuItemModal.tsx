@@ -207,7 +207,7 @@ export default function MenuItemModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-3">
-      <div className="w-full max-w-lg h-[75vh] rounded-[28px] border border-[#E23838]/50 bg-white shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-lg h-[85vh] rounded-[28px] border border-[#E23838]/50 bg-white shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="shrink-0 bg-[#E23838] px-4 py-3 flex items-center justify-between">
           <h3 className="text-xl font-bold text-white tracking-tight">
