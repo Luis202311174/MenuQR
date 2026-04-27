@@ -91,21 +91,10 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"gcash" | "cash" | null>(null);
   const [orderMoreHandled, setOrderMoreHandled] = useState(false);
-
-  useEffect(() => {
-    if (!showPaymentModal || !paymentFeedback) return;
-
-    const pendingPaymentOrders = sessionOrders.filter(
-      (order) => order.status === "pending_payment" && !order.is_paid
-    );
-
-    if (pendingPaymentOrders.length === 0 && selectedPaymentMethod) {
-      setShowPaymentModal(false);
-      setPaymentFeedback(null);
-      setSelectedPaymentMethod(null);
-      onPaymentComplete?.(selectedPaymentMethod);
-    }
-  }, [sessionOrders, paymentFeedback, selectedPaymentMethod, showPaymentModal, onPaymentComplete]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refreshOrders = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
 
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratedOrder, setRatedOrder] = useState<OrderData | null>(null);
@@ -150,6 +139,17 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
 
     setShowPaymentModal(true);
   };
+
+  useEffect(() => {
+    const paidOrder = sessionOrders.find(o => o.is_paid || o.status === "paid");
+
+    if (paidOrder) {
+      setShowPaymentModal(false);
+      setPaymentFeedback(null);
+      setProcessingPayment(false);
+      setOpen(false);
+    }
+  }, [sessionOrders]);
 
   const computedUnpaidOrders = useMemo(() => {
     console.log("SESSION ORDERS:",JSON.stringify(sessionOrders));
@@ -212,6 +212,8 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
         .eq("session_id", sessionId)
         .eq("is_paid", false);
 
+        refreshOrders();
+
       setPaymentFeedback(
         method === "gcash"
           ? "GCash selected. Waiting for restaurant confirmation."
@@ -222,22 +224,6 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
       alert("Something went wrong.");
     } finally {
       setProcessingPayment(false);
-    }
-  };
-
-  const handleOrderAgainDecision = async (continueOrdering: boolean) => {
-    if (continueOrdering) {
-      setShowOrderAgainModal(false);
-    } else {
-      if (sessionId && businessId) {
-        try {
-          await storeSessionReceipt(sessionId, businessId);
-        } catch (error) {
-          console.warn("Failed to store receipt:", error);
-        }
-      }
-      setShowOrderAgainModal(false);
-      openPaymentFlow();
     }
   };
 
@@ -673,19 +659,6 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
                   </div>
                 </>
               )}
-
-              {/* Footer */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setPaymentFeedback(null);
-                  setSelectedPaymentMethod(null);
-                }}
-                className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>

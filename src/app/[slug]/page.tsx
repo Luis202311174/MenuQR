@@ -89,14 +89,8 @@
     const finalizePayment = async (method: "cash" | "gcash") => {
       if (!sessionId || !business) return;
 
-      const { error } = await supabase
-        .from("orders")
-        .update({ is_paid: true, status: "paid", payment_method: method })
-        .eq("session_id", sessionId)
-        .eq("is_paid", false);
-
-      if (error) throw error;
-
+      // NOTE: Only the business should mark orders as paid.
+      // This callback now just refreshes orders and shows a notification.
       const allSessionOrders = await fetchAllOrdersBySession(sessionId);
       setSessionOrders(allSessionOrders);
 
@@ -173,7 +167,45 @@
       loadPage();
     }, [slug, tableId]);
 
-    
+    useEffect(() => {
+      if (!sessionId) return;
+
+      const channel = supabase
+        .channel(`orders-session-${sessionId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          async () => {
+            // 🔥 REFRESH EVERYTHING WHEN ANY ORDER CHANGES
+            const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+            setSessionOrders(allSessionOrders);
+
+            const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+            setUnpaidOrders(unpaidSessionOrders);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [sessionId]);
+
+    useEffect(() => {
+      const hasPaid = sessionOrders.some(
+        (o) => o.is_paid === true || o.status === "paid"
+      );
+
+      if (hasPaid) {
+        setShowOrderMoreModal(false);
+        setNotification(null);
+      }
+    }, [sessionOrders]);
 
     useEffect(() => {
       if (!business?.id) return;
@@ -362,16 +394,8 @@
       if (!sessionId || !business) return;
 
       try {
-        // Mark all unpaid orders as paid
-        const { error } = await supabase
-          .from("orders")
-          .update({ is_paid: true, status: "paid" })
-          .eq("session_id", sessionId)
-          .eq("is_paid", false);
-
-        if (error) throw error;
-
-        // Reload session orders
+        // NOTE: Only the business should mark orders as paid.
+        // This function now just refreshes orders and notifies the user.
         const allSessionOrders = await fetchAllOrdersBySession(sessionId);
         setSessionOrders(allSessionOrders);
         const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
