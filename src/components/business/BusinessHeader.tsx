@@ -34,6 +34,28 @@ export default function BusinessHeader({ business }: { business: Business }) {
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [totalRatings, setTotalRatings] = useState<number>(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const formatTo12Hour = (time: string) => {
+    const [hourStr, minute] = time.split(":");
+    let hour = parseInt(hourStr);
+
+    const ampm = hour >= 12 ? "PM" : "AM";
+
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+
+    return `${hour}:${minute} ${ampm}`;
+  };
+
+  const formatStoreHours = (hours?: string) => {
+    if (!hours) return "";
+
+    const parts = hours.split(" - ");
+    if (parts.length !== 2) return hours;
+
+    const [start, end] = parts;
+
+    return `${formatTo12Hour(start)} - ${formatTo12Hour(end)}`;
+  };
 
   useEffect(() => {
     if (!business.id) return;
@@ -178,7 +200,7 @@ export default function BusinessHeader({ business }: { business: Business }) {
 
             {(business.store_hours || business.store_category) && (
               <p className="text-gray-600 text-xs sm:text-sm">
-                {business.store_hours || ""}
+                {formatStoreHours(business.store_hours)}
                 {business.store_hours && business.store_category ? " • " : ""}
                 {business.store_category || ""}
               </p>
