@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { uploadMenuImage, updateMenuItem, fetchOptionGroups, createOptionGroup, deleteOptionGroup, createOption, deleteOption, updateOptionGroup, updateOption } from "@/utils/businessCRUDMenu";
+import { uploadMenuImage,
+  updateMenuItem,
+  deleteMenuItem,
+  fetchOptionGroups,
+  createOptionGroup,
+  deleteOptionGroup,
+  createOption,
+  deleteOption,
+  updateOptionGroup,
+  updateOption } from "@/utils/businessCRUDMenu";
 
 export type BusinessMenuCardItem = {
   id: string;
@@ -45,6 +54,8 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(item.image_url || null);
   const [loading, setLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Addon management state
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
@@ -55,6 +66,19 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [newOptionName, setNewOptionName] = useState<Record<string, string>>({});
   const [newOptionPrice, setNewOptionPrice] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!showDeleteModal) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowDeleteModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showDeleteModal]);
 
   useEffect(() => {
     if (showAddonsTab) {
@@ -201,6 +225,22 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+
+    try {
+      await deleteMenuItem(item.id);
+      await onUpdated();
+      setShowDeleteModal(false);
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert("Failed to delete item");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleUpdateOption = async (groupId: string, option: Option, newName: string, newPrice: string) => {
     if (!newName.trim()) {
       alert("Option name is required");
@@ -234,42 +274,63 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition overflow-hidden border border-gray-100 h-full flex flex-col">
-        <div className="h-32 sm:h-40 w-full bg-gray-100 overflow-hidden flex-shrink-0">
-          {item.image_url ? (
-            <img src={item.image_url} alt={item.name} className="object-cover w-full h-full" />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-xs sm:text-sm">
-              No image
-            </div>
-          )}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition">
+      <div className="w-full h-36 bg-gray-100 overflow-hidden">
+        {item.image_url ? (
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+            No image
+          </div>
+        )}
+      </div>
+      <div className="p-4 flex flex-col gap-2 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-sm text-gray-900 leading-snug line-clamp-2">
+            {item.name}
+          </h3>
+
+          <span
+            className={`shrink-0 text-[10px] px-2 py-1 rounded-full font-medium ${
+              item.availability
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
+            {item.availability ? "Active" : "Sold out"}
+          </span>
         </div>
 
-        <div className="p-3 sm:p-4 flex flex-col flex-1">
-          <h3 className="font-bold text-xs sm:text-sm mb-1 line-clamp-2 text-gray-900">{item.name}</h3>
-          <p className="text-xs text-gray-500 mb-2 line-clamp-1">
-            {item.menu_desc || "—"}
+        <p className="text-xs text-gray-500 line-clamp-2">
+          {item.menu_desc || "No description"}
+        </p>
+        <div className="mt-auto pt-2">
+          <p className="text-[#E23838] font-bold text-base">
+            ₱{item.price ?? "0.00"}
           </p>
-
-          <div className="flex justify-between items-center mb-3 mt-auto">
-            <p className="font-bold text-[#E23838] text-sm sm:text-base">₱{item.price ?? "0.00"}</p>
-            <span
-              className={`text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${
-                item.availability ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-              }`}
-            >
-              {item.availability ? "Active" : "Sold out"}
-            </span>
-          </div>
-
+        </div>
+        <div className="flex gap-2 pt-2">
           <button
             onClick={openEdit}
-            className="w-full bg-[#E23838] text-[#F2FF00] px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold hover:bg-[#c22f2f] transition"
+            className="flex-1 bg-[#E23838] text-[#F2FF00] py-2 rounded-xl text-xs font-semibold active:scale-[0.98] transition"
           >
             Edit
           </button>
+
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="px-3 py-2 rounded-xl text-xs font-semibold border border-red-200 text-red-600 active:scale-[0.98] transition"
+          >
+            Delete
+          </button>
         </div>
+
       </div>
+    </div>
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
@@ -653,6 +714,48 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-slate-900">
+              Delete Menu Item
+            </h2>
+
+            <p className="text-sm text-gray-600 mt-2">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-slate-900">
+                {item.name}
+              </span>
+              ? This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-lg border text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
         </div>
