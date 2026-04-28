@@ -90,24 +90,23 @@ export default function MenuItemModal({
     setSelectedOptions((prev) => {
       const current = prev[groupId] || [];
 
+      // MULTI (checkbox behavior)
       if (isMultiple) {
-        if (current.includes(optionId)) {
-          return {
-            ...prev,
-            [groupId]: current.filter((id) => id !== optionId),
-          };
-        } else {
-          return {
-            ...prev,
-            [groupId]: [...current, optionId],
-          };
-        }
-      } else {
+        const exists = current.includes(optionId);
+
         return {
           ...prev,
-          [groupId]: current[0] === optionId ? [] : [optionId],
+          [groupId]: exists
+            ? current.filter((id) => id !== optionId)
+            : [...current, optionId],
         };
       }
+
+      // SINGLE (radio behavior but always replaceable)
+      return {
+        ...prev,
+        [groupId]: [optionId],
+      };
     });
   };
 
@@ -323,15 +322,13 @@ export default function MenuItemModal({
                             selectedOptions[group.id] || []
                           ).includes(option.id);
 
-                          const isDisabled =
-                            !option.is_available ||
-                            (!isSelected && selectedCount >= group.max_select);
+                          const isDisabled = !option.is_available;
 
                           return (
                             <label
                               key={option.id}
                               className={`flex items-center gap-3 p-3 border rounded-2xl cursor-pointer ${
-                                isDisabled
+                                !option.is_available
                                   ? "opacity-50 cursor-not-allowed border-gray-300 bg-white"
                                   : isSelected
                                   ? "border-[#E23838] bg-[#FEF5F5]"
