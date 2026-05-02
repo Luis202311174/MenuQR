@@ -1,0 +1,1 @@
+const ts = require('./node_modules/typescript'); const fs = require('fs'); const src = fs.readFileSync('src/components/MenuItemModal.tsx', 'utf8'); const sf = ts.createSourceFile('MenuItemModal.tsx', src, ts.ScriptTarget.ES2020, true, ts.ScriptKind.TSX); console.log(JSON.stringify(sf.parseDiagnostics, null, 2));

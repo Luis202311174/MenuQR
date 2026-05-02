@@ -1,0 +1,868 @@
+﻿  "use client";
+
+  import { useEffect, useRef, useState } from "react";
+  import { useRouter, useSearchParams, useParams } from "next/navigation";
+  import MenuGrid from "@/components/MenuGrid";
+  import SlugSidebar from "@/components/SlugSidebar";
+  import BusinessHeader from "@/components/business/BusinessHeader";
+  import OrdersButton from "@/components/OrdersButton";
+  import { loadBusinessPageData } from "@/utils/loadBusinessPageData";
+  import { fetchActiveOrderByTable, fetchUnpaidOrdersBySession, fetchAllOrdersBySession, OrderData } from "@/utils/fetchActiveOrder";
+  import { fetchMenuItems } from "@/utils/fetchMenuItems";
+  import { createOrder } from "@/utils/createOrder";
+  import { endTableSession } from "@/utils/endTableSession";
+  import { supabase } from "@/lib/supabaseClient";
+  import { trackBusinessViewOnce } from "@/utils/trackBusinessView";
+
+  type Business = {
+    id: string;
+    slug: string;
+    name: string;
+    address?: string;
+    contact_info?: string;
+    email?: string;
+    logo_url?: string;
+    store_hours?: string;
+    store_category?: string;
+    qr_code_url?: string;
+    fb?: string;
+    ig?: string;
+    fp?: string;
+    gr?: string;
+    socials?: {
+      fb?: string;
+      ig?: string;
+      fp?: string;
+      gr?: string;
+    };
+    cash_enabled?: boolean;
+    gcash_enabled?: boolean;
+  };
+
+  export default function BusinessPage() {
+    const { slug } = useParams();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const tableId = searchParams.get("table");
+
+    const [business, setBusiness] = useState<Business | null>(null);
+    const [menuItems, setMenuItems] = useState<any[]>([]);
+    const [categoryFilter, setCategoryFilter] = useState<string[]>(["All"]);
+    const [searchFilter, setSearchFilter] = useState("");
+    const [cartItems, setCartItems] = useState<any[]>([]);
+    const [currentOrder, setCurrentOrder] = useState<OrderData | null>(null);
+    const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [sessionOrders, setSessionOrders] = useState<OrderData[]>([]); // New: All orders in session
+    const [unpaidOrders, setUnpaidOrders] = useState<OrderData[]>([]); // New: Unpaid orders in session
+    const [viewItem, setViewItem] = useState<any>(null);
+    const [submittingOrder, setSubmittingOrder] = useState(false);
+    const [isCompleting, setIsCompleting] = useState(false);
+    const [orderCompleteModal, setOrderCompleteModal] = useState(false);
+    const [completedOrder, setCompletedOrder] = useState<OrderData | null>(null);
+    const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
+    const [tableInvalid, setTableInvalid] = useState(false);
+    const [showOrderMoreModal, setShowOrderMoreModal] = useState(false);
+
+    const currentOrderIdRef = useRef<string | null>(null);
+    const isDineIn = !!tableId && !!sessionId && !tableInvalid;
+    const orderStatus = (currentOrder?.status as string) || "none";
+
+    const invalidateSession = (message?: string) => {
+      setNotification({
+        message: message ?? "Your session has ended.",
+        type: "error",
+      });
+
+      setSessionId(null);
+      setCurrentOrder(null);
+      setCurrentOrderId(null);
+      setSessionOrders([]);
+      setUnpaidOrders([]);
+      setCartItems([]);
+
+      // clear stored order session
+      if (tableId) {
+        sessionStorage.removeItem(`order_${tableId}_${sessionId}`);
+      }
+    };
+
+    const finalizePayment = async (method: "cash" | "gcash") => {
+      if (!sessionId || !business) return;
+
+      // NOTE: Only the business should mark orders as paid.
+      // This callback now just refreshes orders and shows a notification.
+      const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+      setSessionOrders(allSessionOrders);
+
+      const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+      setUnpaidOrders(unpaidSessionOrders);
+
+      setNotification({ message: "Payment successful", type: "success" });
+    };
+
+    useEffect(() => {
+      currentOrderIdRef.current = currentOrderId;
+    }, [currentOrderId]);
+
+    // 💾 Persist current order to sessionStorage
+    useEffect(() => {
+      if (currentOrder && tableId && sessionId) {
+        const orderData = {
+          ...currentOrder,
+          tableId,
+          sessionId,
+        };
+        sessionStorage.setItem(`order_${tableId}_${sessionId}`, JSON.stringify(orderData));
+      }
+    }, [currentOrder, tableId, sessionId]);
+
+    // 🔄 Restore current order from sessionStorage on mount
+    useEffect(() => {
+      if (!tableId || !sessionId || currentOrder) return;
+      
+      const storedOrder = sessionStorage.getItem(`order_${tableId}_${sessionId}`);
+      if (storedOrder) {
+        try {
+          const orderData = JSON.parse(storedOrder);
+          setCurrentOrder(orderData);
+          setCurrentOrderId(orderData.id);
+          currentOrderIdRef.current = orderData.id;
+        } catch (e) {
+          console.error("Failed to restore order:", e);
+        }
+      }
+    }, [tableId, sessionId]);
+
+    useEffect(() => {
+      if (!slug) return;
+
+      const loadPage = async () => {
+        const result = await loadBusinessPageData(slug as string, tableId);
+
+        const normalizedItems = (result.menuItems || []).map((item: any) => ({
+          ...item,
+          description: item.description || item.menu_desc || null,
+        }));
+
+        setBusiness(result.business);
+        setMenuItems(normalizedItems);
+
+        if (!result.sessionId) {
+          invalidateSession(result.notification?.message);
+          return;
+        }
+
+        setSessionId(result.sessionId);
+        setTableInvalid(result.tableInvalid);
+
+        if (result.notification) {
+          setNotification(result.notification);
+        }
+ 
+        if (result.tableInvalid || !result.sessionId) {
+          setSessionId(null);
+        }
+      };
+
+      loadPage();
+    }, [slug, tableId]);
+
+    useEffect(() => {
+      if (!sessionId) return;
+
+      const channel = supabase
+        .channel(`orders-session-${sessionId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          async () => {
+            // 🔥 REFRESH EVERYTHING WHEN ANY ORDER CHANGES
+            const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+            setSessionOrders(allSessionOrders);
+
+            const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+            setUnpaidOrders(unpaidSessionOrders);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [sessionId]);
+
+    useEffect(() => {
+      const hasPaid = sessionOrders.some(
+        (o) => o.is_paid === true || o.status === "paid"
+      );
+
+      if (hasPaid) {
+        setShowOrderMoreModal(false);
+        setNotification(null);
+      }
+    }, [sessionOrders]);
+
+    useEffect(() => {
+      if (!business?.id) return;
+
+      trackBusinessViewOnce(business.id);
+    }, [business?.id]);
+
+    useEffect(() => {
+      if (!business?.id) return;
+
+      const menuChannel = supabase.channel(`menu-items-business-${business.id}`);
+      menuChannel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "menu_items",
+          filter: `business_id=eq.${business.id}`,
+        },
+        async () => {
+          await refreshMenuItems();
+        }
+      );
+
+      void menuChannel.subscribe();
+
+      return () => {
+        void menuChannel.unsubscribe();
+      };
+    }, [business?.id]);
+
+    useEffect(() => {
+      if (!sessionId || !tableId || tableInvalid) return;
+
+      const loadOrders = async () => {
+        try {
+          // Load current active order
+          const activeOrder = await fetchActiveOrderByTable(tableId);
+          if (activeOrder) {
+            setCurrentOrder(activeOrder);
+            setCurrentOrderId(activeOrder.id);
+          }
+
+          // Load all session orders - only if sessionId is valid
+          if (sessionId) {
+            const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+            setSessionOrders(allSessionOrders);
+
+            // Load unpaid orders
+            const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+            setUnpaidOrders(unpaidSessionOrders);
+          }
+        } catch (error: any) {
+          console.error("Error loading orders:", error);
+          // Continue loading even if there's an error
+        }
+      };
+
+      loadOrders();
+    }, [sessionId, tableId, slug]);
+
+    useEffect(() => {
+      if (!notification) return;
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }, [notification]);
+
+    const refreshMenuItems = async () => {
+      if (!business?.id) return;
+      const latestMenuItems = await fetchMenuItems(business.id);
+      setMenuItems(
+        (latestMenuItems || []).map((item: any) => ({
+          ...item,
+          description: item.description || item.menu_desc || null,
+        }))
+      );
+    };
+
+    const cartTotal = cartItems.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item.total ??
+            (Number(item.price || 0) * Number(item.qty || 1))
+        ),
+      0
+    );
+
+    const pendingMenuItemQuantities = cartItems.reduce<Record<string, number>>((acc, item) => {
+      const itemId = item.menu_item_id || item.id;
+      const qty = Number(item.qty || 0);
+      if (!itemId || qty <= 0) return acc;
+      acc[itemId] = (acc[itemId] || 0) + qty;
+      return acc;
+    }, {});
+
+    const displayedMenuItems = menuItems.map((item) => {
+      if (!item.is_trackable) return item;
+
+      const pendingQty = pendingMenuItemQuantities[item.id] || 0;
+      const currentStock = Math.max(0, Number(item.current_stock ?? 0) - pendingQty);
+
+      return {
+        ...item,
+        current_stock: currentStock,
+      };
+    });
+
+    const filteredMenuItems = displayedMenuItems.filter((item) => {
+      const categoryMatches =
+        categoryFilter.includes("All") || categoryFilter.includes(item.category || "");
+      const searchMatches =
+        searchFilter === "" ||
+        item.name.toLowerCase().includes(searchFilter.toLowerCase());
+      return categoryMatches && searchMatches && item.availability;
+    });
+
+    const orderedCategories = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
+
+    const allGroupedMenuItems = displayedMenuItems.reduce((grouped, item) => {
+      const category = item.category || "Other";
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(item);
+      return grouped;
+    }, {} as Record<string, typeof menuItems>);
+
+    const categoryKeys = [
+      ...orderedCategories.filter((cat) => allGroupedMenuItems[cat]),
+      ...Object.keys(allGroupedMenuItems).filter((cat) => !orderedCategories.includes(cat)).sort(),
+    ];
+
+    const groupedMenuItems = filteredMenuItems.reduce((grouped, item) => {
+      const category = item.category || "Other";
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(item);
+      return grouped;
+    }, {} as Record<string, typeof menuItems>);
+
+    const handleAddToCart = (item: any) => {
+      const isSoldOut = item.availability === false || (item.is_trackable && (Number(item.current_stock ?? 0) <= 0));
+      const qty = item.qty ?? 1;
+      const availableStock = item.is_trackable ? Number(item.current_stock ?? 0) : null;
+
+      if (isSoldOut) {
+        setNotification({ message: "Item is not available", type: "error" });
+        return;
+      }
+
+      if (availableStock !== null && qty > availableStock) {
+        setNotification({ message: `Only ${availableStock} item(s) left in stock.`, type: "error" });
+        return;
+      }
+
+      const addonsTotal =
+        item.selected_options?.reduce(
+          (sum: number, opt: any) => sum + (opt.price_modifier || 0),
+          0
+        ) || 0;
+
+      const finalPrice = (item.base_price ?? item.price ?? 0) + addonsTotal;
+
+      setCartItems((prev) => [
+        ...prev,
+        {
+          ...item,
+          menu_item_id: item.menu_item_id ?? item.id,
+          selected_options: item.selected_options || [],
+          selectedOptions: item.selected_options || [],
+          addonsTotal,
+          price: finalPrice,
+          base_price: item.base_price ?? item.price ?? 0,
+          qty,
+          total: finalPrice * qty,
+        },
+      ]);
+    };
+
+    const handleRemoveFromCart = (index: number) => {
+      setCartItems((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSubmitOrder = async () => {
+      if (!cartItems.length) return alert("Cart is empty");
+      if (!business || !tableId || !sessionId) {
+        setNotification({
+          message: "Session is not active. Please scan the table QR code again.",
+          type: "error",
+        });
+        return;
+      }
+
+      // Just open the modal - don't insert yet!
+      setShowOrderMoreModal(true);
+    };
+
+    const handleSubmitAndPay = async () => {
+      if (!cartItems.length) return alert("Cart is empty");
+      if (!business || !tableId || !sessionId) {
+        setNotification({
+          message: "Session is not active. Please scan the table QR code again.",
+          type: "error",
+        });
+        return;
+      }
+
+      setSubmittingOrder(true);
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+
+        // NOW insert the order
+        const order = await createOrder({
+          businessId: business.id,
+          cartItems,
+          totalAmount: cartTotal,
+          tableId,
+          sessionId,
+          userId: userId ?? undefined,
+          isPaid: false,
+        });
+
+        // 🔥 Immediately decrement stock in local state for ordered items
+        setMenuItems((prevItems) =>
+          prevItems.map((item) => {
+            const orderedQty = cartItems.reduce((sum, cartItem) => {
+              const cartItemId = cartItem.menu_item_id ?? cartItem.id;
+              return cartItemId === item.id ? sum + Number(cartItem.qty || 0) : sum;
+            }, 0);
+
+            if (orderedQty > 0 && item.is_trackable) {
+              return {
+                ...item,
+                current_stock: Math.max(0, Number(item.current_stock ?? 0) - orderedQty),
+              };
+            }
+            return item;
+          })
+        );
+
+        await refreshMenuItems();
+
+        setCurrentOrder(order as OrderData);
+        setCurrentOrderId(order.id);
+        setCartItems([]);
+        setShowOrderMoreModal(false);
+        setNotification({ message: "Order submitted successfully!", type: "success" });
+
+        // Reload session orders - with proper error handling
+        if (sessionId) {
+          try {
+            const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+            setSessionOrders(allSessionOrders);
+            const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+            setUnpaidOrders(unpaidSessionOrders);
+          } catch (ordersError: any) {
+            console.error("Failed to reload session orders:", ordersError);
+          }
+        }
+
+      } catch (error: any) {
+        console.error("Submit order error:", error);
+        console.error("Error message:", error?.message);
+        console.error("Error details:", error);
+        setNotification({ message: error?.message ?? "Failed to submit order", type: "error" });
+      } finally {
+        setSubmittingOrder(false);
+      }
+    };
+
+    const handlePayBill = async () => {
+      if (!sessionId || !business) return;
+
+      try {
+        // NOTE: Only the business should mark orders as paid.
+        // This function now just refreshes orders and notifies the user.
+        const allSessionOrders = await fetchAllOrdersBySession(sessionId);
+        setSessionOrders(allSessionOrders);
+        const unpaidSessionOrders = await fetchUnpaidOrdersBySession(sessionId);
+        setUnpaidOrders(unpaidSessionOrders);
+
+        setNotification({ message: "Payment processed successfully!", type: "success" });
+        setShowOrderMoreModal(false);
+
+      } catch (error: any) {
+        console.error("Payment error:", error);
+        setNotification({ message: "Failed to process payment", type: "error" });
+      }
+    };
+
+    const endSessionAndExit = async () => {
+      if (!sessionId || !tableId || tableInvalid) return;
+
+      // prevent double calls
+      if (isCompleting) return;
+
+      await endTableSession(sessionId, tableId);
+
+      setCurrentOrder(null);
+      setSessionOrders([]);
+      setUnpaidOrders([]);
+
+      router.replace(`/${slug}`);
+    };
+
+    const handleOrderCompleted = async (order: OrderData) => {
+      if (isCompleting) return;
+
+      setIsCompleting(true);
+      setCompletedOrder(order);
+      setCurrentOrder(order);
+      setCurrentOrderId(order.id);
+      setOrderCompleteModal(true);
+
+      // ✅ END SESSION HERE (move logic from payment)
+      if (sessionId && tableId) {
+        await endSessionAndExit();
+      }
+    };
+
+    const closeOrderCompleteModal = async () => {
+      setOrderCompleteModal(false);
+      setCurrentOrder(null);
+      setCurrentOrderId(null);
+      currentOrderIdRef.current = null;
+      setCartItems([]);
+      setCompletedOrder(null);
+      setIsCompleting(false);
+    };
+
+    useEffect(() => {
+      if (!sessionId || !tableId || tableInvalid) return;
+
+      const channel = supabase
+        .channel(`orders-table-${tableId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `table_id=eq.${tableId}`,
+          },
+          async (payload) => {
+            console.log("Realtime payload:", payload);
+            
+            const newOrder = payload.new as OrderData;
+            const oldOrder = payload.old as OrderData;
+
+            if (payload.eventType === "DELETE") {
+              if (oldOrder?.id === currentOrderIdRef.current) {
+                setCurrentOrder(null);
+                setCurrentOrderId(null);
+                currentOrderIdRef.current = null;
+              }
+              // Reload session orders on any change
+              fetchAllOrdersBySession(sessionId).then(setSessionOrders);
+              fetchUnpaidOrdersBySession(sessionId).then(setUnpaidOrders);
+              return;
+            }
+
+            if (!newOrder) return;
+
+            // Handle cancelled orders
+            if (newOrder.status === "cancelled") {
+              setNotification({ 
+                message: "❌ Your order has been cancelled by the restaurant", 
+                type: "error" 
+              });
+              if (newOrder.id === currentOrderIdRef.current) {
+                setCurrentOrder(null);
+                setCurrentOrderId(null);
+                currentOrderIdRef.current = null;
+                setShowOrderMoreModal(false);
+              }
+              // Remove from session orders
+              fetchAllOrdersBySession(sessionId).then(setSessionOrders);
+              fetchUnpaidOrdersBySession(sessionId).then(setUnpaidOrders);
+              return;
+            }
+
+            if (newOrder.id === currentOrderIdRef.current && oldOrder?.status !== newOrder.status) {
+              if (newOrder.status === "pending_payment") {
+                setNotification({
+                  message: "Payment selected. Waiting for restaurant confirmation.",
+                  type: "success",
+                });
+              }
+              if (newOrder.status === "paid") {
+                setNotification({
+                  message: "Payment confirmed!",
+                  type: "success",
+                });
+              }
+            }
+
+            if (["pending", "pending_payment", "received", "paid", "preparing", "ready"].includes(newOrder.status)) {
+              setCurrentOrder(newOrder);
+              setCurrentOrderId(newOrder.id);
+              currentOrderIdRef.current = newOrder.id;
+            }
+
+            if (newOrder.status === "served" && newOrder.id === currentOrderIdRef.current) {
+              handleOrderCompleted(newOrder);
+            }
+
+            // Reload session orders on any change
+            fetchAllOrdersBySession(sessionId).then(setSessionOrders);
+            fetchUnpaidOrdersBySession(sessionId).then(setUnpaidOrders);
+            await refreshMenuItems();
+          }
+        )
+        .subscribe((status) => {
+          console.log("Realtime status:", status);
+        });
+
+        const sessionChannel = supabase
+          .channel(`session-${sessionId}`)
+          .on(
+              "postgres_changes",
+              {
+                event: "UPDATE",
+                schema: "public",
+                table: "table_sessions",
+                filter: `id=eq.${sessionId}`,
+              },
+              (payload) => {
+                // Only invalidate if session was ACTIVE → INACTIVE
+                if (payload.old?.active === true && payload.new?.active === false) {
+                  invalidateSession("Session cleared by staff. Scan QR again to continue.");
+                  router.replace(`/${slug}`);
+                }
+              }
+            );
+
+        void sessionChannel.subscribe();
+
+        return () => {
+          void channel.unsubscribe();
+          void sessionChannel.unsubscribe();
+        };
+    }, [sessionId, tableId, slug]);
+
+    useEffect(() => {
+      if (!sessionId) return;
+
+      let isMounted = true;
+
+      const checkSession = async () => {
+        const { data, error } = await supabase
+          .from("table_sessions")
+          .select("active")
+          .eq("id", sessionId)
+          .single();
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.warn("Session polling error:", error.message);
+          return;
+        }
+
+        if (data?.active === false) {
+          invalidateSession("Session cleared by staff. Scan QR again to continue.");
+          router.replace(`/${slug}`);
+        }
+      };
+
+      const interval = setInterval(checkSession, 3000); // every 3 seconds
+
+      return () => {
+        isMounted = false;
+        clearInterval(interval);
+      };
+    }, [sessionId, slug]);
+
+    if (!business) return <div className="p-6 text-center">Loading...</div>;
+
+    return (
+      <div className="min-h-screen bg-[#FCFBF4] px-4 py-6 pb-28 sm:px-6 md:px-10">
+        <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
+          <main className="space-y-6 lg:order-2">
+            <BusinessHeader business={business} />
+
+            <section className="bg-white border border-gray-300 rounded-2xl shadow-lg p-6">
+              <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+                <h2 className="text-2xl font-bold w-full">Menu</h2>
+
+                <div className="flex flex-wrap items-end gap-3 w-full">
+                  <div className="min-w-0 flex-1">
+                    <label className="hidden text-sm text-gray-700 sm:block">
+                      Search menu
+                    </label>
+                    <input
+                      type="text"
+                      value={searchFilter}
+                      onChange={(e) => setSearchFilter(e.target.value)}
+                      placeholder="Search menu..."
+                      className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                    />
+                  </div>
+
+                  <div className="hidden w-[140px] min-w-[140px] sm:block sm:w-[220px]">
+                    <label className="hidden text-sm text-gray-700 sm:block">
+                      Category
+                    </label>
+                    <select
+                      value={categoryFilter[0] || "All"}
+                      onChange={(e) => setCategoryFilter([e.target.value])}
+                      className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                    >
+                      <option value="All">All Categories</option>
+                      <option value="Meals">Meals</option>
+                      <option value="Beverage">Beverage</option>
+                      <option value="Solo">Solo</option>
+                      <option value="Extras">Extras</option>
+                      <option value="Dessert">Dessert</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {filteredMenuItems.length > 0 ? (
+                <div className="space-y-8">
+                  {categoryKeys.filter((category) => groupedMenuItems[category] && groupedMenuItems[category].length > 0).map((category) => {
+                    const items = groupedMenuItems[category];
+                    return (
+                      <div key={category}>
+                        <div className="mb-4 pb-3 border-b border-gray-300">
+                          <h3 className="text-xl font-bold text-gray-900">{category}</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {items.length} item{items.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <MenuGrid
+                          items={items}
+                          onAddToCart={handleAddToCart}
+                          viewItem={viewItem}
+                          setViewItem={setViewItem}
+                          isDineIn={isDineIn}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-500">
+                  {menuItems.length > 0 ? (
+                    searchFilter ? (
+                      <div>
+                        <p className="text-lg font-medium mb-2">No menu items found</p>
+                        <p>No available menu with the name "{searchFilter}"</p>
+                      </div>
+                    ) : (
+                      <p>No items match the selected category.</p>
+                    )
+                  ) : (
+                    <p>No items available. Check back soon!</p>
+                  )}
+                </div>
+              )}
+            </section>
+          </main>
+
+          <div className="lg:order-1">
+            <SlugSidebar
+              tableId={tableId}
+              currentOrder={currentOrder}
+              orderStatus={orderStatus}
+              cartItems={cartItems}
+              cartTotal={cartTotal}
+            />
+          </div>
+        </div>
+
+        <OrdersButton
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          orderStatus={orderStatus}
+          isDineIn={isDineIn}
+          submittingOrder={submittingOrder}
+          onSubmitOrder={handleSubmitOrder}
+          onRemoveItem={handleRemoveFromCart}
+          badgeCount={cartItems.length}
+          currentOrder={currentOrder}
+          sessionOrders={sessionOrders}
+          unpaidOrders={unpaidOrders}
+          paymentSettings={{
+            cash: business?.cash_enabled ?? false,
+            gcash: business?.gcash_enabled ?? false,
+          }}
+          sessionId={sessionId!}
+          businessId={business!.id}
+          tableId={tableId!}
+          onPayBill={handlePayBill}
+          showOrderMoreModal={showOrderMoreModal}
+          onSubmitAndPay={handleSubmitAndPay}
+          orderCompleteModal={orderCompleteModal}
+          onPaymentComplete={finalizePayment}
+          completedOrder={completedOrder}
+          onCloseOrderCompleteModal={closeOrderCompleteModal}
+          onCloseOrderMoreModal={() => setShowOrderMoreModal(false)}
+        />
+
+        {categoryKeys.length > 0 && (
+          <div className="fixed inset-x-0 bottom-0 z-40 sm:hidden bg-white border-t border-gray-200 shadow-[0_-12px_50px_rgba(15,23,42,0.08)]">
+            <div className="max-w-[1400px] mx-auto px-2 py-3 overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-1 whitespace-nowrap min-w-max">
+                {['All', ...categoryKeys].map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => {
+                      if (category === 'All') {
+                        setCategoryFilter(['All']);
+                      } else if (categoryFilter.includes('All')) {
+                        setCategoryFilter([category]);
+                      } else if (categoryFilter.includes(category)) {
+                        const updated = categoryFilter.filter(cat => cat !== category);
+                        setCategoryFilter(updated.length === 0 ? ['All'] : updated);
+                      } else {
+                        setCategoryFilter([...categoryFilter, category]);
+                      }
+                    }}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition flex-shrink-0 ${
+                      categoryFilter.includes(category)
+                        ? 'border-blue-600 bg-blue-600 text-white'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {notification && (
+          <div className="fixed top-6 right-6 z-[2000] animate-slide-in">
+            <div
+              className={`px-6 py-4 rounded-xl shadow-lg text-white min-w-[250px] ${
+                notification.type === "error" ? "bg-red-500" : "bg-green-500"
+              }`}
+            >
+              <div className="flex justify-between items-center gap-4">
+                <p className="font-medium">{notification.message}</p>
+                <button
+                  onClick={() => setNotification(null)}
+                  className="text-white font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
