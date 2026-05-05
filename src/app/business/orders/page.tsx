@@ -74,6 +74,44 @@ export default function BusinessOrdersPage() {
   const [markPaidReference, setMarkPaidReference] = useState("");
   const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
 
+  const approveDiscount = async (orderId: string) => {
+    if (!businessId) return;
+
+    setProcessingOrderId(orderId);
+
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .update({
+          discount_approved: true,
+        })
+        .eq("id", orderId)
+        .eq("business_id", businessId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const order = orders.find(o => o.id === orderId);
+      const tableNumber = order?.table?.table_number || "Unknown";
+
+      setNotification({
+        message: `Discount approved for Table ${tableNumber}`,
+        type: "success",
+      });
+
+      await fetchOrders();
+    } catch (error: any) {
+      console.error("Error approving discount:", error);
+      setNotification({
+        message: `Failed to approve discount: ${error.message}`,
+        type: "error",
+      });
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
   useEffect(() => {
     if (markPaidModal) {
       setSelectedMarkPaidMethod(markPaidModal.paymentMethod || "cash");
@@ -621,6 +659,7 @@ export default function BusinessOrdersPage() {
                         setMarkPaidModal={setMarkPaidModal}
                         businessName={businessName}
                         businessAddress={businessAddress}
+                        approveDiscount={approveDiscount}
                       />
                     ))}
                   </div>

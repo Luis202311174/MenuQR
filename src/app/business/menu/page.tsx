@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import BusinessSidebar from "@/components/business/BusinessSidebar";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
+import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
 import {
@@ -63,11 +64,7 @@ export default function BusinessMenuPage() {
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
 
-  // Inventory modal state
   const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [inventorySearchFilter, setInventorySearchFilter] = useState("");
-  const [inventoryItems, setInventoryItems] = useState<Record<string, string>>({}); // itemId -> stock value
-  const [inventoryLoading, setInventoryLoading] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -120,103 +117,20 @@ export default function BusinessMenuPage() {
     setOrdersCount(0);
   }, [businessId]);
 
-  const fetchMenuItems = async () => {
-    if (!businessId) return [];
+  const fetchMenuItems = async (): Promise<void> => {
+    if (!businessId) return;
 
     try {
       const data = await loadMenuItems(businessId);
       setMenuItems(data);
-      return data;
     } catch (error) {
       console.error("Failed to fetch menu items:", error);
-      return [];
     }
   };
 
-  const handleResetSameAsYesterday = async () => {
-    if (!businessId) return;
 
-    setSameAsYesterdayLoading(true);
-    try {
-      await resetInventoryForBusiness(businessId);
-      await fetchMenuItems();
-    } catch (error) {
-      console.error("Failed to reset inventory to yesterday's limit:", error);
-      alert("Unable to reset inventory. Please try again.");
-    } finally {
-      setSameAsYesterdayLoading(false);
-    }
-  };
 
-  const openInventoryModal = async () => {
-    const latestMenuItems = businessId ? await fetchMenuItems() : menuItems;
 
-    // Initialize inventory values from current menu items
-    const initialInventory: Record<string, string> = {};
-    (latestMenuItems || menuItems).forEach(item => {
-      if (item.is_trackable) {
-        initialInventory[item.id] = String(item.daily_limit || 0);
-      }
-    });
-    setInventoryItems(initialInventory);
-    setInventorySearchFilter("");
-    setShowInventoryModal(true);
-  };
-
-  const handleInventoryChange = (itemId: string, value: string) => {
-    setInventoryItems(prev => ({
-      ...prev,
-      [itemId]: value
-    }));
-  };
-
-  const handleSaveInventory = async () => {
-    if (!businessId) return;
-
-    setInventoryLoading(true);
-    try {
-      // Update each item's inventory settings
-      const updates = Object.entries(inventoryItems).map(async ([itemId, stockValue]) => {
-        const stockNum = parseInt(stockValue) || 0;
-        const isTrackable = stockNum > 0;
-
-        return supabase
-          .from("menu_items")
-          .update({
-            daily_limit: isTrackable ? stockNum : 0,
-            current_stock: isTrackable ? stockNum : null,
-            is_trackable: isTrackable,
-          })
-          .eq("id", itemId);
-      });
-
-      await Promise.all(updates);
-      await fetchMenuItems();
-      setShowInventoryModal(false);
-    } catch (error) {
-      console.error("Failed to save inventory:", error);
-      alert("Failed to save inventory changes");
-    } finally {
-      setInventoryLoading(false);
-    }
-  };
-
-  const handleInventorySameAsYesterday = async () => {
-    if (!businessId) return;
-
-    setInventoryLoading(true);
-    try {
-      await resetInventoryForBusiness(businessId);
-      await fetchMenuItems();
-      // Re-initialize the modal with updated values
-      openInventoryModal();
-    } catch (error) {
-      console.error("Failed to reset inventory:", error);
-      alert("Failed to reset inventory");
-    } finally {
-      setInventoryLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (businessId) fetchMenuItems();
@@ -424,7 +338,7 @@ export default function BusinessMenuPage() {
                 </div>
 
                 <button
-                  onClick={openInventoryModal}
+                  onClick={() => setShowInventoryModal(true)}
                   className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   📦 Inventory
@@ -900,153 +814,13 @@ export default function BusinessMenuPage() {
           </div>
         )}
 
-      {/* Inventory Management Modal */}
-      {showInventoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl rounded-[32px] bg-white shadow-[0_40px_120px_rgba(0,0,0,0.15)] overflow-hidden border border-gray-200">
-            <div className="max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-6 lg:p-8 border-b border-gray-200">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-gray-500 font-semibold">
-                    Inventory Management
-                  </p>
-                  <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                    Manage Stock Levels
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Set daily stock limits for your menu items. Items with 0 stock won't be tracked.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowInventoryModal(false)}
-                  className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                >
-                  ✕ Close
-                </button>
-              </div>
-
-              <div className="p-6 lg:p-8 flex-1 overflow-hidden flex flex-col">
-                {/* Top Controls */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
-                  <div className="w-full sm:w-80">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Search Items
-                    </label>
-                    <input
-                      type="text"
-                      value={inventorySearchFilter}
-                      onChange={(e) => setInventorySearchFilter(e.target.value)}
-                      placeholder="Search menu items..."
-                      className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleInventorySameAsYesterday}
-                    disabled={inventoryLoading}
-                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
-                  >
-                    {inventoryLoading ? "Resetting..." : "📅 Same as Yesterday"}
-                  </button>
-                </div>
-
-                {/* Inventory List */}
-                <div className="flex-1 overflow-y-auto">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-4 py-3 font-semibold text-gray-700">Item</th>
-                          <th className="px-4 py-3 font-semibold text-gray-700">Price</th>
-                          <th className="px-4 py-3 font-semibold text-gray-700">Stock</th>
-                          <th className="px-4 py-3 font-semibold text-gray-700">Daily Limit</th>
-                          <th className="px-4 py-3 font-semibold text-gray-700">Trackable</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {menuItems
-                          .filter(item =>
-                            inventorySearchFilter === "" ||
-                            item.name.toLowerCase().includes(inventorySearchFilter.toLowerCase())
-                          )
-                          .map((item) => (
-                            <tr key={item.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-                                    {item.image_url ? (
-                                      <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
-                                    ) : (
-                                      <div className="h-full w-full bg-gray-300 flex items-center justify-center text-xs text-gray-500">
-                                        No img
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">{item.name}</p>
-                                    <p className="text-xs text-gray-500">{item.category || "No category"}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 text-gray-700">₱{item.price}</td>
-                              <td className="px-4 py-4 text-gray-700">
-                                <span className="font-semibold text-slate-900">
-                                  {item.current_stock ?? 0}
-                                </span>
-                                <span className="text-gray-500"> / {item.daily_limit ?? 0}</span>
-                              </td>
-                              <td className="px-4 py-4">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={inventoryItems[item.id] || "0"}
-                                  onChange={(e) => handleInventoryChange(item.id, e.target.value)}
-                                  className="w-20 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-center outline-none transition focus:border-blue-600"
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td className="px-4 py-4">
-                                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${item.is_trackable ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
-                                  {item.is_trackable ? "Yes" : "No"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {menuItems.filter(item =>
-                    inventorySearchFilter === "" ||
-                    item.name.toLowerCase().includes(inventorySearchFilter.toLowerCase())
-                  ).length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                      {inventorySearchFilter ? "No items match your search" : "No menu items found"}
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Actions */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end mt-6 pt-6 border-t border-gray-200">
-                  <button
-                    onClick={() => setShowInventoryModal(false)}
-                    className="rounded-2xl border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveInventory}
-                    disabled={inventoryLoading}
-                    className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {inventoryLoading ? "Saving..." : "💾 Save Changes"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <BusinessInventoryModal
+        isOpen={showInventoryModal}
+        businessId={businessId}
+        menuItems={menuItems}
+        onClose={() => setShowInventoryModal(false)}
+        onRefetch={fetchMenuItems}
+      />
       </PageShell>
     </>
   );

@@ -107,7 +107,6 @@ export async function createOrder({
       total_guests: totalGuests ?? 0,
       senior_pwd_count: seniorPwdCount ?? 0,
       discount_amount: discountAmount ?? 0,
-      discount_approved: discountAmount && discountAmount > 0 ? false : true,
       ...(userId ? { user_id: userId } : {}),
     };
 

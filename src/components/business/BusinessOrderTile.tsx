@@ -54,6 +54,7 @@ const BusinessOrderTile: React.FC<Props> = ({
   setCancelOrderModal,
   completeOrder,
   setMarkPaidModal,
+  approveDiscount, // ✅ ADD THIS
   businessName = "Restaurant",
   businessAddress,
 }) => {
