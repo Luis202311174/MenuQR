@@ -692,13 +692,6 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowDiscountModal(false)}
-                  className="py-3 rounded-2xl border border-gray-300 text-gray-700 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
                   onClick={handleDiscountDeclarationSubmit}
                   className="py-3 rounded-2xl bg-blue-600 text-white font-semibold hover:bg-blue-700"
                 >
@@ -716,7 +709,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-scaleIn">
             
             {/* Header */}
-<div className="bg-blue-600 px-6 py-4 text-center">
+            <div className="bg-blue-600 px-6 py-4 text-center">
               <h3 className="text-lg font-bold text-white">
                 Complete Payment
               </h3>

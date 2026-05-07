@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/business/BusinessSidebar";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 
@@ -34,7 +33,6 @@ export default function BusinessSettingsPage() {
   const [gr, setGr] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -239,37 +237,18 @@ export default function BusinessSettingsPage() {
 
   return (
     <>
-      <BusinessOrdersNotifier businessId={businessId} onCountChange={setOrdersCount} />
-      <PageShell title="Settings" subtitle="Update your business profile and preferences." backHref="/business/dashboard">
-        <div className="mb-4 flex items-center justify-between lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-3xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-sm border border-slate-200"
-          >
-            Show menu
-          </button>
-          <p className="text-xs font-semibold text-slate-600">Business settings</p>
-        </div>
+      <BusinessOrdersNotifier
+        businessId={businessId}
+        onCountChange={setOrdersCount}
+      />
 
-        <div className="grid lg:grid-cols-[260px_1fr] gap-8">
-              <div className="hidden lg:block self-start">
-                <BusinessSidebar ordersCount={ordersCount} />
-              </div>
+      <PageShell
+        title="Settings"
+        subtitle="Update your business profile and preferences."
+        backHref="/business/dashboard"
+      >
 
-          {sidebarOpen && (
-            <div className="lg:hidden">
-              <div
-                className="fixed inset-0 z-40 bg-black/20"
-                onClick={() => setSidebarOpen(false)}
-              />
-              <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 p-6">
-                <BusinessSidebar onClose={() => setSidebarOpen(false)} ordersCount={ordersCount} />
-              </div>
-            </div>
-          )}
-
-          <main className="space-y-4 sm:space-y-8">
+        <div className="space-y-8">
           <div className="grid gap-4 sm:gap-8 xl:grid-cols-[1fr_360px]">
             <div className="space-y-4 sm:space-y-8">
               <section className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-8 shadow-sm">
@@ -489,7 +468,6 @@ export default function BusinessSettingsPage() {
               {loading ? "Saving..." : "Save Changes"}
             </button>
           </div>
-        </main>
         </div>
       </PageShell>
     </>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import BusinessSidebar from "@/components/business/BusinessSidebar";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 import jsPDF from "jspdf";
@@ -342,135 +341,117 @@ export default function TableQRPage() {
         subtitle="Create and manage QR codes for each table."
         backHref="/business/dashboard"
       >
-        <div className="grid lg:grid-cols-[260px_1fr] gap-8">
-          <div className="hidden lg:block self-start">
-            <BusinessSidebar ordersCount={ordersCount} />
-          </div>
-
-          {sidebarOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-black/20 lg:hidden"
-                onClick={() => setSidebarOpen(false)}
-              />
-              <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 p-6 lg:hidden">
-                <BusinessSidebar onClose={() => setSidebarOpen(false)} ordersCount={ordersCount} />
+        <main className="space-y-8">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-8 shadow-sm">
+            <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div>
+                <h2 className="text-base sm:text-xl font-semibold text-slate-900">Your Tables</h2>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  Create and manage QR codes for each table
+                </p>
               </div>
-            </>
-          )}
-
-          <main className="space-y-8">
-            <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-8 shadow-sm">
-              <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                <div>
-                  <h2 className="text-base sm:text-xl font-semibold text-slate-900">Your Tables</h2>
-                  <p className="text-xs sm:text-sm text-slate-500">
-                    Create and manage QR codes for each table
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
-                  <div className="relative flex">
-                    <button
-                      onClick={() => handleAddTables(1)}
-                      disabled={loading}
-                      className="rounded-l-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
-                    >
-                      {loading ? "Creating..." : "+ Add"}
-                    </button>
-                    <button
-                      onClick={() => setShowDropdown((prev) => !prev)}
-                      className="rounded-r-3xl bg-blue-700 text-white px-2 sm:px-3"
-                    >
-                      ▼
-                    </button>
-                  </div>
-
-                  {showDropdown && (
-                    <div className="absolute right-0 mt-2 w-32 sm:w-40 bg-white border border-slate-200 rounded-2xl shadow-lg z-50">
-                      <button
-                        onClick={() => {
-                          handleAddTables(5);
-                          setShowDropdown(false);
-                        }}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm hover:bg-slate-100"
-                      >
-                        Add 5 Tables
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleAddTables(10);
-                          setShowDropdown(false);
-                        }}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm hover:bg-slate-100"
-                      >
-                        Add 10 Tables
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleAddTables(20);
-                          setShowDropdown(false);
-                        }}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm hover:bg-slate-100"
-                      >
-                        Add 20 Tables
-                      </button>
-                    </div>
-                  )}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
+                <div className="relative flex">
                   <button
-                    onClick={handleClearAllSessions}
-                    className="rounded-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 whitespace-nowrap"
+                    onClick={() => handleAddTables(1)}
+                    disabled={loading}
+                    className="rounded-l-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
                   >
-                    Clear Sessions
+                    {loading ? "Creating..." : "+ Add"}
+                  </button>
+                  <button
+                    onClick={() => setShowDropdown((prev) => !prev)}
+                    className="rounded-r-3xl bg-blue-700 text-white px-2 sm:px-3"
+                  >
+                    ▼
                   </button>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-                {tables.length > 0 ? (
-                  tables.map((table) => (
-                    <div key={table.id} className="rounded-[24px] border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition">
-                      <div className="bg-gradient-to-r from-blue-500 to-blue-700 px-3 sm:px-6 py-2 sm:py-4">
-                        <h3 className="text-sm sm:text-lg font-bold text-white text-center">
-                          Table {table.table_number}
-                        </h3>
-                      </div>
-                      <div className="p-3 sm:p-6 flex flex-col items-center space-y-2 sm:space-y-4">
-                        {table.qr_code && (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-2 sm:p-4">
-                            <img
-                              src={table.qr_code}
-                              alt={`QR for Table ${table.table_number}`}
-                              className="h-24 sm:h-32 w-24 sm:w-32 object-contain"
-                            />
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-2 w-full">
-                          <button
-                            onClick={() => handleDownloadPDF(table)}
-                            className="w-full rounded-[20px] bg-blue-600 text-white font-semibold px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm transition hover:bg-blue-700"
-                          >
-                            Download
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTable(table.id)}
-                            className="w-full rounded-[20px] border border-slate-200 bg-white text-slate-700 font-semibold px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm transition hover:bg-slate-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-full text-center py-8 sm:py-12 bg-slate-50 rounded-3xl border border-slate-200">
-                    <p className="text-sm sm:text-base text-slate-500">No tables created yet</p>
-                    <p className="text-xs sm:text-sm text-slate-400 mt-2">Add your first table to get started</p>
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-32 sm:w-40 bg-white border border-slate-200 rounded-2xl shadow-lg z-50">
+                    <button
+                      onClick={() => {
+                        handleAddTables(5);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm hover:bg-slate-100"
+                    >
+                      Add 5 Tables
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleAddTables(10);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm hover:bg-slate-100"
+                    >
+                      Add 10 Tables
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleAddTables(20);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm hover:bg-slate-100"
+                    >
+                      Add 20 Tables
+                    </button>
                   </div>
                 )}
+                <button
+                  onClick={handleClearAllSessions}
+                  className="rounded-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 whitespace-nowrap"
+                >
+                  Clear Sessions
+                </button>
               </div>
             </div>
-          </main>
-        </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+              {tables.length > 0 ? (
+                tables.map((table) => (
+                  <div key={table.id} className="rounded-[24px] border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition">
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-700 px-3 sm:px-6 py-2 sm:py-4">
+                      <h3 className="text-sm sm:text-lg font-bold text-white text-center">
+                        Table {table.table_number}
+                      </h3>
+                    </div>
+                    <div className="p-3 sm:p-6 flex flex-col items-center space-y-2 sm:space-y-4">
+                      {table.qr_code && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-2 sm:p-4">
+                          <img
+                            src={table.qr_code}
+                            alt={`QR for Table ${table.table_number}`}
+                            className="h-24 sm:h-32 w-24 sm:w-32 object-contain"
+                          />
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-2 w-full">
+                        <button
+                          onClick={() => handleDownloadPDF(table)}
+                          className="w-full rounded-[20px] bg-blue-600 text-white font-semibold px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm transition hover:bg-blue-700"
+                        >
+                          Download
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTable(table.id)}
+                          className="w-full rounded-[20px] border border-slate-200 bg-white text-slate-700 font-semibold px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm transition hover:bg-slate-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8 sm:py-12 bg-slate-50 rounded-3xl border border-slate-200">
+                  <p className="text-sm sm:text-base text-slate-500">No tables created yet</p>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-2">Add your first table to get started</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
       </PageShell>
     </>
   );

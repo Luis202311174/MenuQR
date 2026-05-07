@@ -3,11 +3,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/business/BusinessSidebar";
 import BusinessOrderTile from "@/components/business/BusinessOrderTile";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGear } from "@fortawesome/free-solid-svg-icons";
 import BusinessSettingsPaymentModal from "@/components/business/BusinessSettingsPaymentModal";
+import OrderTileModals from "@/components/business/OrderTileModals";
 import PageShell from "@/components/PageShell";
 import {
   confirmOrderReceived,
@@ -19,6 +19,7 @@ import {
   getOrderStatusLabel,
   getStatusColor,
 } from "@/utils/orderStatusManager";
+
 
 type Order = {
   id: string;
@@ -49,7 +50,6 @@ export default function BusinessOrdersPage() {
   const [businessName, setBusinessName] = useState<string>("Restaurant");
   const [businessAddress, setBusinessAddress] = useState<string>("");
   const [orders, setOrders] = useState<Order[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
   const [paymentStatusModal, setPaymentStatusModal] = useState<{
@@ -70,9 +70,9 @@ export default function BusinessOrdersPage() {
     orderNumber: string;
     paymentMethod: "cash" | "gcash";
   } | null>(null);
-  const [selectedMarkPaidMethod, setSelectedMarkPaidMethod] = useState<"cash" | "gcash">("cash");
-  const [markPaidReference, setMarkPaidReference] = useState("");
+
   const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
+
 
   const approveDiscount = async (orderId: string) => {
     if (!businessId) return;
@@ -112,49 +112,7 @@ export default function BusinessOrdersPage() {
     }
   };
 
-  useEffect(() => {
-    if (markPaidModal) {
-      setSelectedMarkPaidMethod(markPaidModal.paymentMethod || "cash");
-      setMarkPaidReference("");
-    }
-  }, [markPaidModal]);
 
-  const handleConfirmMarkPaid = async () => {
-    if (!businessId || !markPaidModal) return;
-    setProcessingOrderId(markPaidModal.orderId);
-
-    try {
-      const updates: any = {
-        status: "paid",
-        is_paid: true,
-        payment_method: selectedMarkPaidMethod,
-      };
-
-      if (selectedMarkPaidMethod === "gcash") {
-        updates.reference_numb = markPaidReference;
-      }
-
-      const { data, error } = await supabase
-        .from("orders")
-        .update(updates)
-        .eq("id", markPaidModal.orderId)
-        .eq("business_id", businessId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      console.log("Order marked as paid:", data);
-      setMarkPaidModal(null);
-      setMarkPaidReference("");
-      await fetchOrders();
-    } catch (error: any) {
-      console.error("Error marking order as paid:", error);
-      alert(`Failed to mark order as paid: ${error.message}`);
-    } finally {
-      setProcessingOrderId(null);
-    }
-  };
 
   useEffect(() => {
     if (!businessId) return;
@@ -444,36 +402,6 @@ export default function BusinessOrdersPage() {
     }
   };
 
-  // 💳 Handle payment status (Received vs Paid)
-  const handlePaymentStatus = async (orderId: string, isPaid: boolean) => {
-    if (!businessId) return;
-    setProcessingOrderId(orderId);
-    try {
-      const newStatus = isPaid ? "paid" : "received";
-      const { data, error } = await supabase
-        .from("orders")
-        .update({ status: newStatus, is_paid: isPaid })
-        .eq("id", orderId)
-        .eq("business_id", businessId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      console.log("Payment status updated:", data);
-      setPaymentStatusModal(null);
-
-      const order = orders.find(o => o.id === orderId);
-      const tableNumber = order?.table?.table_number || "Unknown";
-      const paymentType = isPaid ? "paid" : "pay later";
-      setNotification({ message: `Table ${tableNumber} Order marked as ${paymentType}`, type: "success" });
-    } catch (error: any) {
-      console.error("Error updating payment status:", error);
-      setNotification({ message: `Failed to update payment status: ${error.message}`, type: "error" });
-    } finally {
-      setProcessingOrderId(null);
-    }
-  };
-
   // 💰 Mark order as paid (from received unpaid state)
   const markAsPaid = async (orderId: string) => {
     if (!businessId) return;
@@ -497,40 +425,6 @@ export default function BusinessOrdersPage() {
     }
   };
 
-  // ❌ Cancel order (void it)
-  const cancelOrder = async (orderId: string) => {
-    if (!businessId) return;
-    setProcessingOrderId(orderId);
-    try {
-      // Update order status to cancelled
-      const { data, error } = await supabase
-        .from("orders")
-        .update({ status: "cancelled" })
-        .eq("id", orderId)
-        .eq("business_id", businessId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      console.log("Order cancelled:", data);
-
-      // Notify the user via realtime
-      const channel = supabase.channel(`order-${orderId}`);
-      channel.send({
-        type: "broadcast",
-        event: "order_cancelled",
-        payload: { orderId, message: "Your order has been cancelled" }
-      });
-
-      setCancelOrderModal(null);
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
-    } catch (error: any) {
-      console.error("Error cancelling order:", error);
-      alert(`Failed to cancel order: ${error.message}`);
-    } finally {
-      setProcessingOrderId(null);
-    }
-  };
 
   // ✅ Complete order
   const completeOrder = async (order: Order) => {
@@ -584,23 +478,7 @@ export default function BusinessOrdersPage() {
           <p className="text-lg text-gray-600">Loading orders…</p>
         </div>
       ) : (
-        <div className="max-w-[1400px] mx-auto px-0 py-0 sm:py-0 grid lg:grid-cols-[260px_1fr] gap-8">
-          <div className="hidden lg:block self-start">
-            <BusinessSidebar ordersCount={orders.length} />
-          </div>
-
-          {sidebarOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-white/10 backdrop-blur-sm lg:hidden"
-                onClick={() => setSidebarOpen(false)}
-              />
-              <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 p-6 lg:hidden">
-                <BusinessSidebar onClose={() => setSidebarOpen(false)} ordersCount={orders.length} />
-              </div>
-            </>
-          )}
-
+        <div>
           <div>
             <main className="space-y-4 sm:space-y-8">
               <section className="space-y-4 sm:space-y-6">
@@ -617,7 +495,7 @@ export default function BusinessOrdersPage() {
                       <p className="text-xs sm:text-sm font-medium">To Confirm</p>
                       <p className="text-2xl sm:text-5xl font-black mt-2 sm:mt-4">{pendingCount}</p>
                       <p className="text-xs mt-1 sm:mt-3 font-medium">New orders</p>
-                    </div>
+                    </div>  
                     <div className="rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-[#FFF7E0] to-[#F3D87B] text-[#8F5A00] p-4 sm:p-8 shadow-sm hover:shadow-md transition">
                       <p className="text-xs sm:text-sm font-medium">Unpaid</p>
                       <p className="text-2xl sm:text-5xl font-black mt-2 sm:mt-4">{receivedCount}</p>
@@ -698,76 +576,21 @@ export default function BusinessOrdersPage() {
         </div>
       )}
 
-      {/* Payment Status Modal */}
-      {paymentStatusModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Order #{paymentStatusModal.orderNumber}</h3>
-            <p className="text-sm text-slate-600 mb-6">How did the customer pay?</p>
-            <div className="space-y-3">
-              <button
-                onClick={() => handlePaymentStatus(paymentStatusModal.orderId, false)}
-                disabled={processingOrderId === paymentStatusModal.orderId}
-                className="w-full p-4 rounded-2xl border-2 border-[#F2B90F] bg-[#FFF7E0] hover:bg-[#F3D87B] text-[#8F5A00] font-semibold transition disabled:opacity-50 flex items-center justify-center gap-3"
-              >
-                <span className="text-2xl">⏰</span>
-                <div className="text-left">
-                  <p>Order Received</p>
-                  <p className="text-xs font-normal">Will pay later</p>
-                </div>
-              </button>
-              <button
-                onClick={() => handlePaymentStatus(paymentStatusModal.orderId, true)}
-                disabled={processingOrderId === paymentStatusModal.orderId}
-                className="w-full p-4 rounded-2xl border-2 border-[#10B981] bg-[#ECFDF5] hover:bg-[#A7F3D0] text-[#065F46] font-semibold transition disabled:opacity-50 flex items-center justify-center gap-3"
-              >
-                <span className="text-2xl">✅</span>
-                <div className="text-left">
-                  <p>Order Paid</p>
-                  <p className="text-xs font-normal">Payment received</p>
-                </div>
-              </button>
-            </div>
-            <button
-              onClick={() => setPaymentStatusModal(null)}
-              className="mt-4 w-full py-2 text-sm text-slate-500 hover:text-slate-700 transition"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Cancel Order Confirmation Modal */}
-      {cancelOrderModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">❌ Cancel Order?</h3>
-            <p className="text-sm text-slate-600 mb-6">Order #{cancelOrderModal.orderNumber}</p>
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
-              <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This will void the order and notify the customer. This action cannot be undone.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => cancelOrder(cancelOrderModal.orderId)}
-                disabled={processingOrderId === cancelOrderModal.orderId}
-                className="w-full p-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-semibold transition disabled:opacity-50"
-              >
-                Confirm Cancel Order
-              </button>
-              <button
-                onClick={() => setCancelOrderModal(null)}
-                disabled={processingOrderId === cancelOrderModal.orderId}
-                className="w-full p-4 rounded-2xl border-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-900 font-semibold transition disabled:opacity-50"
-              >
-                Keep Order
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OrderTileModals
+        paymentStatusModal={paymentStatusModal}
+        setPaymentStatusModal={setPaymentStatusModal}
+        cancelOrderModal={cancelOrderModal}
+        setCancelOrderModal={setCancelOrderModal}
+        markPaidModal={markPaidModal}
+        setMarkPaidModal={setMarkPaidModal}
+        processingOrderId={processingOrderId}
+        businessId={businessId}
+        paymentSettings={paymentSettings}
+        orders={orders}
+        fetchOrders={fetchOrders}
+        setOrders={setOrders}
+        setNotification={setNotification}
+      />
 
       <BusinessSettingsPaymentModal
         open={settingsOpen}
@@ -791,62 +614,7 @@ export default function BusinessOrdersPage() {
         }}
       />
 
-      {/* Mark Paid Modal */}
-      {markPaidModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-            <div className="bg-[#E23838] px-6 py-4 text-center">
-              <h3 className="text-2xl font-bold text-white">Mark Order as Paid</h3>
-            </div>
-            <div className="p-8 space-y-5">
-              <p className="text-sm text-slate-600">Order #{markPaidModal.orderNumber}</p>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Payment method</label>
-                <select
-                  value={selectedMarkPaidMethod}
-                  onChange={(e) => setSelectedMarkPaidMethod(e.target.value as "cash" | "gcash")}
-                  className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#E23838] focus:bg-white"
-                >
-                  {paymentSettings.cash && <option value="cash">Cash</option>}
-                  {paymentSettings.gcash && <option value="gcash">GCash</option>}
-                </select>
-              </div>
-              {selectedMarkPaidMethod === "gcash" && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">GCash reference number</label>
-                  <input
-                    type="text"
-                    placeholder="Reference number"
-                    value={markPaidReference}
-                    onChange={(e) => setMarkPaidReference(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#E23838] focus:bg-white"
-                  />
-                </div>
-              )}
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleConfirmMarkPaid}
-                  disabled={
-                    processingOrderId === markPaidModal.orderId ||
-                    (selectedMarkPaidMethod === "gcash" && !markPaidReference.trim())
-                  }
-                  className="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Confirm Payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMarkPaidModal(null)}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Notification */}
       {notification && (

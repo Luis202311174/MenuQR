@@ -4,8 +4,6 @@ import Head from "next/head";
 import { Fragment, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import BusinessSidebar from "@/components/business/BusinessSidebar";
-import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 import {
   Chart as ChartJS,
@@ -31,8 +29,15 @@ import {
   faFilter,
   faArrowUp,
   faArrowDown,
-  faTable
 } from "@fortawesome/free-solid-svg-icons";
+import DailySalesReportModal from "@/components/business/reports/DailySalesReportModal";
+import DailyOrderDetailsModal from "@/components/business/reports/DailyOrderDetailsModal";
+import OrderDetailModal from "@/components/business/reports/OrderDetailModal";
+import type {
+  DailySalesDataRow,
+  DailySalesOrderRow,
+} from "@/components/business/reports/DailyOrderDetailsModal";
+
 
 ChartJS.register(
   CategoryScale,
@@ -75,7 +80,6 @@ export default function BusinessReportsPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
   const [ordersCount, setOrdersCount] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Dashboard data
   const [metrics, setMetrics] = useState<SalesMetrics>({
@@ -111,8 +115,8 @@ export default function BusinessReportsPage() {
 
   // Daily Sales Report Modal
   const [showDailyReportModal, setShowDailyReportModal] = useState(false);
-  const [dailySalesData, setDailySalesData] = useState<any[]>([]);
-  const [selectedDailyOrders, setSelectedDailyOrders] = useState<any | null>(null);
+  const [dailySalesData, setDailySalesData] = useState<DailySalesDataRow[]>([]);
+  const [selectedDailyOrders, setSelectedDailyOrders] = useState<DailySalesDataRow | null>(null);
   const [loadingDailyReport, setLoadingDailyReport] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState<string>(() => {
     const date = new Date();
@@ -122,7 +126,8 @@ export default function BusinessReportsPage() {
   const [selectedEndDate, setSelectedEndDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
 
   // Order Detail Modal
-  const [orderDetailModal, setOrderDetailModal] = useState<any>(null);
+  const [orderDetailModal, setOrderDetailModal] = useState<DailySalesOrderRow | null>(null);
+
 
   const normalizeOrderItems = (items: any) => {
     if (!items) return [];
@@ -529,7 +534,7 @@ export default function BusinessReportsPage() {
         .single();
 
       if (error) throw error;
-      setOrderDetailModal(data || order);
+      setOrderDetailModal((data ?? order) as DailySalesOrderRow);
     } catch (error) {
       console.error("Error fetching order details:", error);
       setOrderDetailModal(order);
@@ -591,38 +596,8 @@ export default function BusinessReportsPage() {
       </Head>
 
       <PageShell title="Sales Dashboard" subtitle="Track your business performance and insights." className="overflow-x-hidden">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-3xl bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-900 shadow-sm border border-slate-200"
-            >
-              Show menu
-            </button>
-            <p className="text-xs sm:text-sm font-semibold text-slate-600">
-              {ordersCount} orders
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-[240px_1fr] gap-6 min-w-0 min-h-screen items-stretch">
-            <div className="hidden lg:block self-stretch max-w-[240px] h-full">
-              <BusinessSidebar ordersCount={ordersCount} />
-            </div>
-
-            {sidebarOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40 bg-black/20 lg:hidden"
-                  onClick={() => setSidebarOpen(false)}
-                />
-                <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 p-6 lg:hidden">
-                  <BusinessSidebar onClose={() => setSidebarOpen(false)} ordersCount={ordersCount} />
-                </div>
-              </>
-            )}
-
-            <main className="space-y-8 min-w-0">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
+          <div className="space-y-8">
+            <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
                 {/* Header */}
               <div className="mb-8">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -890,361 +865,55 @@ export default function BusinessReportsPage() {
                 </>
               )}
             </div>
-          </main>
 
-          {showDailyReportModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
-              <div className="w-full max-w-5xl overflow-hidden rounded-[32px] bg-white shadow-2xl ring-1 ring-black/10">
-                <div className="border-b border-slate-200 bg-slate-50 px-6 py-4 sm:px-8 sm:py-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-500">Daily Sales Report</p>
-                      <h2 className="text-2xl font-bold text-slate-900">Orders by Date</h2>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDailyReportModal(false)}
-                      className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100"
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <p className="text-sm text-slate-600 mt-2">Use the calendar filter to search specific date ranges. Expand each date to inspect orders and view the items customers ordered.</p>
+          <DailySalesReportModal
+            isOpen={showDailyReportModal}
+            selectedStartDate={selectedStartDate}
+            selectedEndDate={selectedEndDate}
+            onChangeStartDate={(v) => {
+              setSelectedStartDate(v);
+            }}
+            onChangeEndDate={(v) => {
+              setSelectedEndDate(v);
+            }}
+            loadingDailyReport={loadingDailyReport}
+            dailySalesData={dailySalesData}
+            onSearch={handleSearchDailyReport}
+            onReset={() => {
+              const now = new Date();
+              const endDate = now.toISOString().split('T')[0];
+              const startDate = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+              setSelectedStartDate(startDate);
+              setSelectedEndDate(endDate);
+              fetchDailySalesReport();
+            }}
+            onClose={() => setShowDailyReportModal(false)}
+            onSelectDay={(row) => {
+              setSelectedDailyOrders(row);
+            }}
+            formatCurrency={formatCurrency}
+          />
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-[1.5fr_auto]">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="flex flex-col text-sm text-slate-600">
-                        <span className="mb-1 font-medium text-slate-700">From</span>
-                        <input
-                          type="date"
-                          value={selectedStartDate}
-                          onChange={(e) => setSelectedStartDate(e.target.value)}
-                          className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                        />
-                      </label>
-                      <label className="flex flex-col text-sm text-slate-600">
-                        <span className="mb-1 font-medium text-slate-700">To</span>
-                        <input
-                          type="date"
-                          value={selectedEndDate}
-                          onChange={(e) => setSelectedEndDate(e.target.value)}
-                          className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                        />
-                      </label>
-                    </div>
-                    <div className="flex items-end justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={handleSearchDailyReport}
-                        className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-                      >
-                        <FontAwesomeIcon icon={faFilter} className="mr-2" />
-                        Search
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const now = new Date();
-                          const endDate = now.toISOString().split('T')[0];
-                          const startDate = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
-                          setSelectedStartDate(startDate);
-                          setSelectedEndDate(endDate);
-                          fetchDailySalesReport();
-                        }}
-                        className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                </div>
+          <DailyOrderDetailsModal
+            daily={selectedDailyOrders as DailySalesDataRow | null}
+            isOpen={showDailyReportModal && !!selectedDailyOrders}
+            onClose={() => setSelectedDailyOrders(null)}
+            onOpenOrderDetail={(order) => openOrderDetail(order)}
+            formatCurrency={formatCurrency}
+          />
 
-                <div className="px-6 py-5">
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">Range</p>
-                      <p className="mt-2 text-base font-semibold text-slate-900">{selectedStartDate} – {selectedEndDate}</p>
-                    </div>
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">Total Sales</p>
-                      <p className="mt-2 text-base font-semibold text-slate-900">{formatCurrency(reportSummary.totalSales)}</p>
-                    </div>
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">Total Orders</p>
-                      <p className="mt-2 text-base font-semibold text-slate-900">{reportSummary.totalOrders}</p>
-                    </div>
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">Avg Order Value</p>
-                      <p className="mt-2 text-base font-semibold text-slate-900">{formatCurrency(reportSummary.averageOrderValue)}</p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="max-h-[62vh] overflow-y-auto px-0 py-4 sm:px-6">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200 text-sm">
-                      <thead className="bg-slate-100 text-slate-700">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Date</th>
-                          <th className="px-4 py-3 text-right font-semibold">Total Sales</th>
-                          <th className="px-4 py-3 text-right font-semibold">Total Orders</th>
-                          <th className="px-4 py-3 text-center font-semibold">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {loadingDailyReport ? (
-                          <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-slate-600">
-                              Loading daily sales report...
-                            </td>
-                          </tr>
-                        ) : dailySalesData.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-slate-600">
-                              No daily sales data available for the selected period.
-                            </td>
-                          </tr>
-                        ) : (
-                          dailySalesData.map((daily) => (
-                              <tr key={daily.date} className="hover:bg-slate-50">
-                                <td className="px-4 py-4 font-medium text-slate-900">{new Date(daily.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                                <td className="px-4 py-4 text-right text-slate-900">{formatCurrency(daily.totalSales)}</td>
-                                <td className="px-4 py-4 text-right text-slate-900">{daily.totalOrders}</td>
-                                <td className="px-4 py-4 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedDailyOrders(daily)}
-                                    className="rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                                  >
-                                    View Order Details
-                                  </button>
-                                </td>
-                              </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-600">
-                  <p className="font-semibold text-slate-800">Report details</p>
-                  <ul className="mt-3 space-y-2 list-disc pl-5">
-                    <li>Filter the report by a specific calendar range to focus on a particular day or week.</li>
-                    <li>Open the date action to view each order's details in a popup modal.</li>
-                    <li>Open an order to see exact items, payment method, and reference number.</li>
-                    <li>Use the summary cards to compare daily performance, average order value, and busiest day at a glance.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
+          <OrderDetailModal
+            order={orderDetailModal}
+            isOpen={showDailyReportModal && !!orderDetailModal}
+            onClose={() => setOrderDetailModal(null)}
+            formatCurrency={formatCurrency}
+            normalizeOrderItems={normalizeOrderItems}
+          />
         </div>
 
-    {selectedDailyOrders && (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 px-4 py-8">
-        <div className="mx-auto w-full max-w-4xl">
-          <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
-            <div className="bg-slate-900 px-6 py-5 sm:px-8 sm:py-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Order details</p>
-                  <h2 className="mt-1 text-2xl font-bold text-white">{new Date(selectedDailyOrders.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</h2>
-                  <p className="text-sm text-slate-300 mt-1">{selectedDailyOrders.orders.length} order{selectedDailyOrders.orders.length !== 1 ? 's' : ''}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDailyOrders(null)}
-                  className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto px-4 py-5 sm:px-6">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-3 shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm bg-white">
-                    <thead className="bg-slate-100 text-slate-700">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-semibold">Order #</th>
-                        <th className="px-4 py-3 text-left font-semibold">Time</th>
-                        <th className="px-4 py-3 text-left font-semibold">Status</th>
-                        <th className="px-4 py-3 text-right font-semibold">Discount</th>
-                        <th className="px-4 py-3 text-right font-semibold">Total</th>
-                        <th className="px-4 py-3 text-center font-semibold">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {selectedDailyOrders.orders.map((order: any) => (
-                        <tr key={order.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 text-slate-900">{order.id.slice(0, 8)}</td>
-                          <td className="px-4 py-3 text-slate-600">{new Date(order.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
-                          <td className="px-4 py-3 text-slate-600 capitalize">{order.status}</td>
-                          <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(order.discount_amount || 0)}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency((order.total_amount || 0) - (order.discount_amount || 0))}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => openOrderDetail(order)}
-                              className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                            >
-                              View Details
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Order Detail Modal */}
-    {orderDetailModal && (
-      <div className="fixed inset-0 z-50 bg-slate-950/70 px-4 py-8">
-        <div className="mx-auto flex h-full w-full max-w-3xl items-center justify-center">
-          <div className="flex w-full max-h-[85vh] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
-            <div className="bg-slate-900 px-5 py-3 sm:px-6 sm:py-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Order detail</p>
-                  <h2 className="mt-1 text-lg font-bold text-white">Order #{orderDetailModal.id.slice(0, 8)}</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOrderDetailModal(null)}
-                  className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:bg-slate-700"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-              <div className="space-y-3">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Date</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{new Date(orderDetailModal.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Time</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{new Date(orderDetailModal.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Status</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900 capitalize">{orderDetailModal.status}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Total (Gross)</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(orderDetailModal.total_amount || 0)}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Discount</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(orderDetailModal.discount_amount || 0)}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Net Total</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency((orderDetailModal.total_amount || 0) - (orderDetailModal.discount_amount || 0))}</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Customer</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{orderDetailModal.customer_name || orderDetailModal.user_id || 'Guest'}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Table</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{orderDetailModal.table?.table_number || orderDetailModal.table_number || orderDetailModal.table_id || 'N/A'}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Discount detail</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{orderDetailModal.discount_amount ? formatCurrency(orderDetailModal.discount_amount) : 'None'}</p>
-                    {(orderDetailModal.total_guests || orderDetailModal.senior_pwd_count) ? (
-                      <p className="mt-1 text-xs text-slate-500">
-                        {orderDetailModal.senior_pwd_count || 0} Senior/PWD of {orderDetailModal.total_guests || 0} guests
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-slate-900">Payment information</h3>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-700">
-                      {orderDetailModal.payment_method ? orderDetailModal.payment_method.toUpperCase() : 'CASH'}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[10px] text-slate-600">Amount Paid</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency((orderDetailModal.total_amount || 0) - (orderDetailModal.discount_amount || 0))}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-600">Reference</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{orderDetailModal.gcash_ref || orderDetailModal.payment_reference || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900">Items ordered</h3>
-                      <p className="text-[10px] text-slate-500">Review each item and subtotal.</p>
-                    </div>
-                    <span className="text-[10px] font-semibold text-slate-600">{normalizeOrderItems(orderDetailModal.items).length} items</span>
-                  </div>
-                  <div className="mt-2 overflow-x-auto">
-                    <table className="min-w-full text-xs">
-                      <thead className="bg-slate-100 text-slate-700">
-                        <tr>
-                          <th className="px-2 py-1 text-left font-semibold">Item</th>
-                          <th className="px-2 py-1 text-right font-semibold">Qty</th>
-                          <th className="px-2 py-1 text-right font-semibold">Price</th>
-                          <th className="px-2 py-1 text-right font-semibold">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {normalizeOrderItems(orderDetailModal.items).length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="px-2 py-2 text-center text-slate-500">
-                              No item details available for this order.
-                            </td>
-                          </tr>
-                        ) : (
-                          normalizeOrderItems(orderDetailModal.items).map((item: any, index: number) => {
-                            const quantity = item.qty ?? item.quantity ?? 1;
-                            const itemPrice = Number(item.price ?? item.base_price ?? 0);
-                            const subtotal = itemPrice * quantity;
-                            return (
-                              <tr key={index}>
-                                <td className="px-2 py-1 text-slate-900">{item.name || item.title || item.menu_item_id || 'Item'}</td>
-                                <td className="px-2 py-1 text-right text-slate-600">{quantity}</td>
-                                <td className="px-2 py-1 text-right text-slate-600">{formatCurrency(itemPrice)}</td>
-                                <td className="px-2 py-1 text-right font-semibold text-slate-900">{formatCurrency(subtotal)}</td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
       </PageShell>
     </>
   );
 }
+

@@ -4,8 +4,6 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import BusinessSidebar from "@/components/business/BusinessSidebar";
-import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 
 export default function BusinessDashboardPage() {
@@ -16,13 +14,11 @@ export default function BusinessDashboardPage() {
 
   const [businessData, setBusinessData] = useState<any>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [menuCount, setMenuCount] = useState(0);
   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
   const [completedOrdersCount, setCompletedOrdersCount] = useState(0);
   const [dailyOrdersCount, setDailyOrdersCount] = useState(0);
-  const [ordersCount, setOrdersCount] = useState(0);
 
   /* =========================
      AUTH + BUSINESS INIT
@@ -138,7 +134,6 @@ export default function BusinessDashboardPage() {
   ========================= */
   return (
     <>
-      <BusinessOrdersNotifier businessId={businessId} onCountChange={setOrdersCount} />
       <Head>
         <title>MenuQR Business Dashboard</title>
       </Head>
@@ -153,156 +148,127 @@ export default function BusinessDashboardPage() {
           </div>
         ) : (
           <div className="max-w-[1400px] mx-auto px-0 py-0 sm:py-0">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 lg:hidden">
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="rounded-3xl bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-900 shadow-sm border border-slate-200"
-              >
-                Show menu
-              </button>
-              <p className="text-xs sm:text-sm font-semibold text-slate-600">{menuCount} items</p>
-            </div>
 
-            <div className="grid lg:grid-cols-[260px_1fr] gap-8">
-              <div className="hidden lg:block self-start">
-                <BusinessSidebar ordersCount={ordersCount} />
+            <div className="space-y-8">
+              {/* HEADER */}
+              <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-semibold text-slate-500 mb-2">
+                      Welcome back
+                    </p>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+                      {businessData?.name || "Business"}
+                    </h1>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 uppercase tracking-[0.2em]">Address</p>
+                      <p className="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[260px]">
+                        {businessData?.address || "Not set"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 uppercase tracking-[0.2em]">Contact</p>
+                      <p className="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[180px]">
+                        {businessData?.contact_info || "Not set"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {sidebarOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40 bg-black/20 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                  />
-                  <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 p-6 lg:hidden">
-                    <BusinessSidebar onClose={() => setSidebarOpen(false)} ordersCount={ordersCount} />
-                  </div>
-                </>
-              )}
-
-              <main className="space-y-8">
-                {/* HEADER */}
-                <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-semibold text-slate-500 mb-2">
-                        Welcome back
-                      </p>
-                      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
-                        {businessData?.name || "Business"}
-                      </h1>
-                    </div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-                      <div>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 uppercase tracking-[0.2em]">Address</p>
-                        <p className="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[260px]">
-                          {businessData?.address || "Not set"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 uppercase tracking-[0.2em]">Contact</p>
-                        <p className="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[180px]">
-                          {businessData?.contact_info || "Not set"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+              {/* STATS SECTION */}
+              <section className="space-y-6">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Overview</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2">
+                    Dashboard Metrics
+                  </h2>
                 </div>
 
-                {/* STATS SECTION */}
-                <section className="space-y-6">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Overview</p>
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2">
-                      Dashboard Metrics
-                    </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
+                    <p className="text-[11px] sm:text-xs font-medium text-white/80">
+                      Total Menu Items
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black mt-3">
+                      {menuCount}
+                    </p>
+                    <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">Items in your menu</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                      <p className="text-[11px] sm:text-xs font-medium text-white/80">
-                        Total Menu Items
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-black mt-3">
-                        {menuCount}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">Items in your menu</p>
-                    </div>
-
-                    <div className="rounded-[24px] bg-gradient-to-br from-blue-200 to-blue-400 text-slate-900 p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                      <p className="text-[11px] sm:text-xs font-medium text-slate-700">
-                        Active Orders
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-black mt-3">
-                        {activeOrdersCount}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] text-slate-600 mt-2 font-medium">Waiting for you</p>
-                    </div>
-
-                    <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                      <p className="text-[11px] sm:text-xs font-medium text-white/80">
-                        Completed Orders
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-black mt-3">
-                        {completedOrdersCount}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">This month</p>
-                    </div>
-
-                    <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                      <p className="text-[11px] sm:text-xs font-medium text-white/80">
-                        Today's Orders
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-black mt-3">
-                        {dailyOrdersCount}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">Received today</p>
-                    </div>
-                  </div>
-                </section>
-
-                {/* QUICK ACTIONS */}
-                <div className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm mt-12">
-                  <div className="mb-6">
-                    <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Actions</p>
-                    <h3 className="text-2xl font-bold text-slate-900 mt-2">
-                      Quick Access
-                    </h3>
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-200 to-blue-400 text-slate-900 p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
+                    <p className="text-[11px] sm:text-xs font-medium text-slate-700">
+                      Active Orders
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black mt-3">
+                      {activeOrdersCount}
+                    </p>
+                    <p className="text-[9px] sm:text-[10px] text-slate-600 mt-2 font-medium">Waiting for you</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <a
-                      href="/business/menu"
-                      className="rounded-[20px] bg-blue-600 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-blue-700 transition shadow-sm"
-                    >
-                      Manage Menu
-                    </a>
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
+                    <p className="text-[11px] sm:text-xs font-medium text-white/80">
+                      Completed Orders
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black mt-3">
+                      {completedOrdersCount}
+                    </p>
+                    <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">This month</p>
+                  </div>
 
-                    <a
-                      href="/business/orders"
-                      className="rounded-[20px] bg-blue-200 text-slate-900 font-semibold text-sm px-4 py-3 text-center hover:bg-blue-300 transition shadow-sm"
-                    >
-                      View Orders
-                    </a>
-
-                    <a
-                      href="/business/reports"
-                      className="rounded-[20px] bg-blue-600 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-blue-700 transition shadow-sm"
-                    >
-                      View Reports
-                    </a>
-
-                    <a
-                      href={businessData?.slug ? '/' + businessData.slug : '/'}
-                      className="rounded-[20px] bg-slate-700 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-slate-800 transition shadow-sm"
-                    >
-                      Preview Menu
-                    </a>
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
+                    <p className="text-[11px] sm:text-xs font-medium text-white/80">
+                      Today's Orders
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black mt-3">
+                      {dailyOrdersCount}
+                    </p>
+                    <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">Received today</p>
                   </div>
                 </div>
+              </section>
 
-              </main>
+              {/* QUICK ACTIONS */}
+              <div className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm mt-12">
+                <div className="mb-6">
+                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Actions</p>
+                  <h3 className="text-2xl font-bold text-slate-900 mt-2">
+                    Quick Access
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <a
+                    href="/business/menu"
+                    className="rounded-[20px] bg-blue-600 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-blue-700 transition shadow-sm"
+                  >
+                    Manage Menu
+                  </a>
+
+                  <a
+                    href="/business/orders"
+                    className="rounded-[20px] bg-blue-200 text-slate-900 font-semibold text-sm px-4 py-3 text-center hover:bg-blue-300 transition shadow-sm"
+                  >
+                    View Orders
+                  </a>
+
+                  <a
+                    href="/business/reports"
+                    className="rounded-[20px] bg-blue-600 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-blue-700 transition shadow-sm"
+                  >
+                    View Reports
+                  </a>
+
+                  <a
+                    href={businessData?.slug ? '/' + businessData.slug : '/'}
+                    className="rounded-[20px] bg-slate-700 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-slate-800 transition shadow-sm"
+                  >
+                    Preview Menu
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         )}

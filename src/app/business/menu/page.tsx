@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import BusinessSidebar from "@/components/business/BusinessSidebar";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
+
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
+
 import {
   fetchMenuItems as loadMenuItems,
   uploadMenuImage,
@@ -59,8 +60,8 @@ export default function BusinessMenuPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [menuOptionGroups, setMenuOptionGroups] = useState<NewOptionGroup[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const addonsSectionRef = useRef<HTMLDivElement | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
 
@@ -258,35 +259,13 @@ export default function BusinessMenuPage() {
       <BusinessOrdersNotifier businessId={businessId} onCountChange={setOrdersCount} />
       <PageShell title="Menu" subtitle="Manage menu items, inventory, and availability." backHref="/business/dashboard">
         <div className="mb-4 flex items-center justify-between lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-3xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm border border-slate-200"
-          >
-            Show menu
-          </button>
           <p className="text-sm font-semibold text-slate-600">{menuItems.length} items</p>
         </div>
 
-        <div className="grid lg:grid-cols-[260px_1fr] gap-8">
-              <div className="hidden lg:block self-start">
-                <BusinessSidebar ordersCount={ordersCount} />
-              </div>
-
-          {sidebarOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-black/20 lg:hidden"
-                onClick={() => setSidebarOpen(false)}
-              />
-              <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 p-6 lg:hidden">
-                <BusinessSidebar onClose={() => setSidebarOpen(false)} ordersCount={ordersCount} />
-              </div>
-            </>
-          )}
-
+        <div className="grid gap-8">
           <main className="space-y-8">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+
             <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
               <h2 className="text-2xl font-bold w-full">Menu Items</h2>
 
