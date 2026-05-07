@@ -532,7 +532,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
                                 </p>
                               </div>
                               <span className="inline-flex rounded-full border border-green-200 bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                                âœ“ Served
+                                ✓ Served
                               </span>
                             </div>
                             <div className="border-t border-green-100 pt-2 mt-2 space-y-1">
@@ -549,7 +549,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
                             </div>
                             <div className="mt-2 text-xs">
                               <span className={`inline-flex px-2 py-1 rounded ${order.is_paid ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                                {order.is_paid ? "âœ“ Paid" : "â° Unpaid"}
+                                {order.is_paid ? "✓ Paid" : "⏳ Unpaid"}
                               </span>
                             </div>
                           </div>
@@ -575,7 +575,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
             
             {/* Icon */}
             <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-full bg-green-100">
-              <span className="text-green-600 text-2xl">âœ“</span>
+              <span className="text-green-600 text-2xl">✓</span>
             </div>
 
             {/* Title */}
@@ -724,7 +724,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
 
             <div className="p-6 space-y-5">
               
-              {/* ðŸ’° TOTAL DISPLAY (THIS IS THE KEY PART) */}
+              {/* TOTAL DISPLAY (THIS IS THE KEY PART) */}
               <div className="bg-gray-50 border rounded-2xl p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">
                   Total Amount
@@ -852,21 +852,21 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
                 <div className="mt-4 border-t border-gray-200 pt-3 flex justify-between items-center">
                   <span className="text-sm text-gray-500">Subtotal</span>
                   <span className="text-sm font-semibold text-gray-700">
-                    ₱{completedOrder.total_amount.toFixed(2)}
+                    ₱{Number(completedOrder.total_amount).toFixed(2)}
                   </span>
                 </div>
-                {completedOrder.discount_amount > 0 && (
+                {(completedOrder.discount_amount ?? 0) > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-green-600">Senior/PWD Discount</span>
                     <span className="text-sm font-semibold text-green-600">
-                      -₱{completedOrder.discount_amount.toFixed(2)}
+                      -₱{Number(completedOrder.discount_amount ?? 0).toFixed(2)}
                     </span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
                   <span className="text-sm text-gray-500">Total</span>
                   <span className="text-lg font-bold text-blue-600">
-                    ₱{(completedOrder.total_amount - (completedOrder.discount_amount || 0)).toFixed(2)}
+                    ₱{(Number(completedOrder.total_amount) - Number(completedOrder.discount_amount || 0)).toFixed(2)}
                   </span>
                 </div>
               </div>

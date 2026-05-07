@@ -135,8 +135,10 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
                 }
                 zoom={13}
                 style={{ height: "400px", width: "100%" }}
-                whenReady={(map) => {
-                  setTimeout(() => map.target.invalidateSize(), 0);
+                whenReady={() => {
+                  setTimeout(() => {
+                    window.dispatchEvent(new Event("resize"));
+                  }, 0);
                 }}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
