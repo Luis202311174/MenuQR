@@ -317,13 +317,6 @@ export default function BusinessMenuPage() {
                 </div>
 
                 <button
-                  onClick={() => setShowInventoryModal(true)}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  📦 Inventory
-                </button>
-
-                <button
                   onClick={() => setShowAddModal(true)}
                   className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto"
                 >

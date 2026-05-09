@@ -121,29 +121,15 @@ export async function updateMenuItem(itemId: string, payload: MenuItemUpdatePayl
 }
 
 export async function resetInventoryForBusiness(businessId: string) {
-  const { data, error } = await supabase
-    .from("menu_items")
-    .select("id,daily_limit")
-    .eq("business_id", businessId)
-    .eq("is_trackable", true);
+  const { data, error } = await supabase.rpc('reset_daily_stock', {
+    business_id: businessId
+  });
 
   if (error) {
     throw error;
   }
 
-  const now = new Date().toISOString();
-
-  await Promise.all(
-    (data || []).map((item: any) =>
-      supabase
-        .from("menu_items")
-        .update({
-          current_stock: item.daily_limit ?? 0,
-          last_inventory_reset: now,
-        })
-        .eq("id", item.id)
-    )
-  );
+  return data;
 }
 
 export async function lazyResetInventoryForBusiness(businessId: string) {

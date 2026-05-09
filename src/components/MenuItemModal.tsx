@@ -5,6 +5,7 @@ import {
   fetchMenuItemWithOptions,
   CustomerOptionGroup,
 } from "@/utils/customerMenuUtils";
+import { InventoryManager } from "@/utils/inventoryManager";
 
 type MenuItem = {
   id: string;
@@ -35,12 +36,14 @@ interface MenuItemModalProps {
   viewItem: MenuItem;
   setViewItem: (item: MenuItem | null) => void;
   onAddToCart?: (item: CartItemWithOptions) => void;
+  businessId?: string;
 }
 
 export default function MenuItemModal({
   viewItem,
   setViewItem,
   onAddToCart,
+  businessId,
 }: MenuItemModalProps) {
   const [optionGroups, setOptionGroups] = useState<CustomerOptionGroup[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
@@ -456,11 +459,26 @@ export default function MenuItemModal({
                 </span>
               </div>
           <div className="space-y-2">
+            {/* Inventory Status Display */}
             {viewItem.is_trackable && (
-              <p className="text-sm text-gray-500">
-                Stock available: {availableStock}
-              </p>
+              <div
+                className={`rounded-lg px-3 py-2 text-sm font-semibold flex items-center gap-2 ${
+                  availableStock === 0
+                    ? "bg-red-50 text-red-700 border border-red-200"
+                    : availableStock && availableStock <= 5
+                    ? "bg-orange-50 text-orange-700 border border-orange-200"
+                    : "bg-green-50 text-green-700 border border-green-200"
+                }`}
+              >
+                <span className="text-lg">
+                  {availableStock === 0 ? "🚫" : availableStock && availableStock <= 5 ? "⚠️" : "✓"}
+                </span>
+                <span>
+                  {InventoryManager.getStockLabel(availableStock, true)}
+                </span>
+              </div>
             )}
+
             {showQuantityWarning && (
               <p className="text-sm text-red-600 font-semibold">
                 You entered more than available stock. Only {availableStock} item(s) can be added.
@@ -506,10 +524,18 @@ export default function MenuItemModal({
                 onClick={handleAddToCart}
                 disabled={isSoldOut}
                 className={`rounded-2xl px-4 py-2 text-sm font-bold text-white transition ${
-                  isSoldOut ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                  isSoldOut
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
-                {isSoldOut ? "Sold out" : `Add ₱${totalPrice.toFixed(2)}`}
+                {isSoldOut ? (
+                  <span className="flex items-center gap-1">
+                    <span>🚫</span> Out of Stock
+                  </span>
+                ) : (
+                  `Add ₱${totalPrice.toFixed(2)}`
+                )}
               </button>
             </div>
           </div>

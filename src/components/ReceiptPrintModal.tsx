@@ -25,7 +25,7 @@ export default function ReceiptPrintModal({
   if (!isOpen || !order) return null;
 
   const handlePrintPDF = () => {
-    // Calculate subtotal (without tax)
+    // Calculate subtotal (total of all items)
     const subtotal = order.items.reduce((sum: number, item: any) => {
       const itemAddonsTotal =
         item.selected_options?.reduce(
@@ -38,11 +38,8 @@ export default function ReceiptPrintModal({
       return sum + itemFinalPrice * itemQty;
     }, 0);
 
-    // Calculate tax (12% default VAT for Philippines)
-    const taxRate = 0.12;
-    const tax = Math.round(subtotal * taxRate * 100) / 100;
     const discount = order.discount_amount || 0;
-    const total = subtotal + tax - discount;
+    const total = subtotal - discount;
 
     const receiptData: ReceiptData = {
       businessName,
@@ -72,7 +69,6 @@ export default function ReceiptPrintModal({
         };
       }),
       subtotal,
-      tax,
       discount,
       total,
       paymentMethod: order.payment_method,
@@ -99,10 +95,8 @@ export default function ReceiptPrintModal({
     return sum + itemFinalPrice * itemQty;
   }, 0);
 
-  const taxRate = 0.12;
-  const tax = Math.round(subtotal * taxRate * 100) / 100;
   const discount = order.discount_amount || 0;
-  const total = subtotal + tax - discount;
+  const total = subtotal - discount;
 
   return (
     <>
@@ -239,10 +233,6 @@ export default function ReceiptPrintModal({
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
                   <span>P {subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax (12%):</span>
-                  <span>P {tax.toFixed(2)}</span>
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between">

@@ -2,6 +2,8 @@
 
   import { useEffect, useRef, useState } from "react";
   import { useRouter, useSearchParams, useParams } from "next/navigation";
+  import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+  import { faShoppingCart } from "@fortawesome/free-solid-svg-icons";
   import MenuGrid from "@/components/MenuGrid";
   import SlugSidebar from "@/components/SlugSidebar";
   import BusinessHeader from "@/components/business/BusinessHeader";
@@ -13,6 +15,7 @@
   import { endTableSession } from "@/utils/endTableSession";
   import { supabase } from "@/lib/supabaseClient";
   import { trackBusinessViewOnce } from "@/utils/trackBusinessView";
+  import CheckoutModal from "@/components/CheckoutModal";
 
   type Business = {
     id: string;
@@ -39,8 +42,18 @@
     gcash_enabled?: boolean;
   };
 
-  export default function BusinessPage() {
-    const { slug } = useParams();
+type SubmittedCheckoutData = {
+  discountType: "none" | "senior" | "pwd";
+  totalGuests: number;
+  seniorCount: number;
+  discountAmount: number;
+  paymentMethod: "cash" | "gcash";
+  cartTotal: number;
+  finalAmount: number;
+};
+
+export default function BusinessPage() {
+  const { slug } = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
     const tableId = searchParams.get("table");
@@ -63,10 +76,19 @@
     const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
     const [tableInvalid, setTableInvalid] = useState(false);
     const [showOrderMoreModal, setShowOrderMoreModal] = useState(false);
+    const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+    const [checkoutStatusMessage, setCheckoutStatusMessage] = useState<string | null>(null);
+    const [checkoutSubmitted, setCheckoutSubmitted] = useState(false);
+    const [submittedOrderDetails, setSubmittedOrderDetails] = useState<SubmittedCheckoutData | null>(null);
 
     const currentOrderIdRef = useRef<string | null>(null);
     const isDineIn = !!tableId && !!sessionId && !tableInvalid;
     const orderStatus = (currentOrder?.status as string) || "none";
+    const activeOrderStatuses = ["pending", "pending_payment", "received", "paid", "preparing", "ready"];
+    const orderInProgress = Boolean(currentOrder && activeOrderStatuses.includes(currentOrder.status as string));
+    const orderInProgressMessage = orderInProgress
+      ? "Your current order is still active. A new order can be placed once the restaurant has served it."
+      : null;
 
     const invalidateSession = (message?: string) => {
       setNotification({
@@ -398,11 +420,19 @@
         return;
       }
 
-      // Just open the modal - don't insert yet!
-      setShowOrderMoreModal(true);
+      setCheckoutStatusMessage(null);
+      setCheckoutSubmitted(false);
+      setSubmittedOrderDetails(null);
+      setShowCheckoutModal(true);
     };
 
-    const handleSubmitAndPay = async () => {
+    const handleCheckoutSubmit = async (orderData: {
+      discountType: "none" | "senior" | "pwd";
+      totalGuests: number;
+      seniorCount: number;
+      discountAmount: number;
+      paymentMethod: "cash" | "gcash";
+    }) => {
       if (!cartItems.length) return alert("Cart is empty");
       if (!business || !tableId || !sessionId) {
         setNotification({
@@ -418,15 +448,18 @@
         const { data: sessionData } = await supabase.auth.getSession();
         const userId = sessionData?.session?.user?.id;
 
-        // NOW insert the order
+        // Create order with discount and guest information
         const order = await createOrder({
           businessId: business.id,
           cartItems,
-          totalAmount: cartTotal,
+          totalAmount: cartTotal - orderData.discountAmount,
           tableId,
           sessionId,
           userId: userId ?? undefined,
           isPaid: false,
+          totalGuests: orderData.totalGuests,
+          seniorPwdCount: orderData.seniorCount,
+          discountAmount: orderData.discountAmount,
         });
 
         // 🔥 Immediately decrement stock in local state for ordered items
@@ -451,9 +484,19 @@
 
         setCurrentOrder(order as OrderData);
         setCurrentOrderId(order.id);
-        setCartItems([]);
+        setSubmittedOrderDetails({
+          discountType: orderData.discountType,
+          totalGuests: orderData.totalGuests,
+          seniorCount: orderData.seniorCount,
+          discountAmount: orderData.discountAmount,
+          paymentMethod: orderData.paymentMethod,
+          cartTotal,
+          finalAmount: cartTotal - orderData.discountAmount,
+        });
+        setCheckoutSubmitted(true);
+        setCheckoutStatusMessage("Waiting for payment confirmation and discounts.");
         setShowOrderMoreModal(false);
-        setNotification({ message: "Order submitted successfully!", type: "success" });
+        setNotification({ message: "Order submitted successfully! Waiting for payment confirmation and discounts.", type: "success" });
 
         // Reload session orders - with proper error handling
         if (sessionId) {
@@ -468,10 +511,20 @@
         }
 
       } catch (error: any) {
-        console.error("Submit order error:", error);
-        console.error("Error message:", error?.message);
-        console.error("Error details:", error);
-        setNotification({ message: error?.message ?? "Failed to submit order", type: "error" });
+        console.error("Checkout error - Full object:", error);
+        console.error("Checkout error - Constructor:", error?.constructor?.name);
+        console.error("Checkout error - Message:", error?.message);
+        console.error("Checkout error - String:", String(error));
+        console.error("Checkout error - Keys:", Object.keys(error || {}));
+        
+        const errorMessage = 
+          error?.message || 
+          error?.error_description || 
+          (error && typeof error === 'string' ? error : null) ||
+          "Failed to submit order. Please try again.";
+        
+        console.error("Final error message to show:", errorMessage);
+        setNotification({ message: errorMessage, type: "error" });
       } finally {
         setSubmittingOrder(false);
       }
@@ -747,6 +800,7 @@
                           viewItem={viewItem}
                           setViewItem={setViewItem}
                           isDineIn={isDineIn}
+                          businessId={business?.id}
                         />
                       </div>
                     );
@@ -782,13 +836,47 @@
           </div>
         </div>
 
+        {/* Floating Cart Button */}
+        {isDineIn && (
+          <>
+            <button
+              onClick={() => {
+                if (orderInProgress || submittingOrder) return;
+                setShowCheckoutModal(true);
+              }}
+              disabled={orderInProgress || submittingOrder}
+              title={orderInProgress ? "Order in Progress" : "Open checkout"}
+              className={`fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full text-white shadow-lg transition ${
+                orderInProgress || submittingOrder
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] hover:shadow-xl"
+              }`}
+            >
+              <div className="flex flex-col items-center">
+                <FontAwesomeIcon icon={faShoppingCart} className="text-xl" />
+                {cartItems.length > 0 && (
+                  <span className="absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                    {cartItems.length}
+                  </span>
+                )}
+              </div>
+            </button>
+            {orderInProgress && (
+              <div className="fixed bottom-24 right-5 z-40 w-[220px] rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 shadow-lg">
+                <p className="font-semibold">Order in Progress</p>
+                <p className="mt-1 text-xs text-yellow-800">A current order is still active. New orders can be placed once your existing order is served.</p>
+              </div>
+            )}
+          </>
+        )}
+
         <OrdersButton
           cartItems={cartItems}
           cartTotal={cartTotal}
           orderStatus={orderStatus}
           isDineIn={isDineIn}
           submittingOrder={submittingOrder}
-          onSubmitOrder={handleSubmitOrder}
+          onSubmitOrder={() => setShowCheckoutModal(true)}
           onRemoveItem={handleRemoveFromCart}
           badgeCount={cartItems.length}
           currentOrder={currentOrder}
@@ -802,13 +890,12 @@
           businessId={business!.id}
           tableId={tableId!}
           onPayBill={handlePayBill}
-          showOrderMoreModal={showOrderMoreModal}
-          onSubmitAndPay={handleSubmitAndPay}
+          showOrderMoreModal={false}
           orderCompleteModal={orderCompleteModal}
           onPaymentComplete={finalizePayment}
           completedOrder={completedOrder}
           onCloseOrderCompleteModal={closeOrderCompleteModal}
-          onCloseOrderMoreModal={() => setShowOrderMoreModal(false)}
+          onCloseOrderMoreModal={() => {}}
         />
 
         {categoryKeys.length > 0 && (
@@ -843,6 +930,26 @@
             </div>
           </div>
         )}
+
+        <CheckoutModal
+          isOpen={showCheckoutModal}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          businessName={business?.name}
+          business={business}
+          onClose={() => {
+            setShowCheckoutModal(false);
+            setCheckoutStatusMessage(null);
+            setCheckoutSubmitted(false);
+          }}
+          onSubmitOrder={handleCheckoutSubmit}
+          onRemoveCartItem={handleRemoveFromCart}
+          isSubmitting={submittingOrder}
+          statusMessage={checkoutStatusMessage}
+          submissionComplete={checkoutSubmitted}
+          orderInProgress={orderInProgress}
+          orderInProgressMessage={orderInProgressMessage}
+        />
 
         {notification && (
           <div className="fixed top-6 right-6 z-[2000] animate-slide-in">

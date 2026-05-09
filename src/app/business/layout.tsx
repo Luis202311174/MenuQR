@@ -13,18 +13,17 @@ export default function BusinessLayout({
   const pathname = usePathname();
   const [ordersCount, setOrdersCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [businessId, setBusinessId] = useState<string | null>(null);
 
-  // Check if current path is under /business/*
-  const isBusinessPage = pathname.startsWith("/business");
+  // Check if current path is under /business/* but NOT the homepage /business
+  const isBusinessDashboard = pathname.startsWith("/business/") && pathname !== "/business";
 
-  if (!isBusinessPage) {
+  if (!isBusinessDashboard) {
     return <>{children}</>;
   }
 
   return (
     <>
-      <BusinessOrdersNotifier businessId={businessId} onCountChange={setOrdersCount} />
+      <BusinessOrdersNotifier onCountChange={setOrdersCount} />
       
       <div className="min-h-screen bg-gray-50">
         <div className="grid lg:grid-cols-[260px_1fr] h-screen">

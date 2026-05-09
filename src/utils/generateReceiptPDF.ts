@@ -18,7 +18,6 @@ export type ReceiptData = {
     }[];
   }[];
   subtotal: number;
-  tax: number;
   discount: number;
   total: number;
   paymentMethod?: string;
@@ -184,13 +183,6 @@ export function generateReceiptPDF(data: ReceiptData): void {
   doc.text("Subtotal:", leftMargin, yPosition);
   addRightAlignedText(formatPeso(data.subtotal), pageWidth - rightMargin, yPosition);
   yPosition += 4;
-
-  // Tax
-  if (data.tax > 0) {
-    doc.text("Tax:", leftMargin, yPosition);
-    addRightAlignedText(formatPeso(data.tax), pageWidth - rightMargin, yPosition);
-    yPosition += 4;
-  }
 
   // Discount
   if (data.discount > 0) {

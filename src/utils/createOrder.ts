@@ -1,5 +1,17 @@
 import { supabase } from "@/lib/supabaseClient";
 
+// Helper to extract readable error message from Supabase error
+function getErrorMessage(err: any): string {
+  if (!err) return "Unknown error occurred";
+  if (typeof err === 'string') return err;
+  if (err.message) return err.message;
+  if (err.error_description) return err.error_description;
+  if (err.msg) return err.msg;
+  if (err.details) return err.details;
+  if (err.hint) return err.hint;
+  return JSON.stringify(err);
+}
+
 export type CreateOrderParams = {
   businessId: string;
   cartItems: any[];
@@ -51,13 +63,17 @@ export async function createOrder({
       throw new Error("Some items are no longer available");
     }
 
-    const stockShortages = items.filter(
-      (item) => item.is_trackable && Number(item.current_stock ?? 0) < qtyByMenuItemId[item.id]
-    );
+    const stockShortages = items.filter((item) => {
+      if (!item.is_trackable) return false;
+      const availableStock = Number(item.current_stock ?? 0);
+      return availableStock < qtyByMenuItemId[item.id];
+    });
+
     if (stockShortages.length > 0) {
-      const shortageDetails = stockShortages.map(item =>
-        `${item.name || 'Item'}: ${Number(item.current_stock ?? 0)} left`
-      ).join(', ');
+      const shortageDetails = stockShortages.map(item => {
+        const availableStock = Number(item.current_stock ?? 0);
+        return `${item.name || 'Item'}: ${availableStock} left`;
+      }).join(', ');
       throw new Error(`Insufficient stock: ${shortageDetails}. Please adjust your order.`);
     }
   };
@@ -79,7 +95,11 @@ export async function createOrder({
           quantity: qty
         });
 
-      if (stockError) throw stockError;
+      if (stockError) {
+        const errorMsg = getErrorMessage(stockError);
+        console.error("RPC error details:", stockError);
+        throw new Error(`Stock decrement failed: ${errorMsg}`);
+      }
 
       if (!stockResult) {
         // Stock decrement failed - fetch current stock for error message
@@ -89,8 +109,8 @@ export async function createOrder({
           .eq("id", item.id)
           .single();
 
-        const actualCurrentStock = Number(currentItem?.current_stock ?? 0);
-        throw new Error(`Sorry, only ${actualCurrentStock} ${currentItem?.name || 'item'}(s) left in stock. Please adjust your order.`);
+        const availableStock = Number(currentItem?.current_stock ?? 0);
+        throw new Error(`Sorry, only ${availableStock} ${currentItem?.name || 'item'}(s) left in stock. Please adjust your order.`);
       }
 
       updateResults.push({ id: item.id, oldStock: Number(item.current_stock ?? 0) });
@@ -111,22 +131,36 @@ export async function createOrder({
     };
 
     const { data, error } = await supabase.from("orders").insert(orderData).select("*").single();
-    if (error) throw error;
-
-    return data;
-  } catch (err) {
-    // Rollback stock to original values for failed orders
-    if (updateResults.length) {
-      await Promise.all(
-        updateResults.map((update) =>
-          supabase
-            .from("menu_items")
-            .update({ current_stock: update.oldStock })
-            .eq("id", update.id)
-        )
-      );
+    if (error) {
+      const errorMsg = getErrorMessage(error);
+      console.error("Order insert error:", error);
+      throw new Error(`Failed to create order: ${errorMsg}`);
     }
 
-    throw err;
+    return data;
+  } catch (err: any) {
+    // Rollback stock to original values for failed orders
+    if (updateResults.length) {
+      try {
+        await Promise.all(
+          updateResults.map((update) =>
+            supabase
+              .from("menu_items")
+              .update({
+                current_stock: update.oldStock,
+              })
+              .eq("id", update.id)
+          )
+        );
+      } catch (rollbackErr) {
+        console.error("Rollback failed:", rollbackErr);
+      }
+    }
+
+    // Properly format error for client
+    const errorMessage = getErrorMessage(err);
+    console.error("createOrder error details:", { original: err, formatted: errorMessage });
+    const formattedError = new Error(errorMessage);
+    throw formattedError;
   }
 }

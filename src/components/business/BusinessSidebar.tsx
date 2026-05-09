@@ -9,6 +9,7 @@ import {
   faChartSimple,
   faComments,
   faGear,
+  faBox,
 } from "@fortawesome/free-solid-svg-icons";
 
 type BusinessSidebarProps = {
@@ -24,6 +25,7 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
   const navItems = [
     { label: "Dashboard", path: "/business/dashboard", icon: faGaugeHigh },
     { label: "Menu", path: "/business/menu", icon: faBagShopping },
+    { label: "Inventory", path: "/business/inventory", icon: faBox },
     { label: ordersLabel, path: "/business/orders", icon: faShoppingCart },
     { label: "Reports", path: "/business/reports", icon: faChartSimple },
     { label: "Table QR", path: "/business/tableqr", icon: faComments },

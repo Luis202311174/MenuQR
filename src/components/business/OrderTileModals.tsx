@@ -46,6 +46,11 @@ type Props = {
   setCancelOrderModal: React.Dispatch<React.SetStateAction<CancelOrderModal>>;
   markPaidModal: MarkPaidModal;
   setMarkPaidModal: React.Dispatch<React.SetStateAction<MarkPaidModal>>;
+  discountVerificationModal: {
+    orderId: string;
+    orderNumber: string;
+  } | null;
+  setDiscountVerificationModal: React.Dispatch<React.SetStateAction<{ orderId: string; orderNumber: string } | null>>;
 
   processingOrderId: string | null;
   businessId: string | null;
@@ -76,6 +81,8 @@ export default function OrderTileModals({
   setCancelOrderModal,
   markPaidModal,
   setMarkPaidModal,
+  discountVerificationModal,
+  setDiscountVerificationModal,
   processingOrderId,
   businessId,
   paymentSettings,
@@ -155,6 +162,70 @@ export default function OrderTileModals({
     }
   };
 
+  const handleApproveDiscount = async () => {
+    if (!businessId || !discountVerificationModal) return;
+
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ discount_approved: true })
+        .eq("id", discountVerificationModal.orderId)
+        .eq("business_id", businessId);
+
+      if (error) throw error;
+
+      const order = orders.find((o) => o.id === discountVerificationModal.orderId);
+      const tableNumber = order?.table?.table_number || "Unknown";
+
+      setNotification({
+        message: `Discount approved for Table ${tableNumber}`,
+        type: "success",
+      });
+
+      setDiscountVerificationModal(null);
+      await fetchOrders();
+    } catch (error: any) {
+      console.error("Error approving discount:", error);
+      setNotification({ message: `Failed to approve discount: ${error.message}`, type: "error" });
+    }
+  };
+
+  const handleRejectDiscount = async () => {
+    if (!businessId || !discountVerificationModal) return;
+
+    const order = orders.find((o) => o.id === discountVerificationModal.orderId);
+    if (!order) return;
+
+    try {
+      const discountAmount = Number(order.discount_amount || 0);
+      const originalTotal = Number(order.total_amount || 0) + discountAmount;
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          discount_amount: 0,
+          discount_approved: false,
+          total_amount: originalTotal,
+        })
+        .eq("id", discountVerificationModal.orderId)
+        .eq("business_id", businessId);
+
+      if (error) throw error;
+
+      const tableNumber = order.table?.table_number || "Unknown";
+      setNotification({
+        message: `Senior/PWD discount rejected for Table ${tableNumber}`,
+        type: "success",
+      });
+
+      setDiscountVerificationModal(null);
+      await fetchOrders();
+    } catch (error: any) {
+      console.error("Error rejecting discount:", error);
+      setNotification({ message: `Failed to reject discount: ${error.message}`, type: "error" });
+    }
+  };
+
   const cancelOrder = async (orderId: string) => {
     if (!businessId) return;
 
@@ -222,6 +293,48 @@ export default function OrderTileModals({
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Discount Verification Modal */}
+      {discountVerificationModal && (
+        <div className="fixed inset-0 z-[2000] bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">
+              Verify Senior/PWD Discount
+            </h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Order #{discountVerificationModal.orderNumber}
+            </p>
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                <p className="font-semibold">This order requested a Senior/PWD discount.</p>
+                <p className="text-sm mt-2 text-slate-600">
+                  Confirm whether the submitted discount is valid before proceeding.
+                </p>
+              </div>
+              <button
+                onClick={handleApproveDiscount}
+                disabled={processingOrderId === discountVerificationModal.orderId}
+                className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition disabled:opacity-50"
+              >
+                Approve Discount
+              </button>
+              <button
+                onClick={handleRejectDiscount}
+                disabled={processingOrderId === discountVerificationModal.orderId}
+                className="w-full py-4 rounded-2xl bg-[#F59E0B] hover:bg-[#D97706] text-white font-semibold transition disabled:opacity-50"
+              >
+                Reject Discount
+              </button>
+              <button
+                onClick={() => setDiscountVerificationModal(null)}
+                className="w-full py-3 rounded-2xl border border-slate-200 bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

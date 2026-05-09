@@ -38,7 +38,7 @@ interface Props {
   setCancelOrderModal: (v: any) => void;
   completeOrder: (order: Order) => void;
   setMarkPaidModal: (v: any) => void;
-  approveDiscount: (id: string) => void;
+  verifyDiscount: (id: string, orderNumber: string) => void;
   businessName?: string;
   businessAddress?: string;
 }
@@ -54,7 +54,7 @@ const BusinessOrderTile: React.FC<Props> = ({
   setCancelOrderModal,
   completeOrder,
   setMarkPaidModal,
-  approveDiscount, // ✅ ADD THIS
+  verifyDiscount,
   businessName = "Restaurant",
   businessAddress,
 }) => {
@@ -122,9 +122,9 @@ const BusinessOrderTile: React.FC<Props> = ({
           ]
         : []),
       hasDiscountPendingApproval && {
-        label: "Approve Discount",
+        label: "Verify Discount",
         className: "bg-amber-600",
-        action: () => approveDiscount(order.id),
+        action: () => verifyDiscount(order.id, order.id.slice(0, 8)),
       },
       {
         label: "Cancel",
@@ -152,9 +152,9 @@ const BusinessOrderTile: React.FC<Props> = ({
           ]
         : []),
       hasDiscountPendingApproval && {
-        label: "Approve Discount",
+        label: "Verify Discount",
         className: "bg-amber-600",
-        action: () => approveDiscount(order.id),
+        action: () => verifyDiscount(order.id, order.id.slice(0, 8)),
       },
       {
         label: "Prepare",
@@ -262,7 +262,7 @@ const BusinessOrderTile: React.FC<Props> = ({
             <div className="flex gap-2 flex-wrap">
               {/* ORDER STATUS */}
               <span
-                className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${getStatusColor(
+                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold leading-none ${getStatusColor(
                   status as any,
                   order.is_paid // Use actual payment status for coloring
                 )}`}
@@ -272,7 +272,7 @@ const BusinessOrderTile: React.FC<Props> = ({
 
               {/* PAYMENT STATUS */}
               <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
                   order.is_paid
                     ? "bg-green-100 text-green-700 border border-green-200"
                     : "bg-yellow-100 text-yellow-700 border border-yellow-200"
@@ -284,7 +284,7 @@ const BusinessOrderTile: React.FC<Props> = ({
               {/* PAYMENT METHOD */}
               {order.payment_method && (
                 <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
                     order.payment_method === "gcash"
                       ? "bg-blue-100 text-blue-700 border border-blue-200"
                       : "bg-emerald-100 text-emerald-700 border border-emerald-200"
@@ -298,7 +298,7 @@ const BusinessOrderTile: React.FC<Props> = ({
               {(order.discount_amount || 0) > 0 && (
                 <div className="space-y-2">
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold border ${
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none border ${
                       order.discount_approved
                         ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                         : "bg-amber-100 text-amber-700 border-amber-200"

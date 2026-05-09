@@ -60,6 +60,10 @@ export default function BusinessOrdersPage() {
     orderId: string;
     orderNumber: string;
   } | null>(null);
+  const [discountVerificationModal, setDiscountVerificationModal] = useState<{
+    orderId: string;
+    orderNumber: string;
+  } | null>(null);
   const [paymentSettings, setPaymentSettings] = useState({
     cash: true,
     gcash: false,
@@ -74,45 +78,9 @@ export default function BusinessOrdersPage() {
   const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
 
 
-  const approveDiscount = async (orderId: string) => {
-    if (!businessId) return;
-
-    setProcessingOrderId(orderId);
-
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .update({
-          discount_approved: true,
-        })
-        .eq("id", orderId)
-        .eq("business_id", businessId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const order = orders.find(o => o.id === orderId);
-      const tableNumber = order?.table?.table_number || "Unknown";
-
-      setNotification({
-        message: `Discount approved for Table ${tableNumber}`,
-        type: "success",
-      });
-
-      await fetchOrders();
-    } catch (error: any) {
-      console.error("Error approving discount:", error);
-      setNotification({
-        message: `Failed to approve discount: ${error.message}`,
-        type: "error",
-      });
-    } finally {
-      setProcessingOrderId(null);
-    }
+  const openDiscountVerification = (orderId: string, orderNumber: string) => {
+    setDiscountVerificationModal({ orderId, orderNumber });
   };
-
-
 
   useEffect(() => {
     if (!businessId) return;
@@ -537,7 +505,7 @@ export default function BusinessOrdersPage() {
                         setMarkPaidModal={setMarkPaidModal}
                         businessName={businessName}
                         businessAddress={businessAddress}
-                        approveDiscount={approveDiscount}
+                        verifyDiscount={openDiscountVerification}
                       />
                     ))}
                   </div>
@@ -583,6 +551,8 @@ export default function BusinessOrdersPage() {
         setCancelOrderModal={setCancelOrderModal}
         markPaidModal={markPaidModal}
         setMarkPaidModal={setMarkPaidModal}
+        discountVerificationModal={discountVerificationModal}
+        setDiscountVerificationModal={setDiscountVerificationModal}
         processingOrderId={processingOrderId}
         businessId={businessId}
         paymentSettings={paymentSettings}

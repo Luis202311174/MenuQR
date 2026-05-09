@@ -3,7 +3,7 @@
 import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import DynamicGreeting from "../components/DynamicGreeting";
@@ -13,6 +13,7 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
 
   const handleSelectRole = (role: string) => {
     sessionStorage.setItem("selectedRole", role);
@@ -64,6 +65,29 @@ export default function Home() {
     return () => listener.subscription.unsubscribe();
   }, [router]);
 
+  // Scroll Animation Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const elements = document.querySelectorAll("[data-scroll-animate]");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      elements.forEach((el) => observer.unobserve(el));
+    };
+  }, []);
+
+  const isVisible = (id: string) => visibleElements.has(id);
+
   // removed unused mainContent variable; JSX is handled directly in return below
 
 
@@ -77,85 +101,164 @@ export default function Home() {
         />
       </Head>
 
-      <div className="flex flex-col min-h-screen bg-[#F4F3ED] text-[#333]">
+      <div
+        className="flex flex-col min-h-screen bg-cover bg-center bg-fixed"
+        style={{ backgroundImage: "url('/hpbg.png')" }}
+      >
+        {/* Subtle overlay to darken background slightly */}
+        <div className="fixed inset-0 bg-black/20 pointer-events-none" />
 
-        <main className="flex-1">
+        <style jsx>{`
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+
+          @keyframes slideInLeft {
+            from {
+              opacity: 0;
+              transform: translateX(-30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+
+          [data-scroll-animate="fadeInUp"].visible {
+            animation: fadeInUp 0.7s ease-out forwards;
+          }
+
+          [data-scroll-animate="fadeIn"].visible {
+            animation: fadeIn 0.7s ease-out forwards;
+          }
+
+          [data-scroll-animate="slideInLeft"].visible {
+            animation: slideInLeft 0.7s ease-out forwards;
+          }
+        `}</style>
+
+        <main className="flex-1 relative z-10 overflow-y-auto">
           {session ? (
             /* logged in preview */
             <>
               {/* HERO SECTION */}
-              <section className="px-4 py-16">
-                <div className="max-w-[1400px] mx-auto">
-                  <div className="rounded-[32px] border border-slate-200 bg-white p-12 shadow-sm">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
-                      {/* LEFT CONTENT */}
-                      <div>
-                        <div className="mb-8">
-                          <p className="text-sm uppercase tracking-[0.4em] font-bold text-[#E23838] mb-3">Welcome Back</p>
-                          <h1 className="text-5xl font-bold text-slate-900 leading-tight mb-4">
-                            Hello, {userName || "Guest"}!
-                          </h1>
-                          <p className="text-sm uppercase tracking-[0.2em] font-semibold text-slate-500">
-                            Your Personal Dashboard
-                          </p>
-                        </div>
-
-                        <p className="text-lg text-slate-600 leading-relaxed mb-8">
+              <section className="min-h-screen flex items-center justify-center px-4 py-20">
+                <div className="max-w-3xl w-full space-y-8">
+                  {/* Card 1: Text Content */}
+                  <div
+                    className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-12 lg:p-16 shadow-2xl transition-all duration-700"
+                    data-scroll-id="hero"
+                    data-scroll-animate="fadeInUp"
+                  >
+                    <div className="flex flex-col items-center text-center lg:text-left">
+                      <div
+                        className="w-full transition-all duration-700"
+                        data-scroll-id="hero-text"
+                        data-scroll-animate="slideInLeft"
+                      >
+                        <p className="text-sm uppercase tracking-[0.3em] font-semibold text-white/80 mb-4">Welcome Back</p>
+                        <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
+                          Hello, {userName || "Guest"}!
+                        </h1>
+                        <p className="text-lg text-white/90 leading-relaxed mb-8">
                           MenuQR is an intelligent engagement tool providing a seamless, contactless dining experience. Our platform brings your favorite menus straight to your phone, making it easier than ever to explore, save, and enjoy local eateries.
                         </p>
-                        
-                        <a href="/user-home" className="inline-block rounded-full bg-[#E23838] text-[#F2FF00] font-bold px-10 py-4 text-lg transition hover:bg-[#c22f2f] shadow-sm hover:shadow-md">
+                        <a
+                          href="/user-home"
+                          className="inline-block px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
+                        >
                           Browse Menus →
                         </a>
                       </div>
-
-                      {/* RIGHT VISUAL */}
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="mb-8">
-                          <Image src="/hero-icon.png" alt="MenuQR Logo" width={280} height={280} />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-slate-900 leading-tight">
-                            Your Favorite Menus,<br />
-                            <span className="text-[#E23838]">Always in Your Pocket.</span>
-                          </p>
-                        </div>
-                      </div>
                     </div>
                   </div>
+
+
                 </div>
               </section>
 
               {/* FEATURES SECTION */}
-              <section className="px-4 py-12">
-                <div className="max-w-[1400px] mx-auto">
-                  <div className="mb-8">
-                    <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Features</p>
-                    <h2 className="text-2xl font-bold text-slate-900 mt-2">Why MenuQR is Great</h2>
+              <section className="py-20 px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div
+                    className="text-center mb-16 transition-all duration-700"
+                    data-scroll-id="features-header"
+                    data-scroll-animate="fadeInUp"
+                  >
+                    <h2 className="text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why MenuQR is Great</h2>
+                    <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                      Experience the platform that revolutionizes how you discover and enjoy local dining
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="rounded-[24px] bg-gradient-to-br from-[#E23838] to-[#c22f2f] text-white p-8 shadow-sm hover:shadow-md transition">
-                      <h3 className="text-xl font-bold mb-3">Easy Access</h3>
-                      <p className="text-white/90 mb-6 leading-relaxed">Find and access menus instantly via QR codes. No downloads needed.</p>
-                      <a href="/user-home" className="inline-block rounded-2xl bg-[#F2FF00] text-[#E23838] font-bold px-5 py-2 text-sm hover:bg-opacity-90 transition">
-                        Explore Now
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Easy Access Card */}
+                    <div
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      data-scroll-id="feature-1"
+                      data-scroll-animate="fadeInUp"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">Easy Access</h3>
+                      <p className="text-white/80 mb-6 leading-relaxed">
+                        Find and access menus instantly via QR codes. No downloads needed, just scan and explore.
+                      </p>
+                      <a
+                        href="/user-home"
+                        className="inline-block px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-lg transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:translate-x-1"
+                      >
+                        Explore Now →
                       </a>
                     </div>
 
-                    <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-8 shadow-sm hover:shadow-md transition">
-                      <h3 className="text-xl font-bold mb-3">Save Favorites</h3>
-                      <p className="text-white/90 mb-6 leading-relaxed">Heart your favorite restaurants and access them anytime.</p>
-                      <a href="/user-home" className="inline-block rounded-2xl bg-white text-blue-600 font-bold px-5 py-2 text-sm hover:bg-opacity-90 transition">
-                        Go to Saved
+                    {/* Save Favorites Card */}
+                    <div
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      data-scroll-id="feature-2"
+                      data-scroll-animate="fadeInUp"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">Save Favorites</h3>
+                      <p className="text-white/80 mb-6 leading-relaxed">
+                        Heart your favorite restaurants and access them anytime. Never lose a great spot again.
+                      </p>
+                      <a
+                        href="/user-home"
+                        className="inline-block px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-lg transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:translate-x-1"
+                      >
+                        Go to Saved →
                       </a>
                     </div>
 
-                    <div className="rounded-[24px] bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-8 shadow-sm hover:shadow-md transition">
-                      <h3 className="text-xl font-bold mb-3">Live Updates</h3>
-                      <p className="text-white/90 mb-6 leading-relaxed">See the latest menus with real-time price updates.</p>
-                      <a href="/user-home" className="inline-block rounded-2xl bg-white text-emerald-600 font-bold px-5 py-2 text-sm hover:bg-opacity-90 transition">
-                        Browse All
+                    {/* Live Updates Card */}
+                    <div
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      data-scroll-id="feature-3"
+                      data-scroll-animate="fadeInUp"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">Live Updates</h3>
+                      <p className="text-white/80 mb-6 leading-relaxed">
+                        See the latest menus with real-time price updates. Always stay informed.
+                      </p>
+                      <a
+                        href="/user-home"
+                        className="inline-block px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-lg transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:translate-x-1"
+                      >
+                        Browse All →
                       </a>
                     </div>
                   </div>
@@ -163,15 +266,22 @@ export default function Home() {
               </section>
 
               {/* CTA SECTION */}
-              <section className="px-4 py-12">
-                <div className="max-w-[1400px] mx-auto">
-                  <div className="rounded-[32px] border border-slate-200 bg-white p-12 shadow-sm text-center">
-                    <h2 className="text-3xl font-bold text-slate-900 mb-3">Ready to Explore?</h2>
-                    <p className="text-slate-600 mb-8 max-w-2xl mx-auto">
-                      Start browsing menus, saving your favorite restaurants, and discovering new dining experiences.
+              <section className="py-20 px-4 pb-32">
+                <div className="max-w-3xl mx-auto">
+                  <div
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-3xl p-16 text-center hover:bg-black/50 hover:border-white/40 transition duration-300 transform hover:-translate-y-2 transition-all duration-700"
+                    data-scroll-id="cta"
+                    data-scroll-animate="fadeInUp"
+                  >
+                    <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 drop-shadow-lg">Ready to Explore?</h2>
+                    <p className="text-lg text-white/80 mb-10 leading-relaxed">
+                      Start browsing menus, saving your favorite restaurants, and discovering new dining experiences today.
                     </p>
-                    <a href="/user-home" className="inline-block rounded-3xl bg-[#E23838] text-[#F2FF00] font-bold px-8 py-4 text-lg hover:bg-[#c22f2f] transition">
-                      Go to Dashboard
+                    <a
+                      href="/user-home"
+                      className="inline-block px-10 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-bold text-lg rounded-full transition duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105"
+                    >
+                      Go to Dashboard →
                     </a>
                   </div>
                 </div>
@@ -181,124 +291,157 @@ export default function Home() {
             /* unlogged landing page */
             <>
               {/* HERO SECTION */}
-              <section className="px-4 py-16">
-                <div className="max-w-[1400px] mx-auto">
-                  <div className="rounded-[32px] border border-slate-200 bg-white p-12 shadow-sm">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
-                      {/* LEFT VISUAL */}
-                      <div className="order-2 lg:order-1 flex flex-col items-center justify-center">
-                        <div className="mb-8">
-                          <Image src="/hero-icon.png" alt="MenuQR Icon" width={300} height={240} priority />
-                        </div>
-                      </div>
-
-                      {/* RIGHT CONTENT */}
-                      <div className="order-1 lg:order-2">
-                        <h2 className="text-5xl font-bold text-slate-900 leading-tight mb-4">
+              <section className="min-h-screen flex items-center justify-center px-4 py-20">
+                <div className="max-w-5xl w-full">
+                  {/* Glass Card */}
+                  <div
+                    className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-12 lg:p-16 shadow-2xl transition-all duration-700"
+                    data-scroll-id="hero-guest"
+                    data-scroll-animate="fadeInUp"
+                  >
+                    <div className="flex flex-col items-center text-center lg:text-left">
+                      {/* HERO TEXT CONTENT */}
+                      <div
+                        className="max-w-2xl mb-12 transition-all duration-700"
+                        data-scroll-id="hero-guest-text"
+                        data-scroll-animate="slideInLeft"
+                      >
+                        <p className="text-sm uppercase tracking-[0.3em] font-semibold text-white/80 mb-4">Welcome</p>
+                        <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
                           Your Favorite Menus,<br />
-                          <span className="text-[#E23838]">Always in Your Pocket.</span>
-                        </h2>
-                        <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                          The simplest way for customers to browse, save, and stay connected to the food they love.
+                          <span className="text-white/80">Always in Your Pocket.</span>
+                        </h1>
+                        <p className="text-lg text-white/90 leading-relaxed mb-8">
+                          The simplest way for customers to browse, save, and stay connected to the food they love. Discover local eateries with just a scan.
                         </p>
                         <button
                           onClick={() => setShowModal(true)}
-                          className="inline-block rounded-full bg-[#E23838] text-[#F2FF00] font-bold px-10 py-4 text-lg transition hover:bg-[#c22f2f] shadow-sm hover:shadow-md cursor-pointer"
+                          className="inline-block px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm cursor-pointer"
                         >
                           Get Started →
                         </button>
+                      </div>
+
+                      {/* LOGO BELOW */}
+                      <div
+                        className="w-32 h-32 lg:w-40 lg:h-40 relative opacity-90 hover:opacity-100 transition-all duration-500 transform hover:scale-105 transition-all duration-700"
+                        data-scroll-id="hero-guest-logo"
+                        data-scroll-animate="fadeIn"
+                      >
+                        <Image src="/logowhite.png" alt="MenuQR Logo" fill className="object-contain drop-shadow-lg" />
+                      </div>
+
+                      {/* TAGLINE BELOW LOGO */}
+                      <div
+                        className="mt-12 text-center max-w-xl transition-all duration-700"
+                        data-scroll-id="hero-guest-tagline"
+                        data-scroll-animate="fadeInUp"
+                      >
+                        <p className="text-2xl lg:text-3xl font-bold text-white leading-tight">
+                          Seamless Dining<br />
+                          <span className="text-white/80">Contactless Experience</span>
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* FEATURE CARDS FOR VISITORS */}
-              <section className="px-4 py-16">
-                <div className="max-w-[1400px] mx-auto">
-                  <div className="mb-12">
-                    <p className="text-sm uppercase tracking-[0.4em] font-bold text-[#E23838] mb-3 text-center">Choose Your Role</p>
-                    <h2 className="text-4xl font-bold text-slate-900 text-center mb-2">Two Paths, One Platform</h2>
-                    <p className="text-lg text-slate-600 text-center max-w-2xl mx-auto">
-                      Whether you're a restaurant owner or a food enthusiast, MenuQR has the perfect features for you.
+              {/* FEATURES SECTION */}
+              <section className="py-20 px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div
+                    className="text-center mb-16 transition-all duration-700"
+                    data-scroll-id="features-header-guest"
+                    data-scroll-animate="fadeInUp"
+                  >
+                    <h2 className="text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why MenuQR is Great</h2>
+                    <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                      Experience the platform that revolutionizes how you discover and enjoy local dining
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Card 1 - Owners */}
-                    <article className="flex-1 bg-gradient-to-br from-[#E23838] to-[#c22f2f] text-white p-10 rounded-[28px] shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <div className="mb-6">
-                        <div className="text-5xl mb-4">🏪</div>
-                        <h3 className="text-2xl font-bold mb-2">For Restaurants</h3>
-                        <p className="text-sm text-white/70 uppercase tracking-[0.2em] font-semibold">The Control Center</p>
-                      </div>
-                      <p className="text-white/90 text-base leading-relaxed mb-8 flex-1">
-                        Manage your menu in real-time. Change prices, add new dishes, mark items as sold out—instantly. Never reprint your QR codes again.
-                      </p>
-                      <a
-                        href="/signup-auth?role=owner"
-                        className="inline-block w-full bg-[#F2FF00] text-[#E23838] font-bold px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all text-center"
-                      >
-                        Register Your Restaurant
-                      </a>
-                    </article>
-
-                    {/* Card 2 - Food lovers */}
-                    <article className="flex-1 bg-gradient-to-br from-blue-500 to-blue-700 text-white p-10 rounded-[28px] shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <div className="mb-6">
-                        <div className="text-5xl mb-4">👤</div>
-                        <h3 className="text-2xl font-bold mb-2">For Food Lovers</h3>
-                        <p className="text-sm text-white/70 uppercase tracking-[0.2em] font-semibold">Your Personal Assistant</p>
-                      </div>
-                      <p className="text-white/90 text-base leading-relaxed mb-8 flex-1">
-                        Heart your favorite spots and get notifications. See updated prices, new specials, and curated recommendations just for you.
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Easy Access Card */}
+                    <div
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      data-scroll-id="feature-guest-1"
+                      data-scroll-animate="fadeInUp"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">Easy Access</h3>
+                      <p className="text-white/80 mb-6 leading-relaxed">
+                        Find and access menus instantly via QR codes. No downloads needed, just scan and explore.
                       </p>
                       <a
                         href="/signup-auth?role=user"
-                        className="inline-block w-full bg-white text-blue-600 font-bold px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all text-center"
+                        className="inline-block px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-lg transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:translate-x-1"
                       >
-                        Sign Up as User
+                        Explore Now →
                       </a>
-                    </article>
+                    </div>
 
-                    {/* Card 3 - Dynamic QR */}
-                    <article className="flex-1 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-10 rounded-[28px] shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <div className="mb-6">
-                        <div className="text-5xl mb-4">✨</div>
-                        <h3 className="text-2xl font-bold mb-2">Smart QR Codes</h3>
-                        <p className="text-sm text-white/70 uppercase tracking-[0.2em] font-semibold">Print Once, Update Forever</p>
-                      </div>
-                      <p className="text-white/90 text-base leading-relaxed mb-8 flex-1">
-                        Dynamic QR codes that never expire. Update your menu daily without reprinting a single thing. Truly infinite flexibility.
+                    {/* Save Favorites Card */}
+                    <div
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      data-scroll-id="feature-guest-2"
+                      data-scroll-animate="fadeInUp"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">Save Favorites</h3>
+                      <p className="text-white/80 mb-6 leading-relaxed">
+                        Heart your favorite restaurants and access them anytime. Never lose a great spot again.
                       </p>
-                      <button
-                        onClick={() => setShowModal(true)}
-                        className="inline-block w-full bg-white text-emerald-600 font-bold px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all text-center cursor-pointer"
+                      <a
+                        href="/signup-auth?role=user"
+                        className="inline-block px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-lg transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:translate-x-1"
                       >
-                        Learn More
-                      </button>
-                    </article>
+                        Go to Saved →
+                      </a>
+                    </div>
+
+                    {/* Live Updates Card */}
+                    <div
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      data-scroll-id="feature-guest-3"
+                      data-scroll-animate="fadeInUp"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">Live Updates</h3>
+                      <p className="text-white/80 mb-6 leading-relaxed">
+                        See the latest menus with real-time price updates. Always stay informed.
+                      </p>
+                      <a
+                        href="/signup-auth?role=user"
+                        className="inline-block px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-lg transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:translate-x-1"
+                      >
+                        Browse All →
+                      </a>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              {/* PUBLIC EXTRA INFO */}
-              <section className="text-center px-4 py-16 bg-[#F4F3ED]">
-                <div className="max-w-[1400px] mx-auto">
-                  <p className="max-w-[620px] mx-auto mb-8 text-xl text-slate-700 leading-relaxed">
-                    MenuQR is more than just a digital menu—it's an intelligent engagement tool providing seamless, contactless dining experiences.
-                  </p>
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="inline-block rounded-full bg-[#E23838] text-[#F2FF00] font-bold px-10 py-4 text-lg hover:bg-[#c22f2f] transition shadow-sm hover:shadow-md"
+              {/* CTA SECTION */}
+              <section className="py-20 px-4 pb-32">
+                <div className="max-w-3xl mx-auto">
+                  <div
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-3xl p-16 text-center hover:bg-black/50 hover:border-white/40 transition duration-300 transform hover:-translate-y-2 transition-all duration-700"
+                    data-scroll-id="cta-guest"
+                    data-scroll-animate="fadeInUp"
                   >
-                    Join MenuQR Today
-                  </button>
+                    <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 drop-shadow-lg">Ready to Explore?</h2>
+                    <p className="text-lg text-white/80 mb-10 leading-relaxed">
+                      Join MenuQR today and start exploring local dining experiences in a whole new way.
+                    </p>
+                    <button
+                      onClick={() => setShowModal(true)}
+                      className="inline-block px-10 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-bold text-lg rounded-full transition duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105 cursor-pointer"
+                    >
+                      Get Started →
+                    </button>
+                  </div>
                 </div>
               </section>
-
-            </> 
-          ) }
+            </>
+          )}
         </main>
 
         {/* REGISTER MODAL */}
@@ -348,7 +491,7 @@ export default function Home() {
                       <div className="mb-4 text-7xl">
                         🏪
                       </div>
-                      
+
                       {/* Title */}
                       <h3 className="text-xl font-bold text-[#111] text-center">
                         Business
@@ -365,7 +508,7 @@ export default function Home() {
                       <div className="mb-4 text-7xl">
                         👤
                       </div>
-                      
+
                       {/* Title */}
                       <h3 className="text-xl font-bold text-[#111] text-center">
                         User

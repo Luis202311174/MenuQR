@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchStores } from "@/utils/fetchStores";
 import PageShell from "@/components/PageShell";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faGaugeHigh,
+  faLightbulb,
+  faBookmark,
+  faUtensils,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function UserHome() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -211,56 +218,50 @@ export default function UserHome() {
   };
 
   return (
-    <PageShell title="Welcome" subtitle={`Hello, ${displayName}!`}>
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
+    <div className="min-h-screen bg-slate-50">
+      <div className="grid lg:grid-cols-[260px_1fr] h-full">
         {/* Sidebar */}
-        <aside className="lg:sticky lg:top-8 self-start h-fit">
-          <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500 font-semibold">Your Profile</p>
-              <h3 className="mt-3 text-lg font-bold text-slate-900">{displayName}</h3>
-              <p className="mt-2 text-sm text-slate-600">Welcome back! Browse menus and saved restaurants.</p>
+        <div className="hidden lg:block border-r border-slate-200 bg-white shadow-sm">
+          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full lg:sticky lg:top-[90px] lg:self-start">
+            <div className="mb-4">
+              <div className="flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white">
+                <FontAwesomeIcon icon={faGaugeHigh} className="text-sm" />
+                <span>User Dashboard</span>
+              </div>
             </div>
-            <nav className="space-y-2 p-6">
+
+            <nav className="space-y-2">
               {[
-                { panel: "dashboard", label: "Dashboard" },
-                { panel: "suggestions", label: "Suggestions" },
-                { panel: "saved", label: "Saved" },
-                { panel: "menus", label: "All Menus" },
-              ].map(({ panel, label }) => (
+                { panel: "dashboard", label: "Dashboard", icon: faGaugeHigh },
+                { panel: "suggestions", label: "Suggestions", icon: faLightbulb },
+                { panel: "saved", label: "Saved", icon: faBookmark },
+                { panel: "menus", label: "All Menus", icon: faUtensils },
+              ].map(({ panel, label, icon }) => (
                 <button
                   key={panel}
                   onClick={() => setActivePanel(panel as any)}
-                  className={`w-full text-left rounded-[20px] py-3 px-4 text-sm font-semibold transition ${
+                  className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-xs font-semibold transition ${
                     activePanel === panel
-                      ? "bg-[#E23838] text-[#F2FF00]"
+                      ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white shadow-md shadow-[#4f65ff]/15"
                       : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                   }`}
                 >
-                  {label}
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+                    activePanel === panel ? "bg-white/15 text-white" : "bg-white text-slate-600 group-hover:bg-slate-200"
+                  }`}>
+                    <FontAwesomeIcon icon={icon} className="text-xs" />
+                  </span>
+                  <span className="capitalize">{label}</span>
                 </button>
               ))}
             </nav>
-          </div>
-        </aside>
+          </aside>
+        </div>
 
         {/* Main Content */}
-        <main className="space-y-8">
-          {/* Header Card */}
-          <div className="rounded-[32px] border border-slate-200 bg-white shadow-sm p-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Welcome</p>
-                <h1 className="text-3xl font-bold text-slate-900 mt-1">
-                  Hello, {displayName}!
-                </h1>
-              </div>
-              <div className="rounded-3xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-                {savedBusinessIds.length} Saved
-              </div>
-            </div>
-          </div>
-
+        <div className="overflow-y-auto">
+          <PageShell title="Welcome" subtitle={`Hello, ${displayName}!`}>
+            <div className="space-y-8">
           {/* Content Section */}
           {activePanel !== "dashboard" && (
             <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm p-8">
@@ -280,14 +281,16 @@ export default function UserHome() {
             </div>
           )}
 
-          {/* Dashboard View - Without Content Card Wrapper */}
-          {activePanel === "dashboard" && (
-            <div className="space-y-8">
-              {panelContent()}
+            {/* Dashboard View - Without Content Card Wrapper */}
+            {activePanel === "dashboard" && (
+              <div className="space-y-8">
+                {panelContent()}
+              </div>
+            )}
             </div>
-          )}
-        </main>
+          </PageShell>
         </div>
-    </PageShell>
+      </div>
+    </div>
   );
 }

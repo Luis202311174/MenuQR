@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import { resetInventoryForBusiness, lazyResetInventoryForBusiness } from "@/utils/businessCRUDMenu";
+import { InventoryManager } from "@/utils/inventoryManager";
+import { useInventory } from "@/hooks/useInventory";
 
 interface BusinessInventoryModalProps {
   isOpen: boolean;

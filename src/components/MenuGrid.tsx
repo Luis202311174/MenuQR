@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import MenuItemModal from "./MenuItemModal";
+import { useSingleItemInventory } from "@/hooks/useInventory";
 
 type MenuItem = {
   id: string;
@@ -34,12 +35,14 @@ export default function MenuGrid({
   viewItem,
   setViewItem,
   isDineIn,
+  businessId,
 }: {
   items: MenuItem[];
   onAddToCart?: (item: CartItemWithOptions) => void;
   viewItem?: MenuItem | null;
   setViewItem: (item: MenuItem | null) => void;
   isDineIn?: boolean;
+  businessId?: string;
 }) {
   const handleOpenItem = (item: MenuItem) => {
     setViewItem(item);
@@ -48,86 +51,13 @@ export default function MenuGrid({
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 flex-1">
       {items.map((item) => (
-        <div
+        <MenuItemWithInventory
           key={item.id}
-          className="border border-gray-200 rounded-[28px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-white transform hover:-translate-y-0.5"
-        >
-          <div className="h-28 w-full bg-gray-100 overflow-hidden sm:h-32">
-            {item.image_url ? (
-              <img src={item.image_url} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">
-                No image available
-              </div>
-            )}
-          </div>
-
-          <div className="p-3 sm:p-4 flex flex-col gap-3">
-            <div>
-              <h3 className="font-black text-xs sm:text-sm leading-snug text-gray-900">
-                {item.name}
-              </h3>
-              <p className="mt-1 text-[10px] sm:text-xs text-red-600 uppercase tracking-[0.24em] font-semibold">
-                {item.category || "Menu"}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-              <div>
-                <p className="text-base sm:text-xl font-black text-blue-600">₱{item.price}</p>
-                {item.is_trackable && (
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    Stock: {item.current_stock ?? 0}
-                  </p>
-                )}
-              </div>
-              <span
-                className={`text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full ${
-                  item.availability !== false && !(item.is_trackable && (item.current_stock ?? 0) <= 0)
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }`}
-              >
-                {item.availability !== false && !(item.is_trackable && (item.current_stock ?? 0) <= 0)
-                  ? "Available"
-                  : "Sold out"}
-              </span>
-            </div>
-
-            <div className="flex gap-2">
-              {isDineIn ? (
-                <>
-                  <button
-                    onClick={() => handleOpenItem(item)}
-                    disabled={item.availability === false || (item.is_trackable && (item.current_stock ?? 0) <= 0)}
-                    className={`flex-1 rounded-2xl px-2 py-2 text-[10px] sm:text-sm font-semibold text-white transition ${
-                      item.availability !== false && !(item.is_trackable && (item.current_stock ?? 0) <= 0)
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-gray-300 cursor-not-allowed"
-                    }`}
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleOpenItem(item)}
-                    disabled={item.availability === false || (item.is_trackable && (item.current_stock ?? 0) <= 0)}
-                    className={`flex-1 rounded-2xl px-2 py-2 text-[10px] sm:text-sm font-semibold text-blue-600 border border-blue-600 bg-white transition ${
-                      item.availability !== false && !(item.is_trackable && (item.current_stock ?? 0) <= 0)
-                        ? "hover:bg-blue-50"
-                        : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300"
-                    }`}
-                  >
-                    Add
-                  </button>
-                </>
-              ) : (
-                <div className="flex-1 rounded-2xl bg-gray-100 border border-gray-200 px-2 py-2 text-[10px] sm:text-xs font-semibold text-gray-700 text-center flex items-center justify-center">
-                  Scan QR to order
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+          item={item}
+          businessId={businessId}
+          onOpenItem={handleOpenItem}
+          isDineIn={isDineIn}
+        />
       ))}
 
       {viewItem && (
@@ -135,8 +65,110 @@ export default function MenuGrid({
           viewItem={viewItem}
           setViewItem={setViewItem}
           onAddToCart={onAddToCart}
+          businessId={businessId}
         />
       )}
+    </div>
+  );
+}
+
+// Separate component for each menu item with its own inventory hook
+function MenuItemWithInventory({
+  item,
+  businessId,
+  onOpenItem,
+  isDineIn,
+}: {
+  item: MenuItem;
+  businessId?: string;
+  onOpenItem: (item: MenuItem) => void;
+  isDineIn?: boolean;
+}) {
+  const { stock, loading } = useSingleItemInventory(businessId, item.id, item.is_trackable);
+  
+  // Use real-time stock data if available, otherwise fall back to item data
+  const currentStock = stock ?? item.current_stock ?? 0;
+  const isTrackable = item.is_trackable ?? false;
+  const availability = item.availability ?? true;
+  
+  const isOutOfStock = isTrackable && currentStock <= 0;
+  const isAvailable = availability && !isOutOfStock;
+
+  return (
+    <div className="border border-gray-200 rounded-[28px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-white transform hover:-translate-y-0.5">
+      <div className="h-28 w-full bg-gray-100 overflow-hidden sm:h-32">
+        {item.image_url ? (
+          <img src={item.image_url} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">
+            No image available
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 sm:p-4 flex flex-col gap-3">
+        <div>
+          <h3 className="font-black text-xs sm:text-sm leading-snug text-gray-900">
+            {item.name}
+          </h3>
+          <p className="mt-1 text-[10px] sm:text-xs text-red-600 uppercase tracking-[0.24em] font-semibold">
+            {item.category || "Menu"}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+          <div>
+            <p className="text-base sm:text-xl font-black text-blue-600">₱{item.price}</p>
+            {isTrackable && (
+              <p className="text-[11px] text-gray-500 mt-1">
+                Stock: {loading ? "..." : currentStock}
+              </p>
+            )}
+          </div>
+          <span
+            className={`text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full ${
+              isAvailable
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {isAvailable ? "Available" : "Sold out"}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          {isDineIn ? (
+            <>
+              <button
+                onClick={() => onOpenItem(item)}
+                disabled={!isAvailable}
+                className={`flex-1 rounded-2xl px-2 py-2 text-[10px] sm:text-sm font-semibold text-white transition ${
+                  isAvailable
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-gray-300 cursor-not-allowed"
+                }`}
+              >
+                View
+              </button>
+              <button
+                onClick={() => onOpenItem(item)}
+                disabled={!isAvailable}
+                className={`flex-1 rounded-2xl px-2 py-2 text-[10px] sm:text-sm font-semibold text-blue-600 border border-blue-600 bg-white transition ${
+                  isAvailable
+                    ? "hover:bg-blue-50"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300"
+                }`}
+              >
+                Add
+              </button>
+            </>
+          ) : (
+            <div className="flex-1 rounded-2xl bg-gray-100 border border-gray-200 px-2 py-2 text-[10px] sm:text-xs font-semibold text-gray-700 text-center flex items-center justify-center">
+              Scan QR to order
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

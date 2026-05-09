@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type BusinessOrdersNotifierProps = {
-  businessId: string | null;
+  businessId?: string | null;
   onCountChange?: (count: number) => void;
 };
 
@@ -27,6 +27,7 @@ export default function BusinessOrdersNotifier({
   businessId,
   onCountChange,
 }: BusinessOrdersNotifierProps) {
+  const [resolvedBusinessId, setResolvedBusinessId] = useState<string | null>(businessId || null);
   const [ordersCount, setOrdersCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [latestTableNumber, setLatestTableNumber] = useState("N/A");
@@ -68,12 +69,12 @@ export default function BusinessOrdersNotifier({
   };
 
   const fetchOrderCount = async () => {
-    if (!businessId) return;
+    if (!resolvedBusinessId) return;
 
     const { count, error } = await supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
-      .eq("business_id", businessId)
+      .eq("business_id", resolvedBusinessId)
       .in("status", activeOrderStatuses);
 
     if (!error) {
@@ -84,7 +85,35 @@ export default function BusinessOrdersNotifier({
   };
 
   useEffect(() => {
-    if (!businessId) return;
+    if (businessId) {
+      setResolvedBusinessId(businessId);
+    }
+  }, [businessId]);
+
+  useEffect(() => {
+    const resolveBusinessId = async () => {
+      if (resolvedBusinessId) return;
+
+      const { data } = await supabase.auth.getSession();
+      const userId = data?.session?.user?.id;
+      if (!userId) return;
+
+      const { data: bizData, error } = await supabase
+        .from("businesses")
+        .select("id")
+        .eq("owner_id", userId)
+        .single();
+
+      if (!error && bizData?.id) {
+        setResolvedBusinessId(bizData.id);
+      }
+    };
+
+    resolveBusinessId();
+  }, [resolvedBusinessId]);
+
+  useEffect(() => {
+    if (!resolvedBusinessId) return;
 
     fetchOrderCount();
 
@@ -93,14 +122,14 @@ export default function BusinessOrdersNotifier({
     }
 
     const channel = supabase
-      .channel(`business-orders-notifier-${businessId}`)
+      .channel(`business-orders-notifier-${resolvedBusinessId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "orders",
-          filter: `business_id=eq.${businessId}`,
+          filter: `business_id=eq.${resolvedBusinessId}`,
         },
         async (payload) => {
           if (payload.eventType === "DELETE") {
@@ -137,7 +166,7 @@ export default function BusinessOrdersNotifier({
         channelRef.current = null;
       }
     };
-  }, [businessId]);
+  }, [resolvedBusinessId]);
 
   useEffect(() => {
     if (!showModal) return;
@@ -145,7 +174,7 @@ export default function BusinessOrdersNotifier({
     return () => clearTimeout(timer);
   }, [showModal]);
 
-  if (!businessId) return null;
+  if (!resolvedBusinessId) return null;
 
   return (
     <>
