@@ -25,44 +25,69 @@ export default function BusinessDashboardPage() {
   ========================= */
   useEffect(() => {
     let retryHandle: NodeJS.Timeout | null = null;
+    let retryCount = 0;
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const sess = data.session;
 
-      setAuthChecked(true);
+        setAuthChecked(true);
 
-      if (!sess?.user) {
-        if (!retryHandle) retryHandle = setTimeout(init, 500);
-        return;
+        if (!sess?.user) {
+          if (retryCount < 2) {
+            retryCount += 1;
+            retryHandle = setTimeout(init, 500);
+            return;
+          }
+
+          router.push("/login");
+          return;
+        }
+
+        const { data: user, error: userError } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", sess.user.id)
+          .single();
+
+        if (userError) {
+          console.error("Error loading user role:", userError);
+          return;
+        }
+
+        if (user?.role !== "owner") {
+          router.push("/");
+          return;
+        }
+
+        setSession(sess);
+
+        const { data: bizData, error: bizError } = await supabase
+          .from("businesses")
+          .select("id, name, address, contact_info, slug")
+          .eq("owner_id", sess.user.id)
+          .single();
+
+        if (bizError || !bizData) {
+          console.error("Error loading business:", bizError);
+          return;
+        }
+
+        setBusinessId(bizData.id);
+        setBusinessData(bizData);
+      } catch (error) {
+        console.error("Error checking supabase session:", error);
+        setAuthChecked(true);
+
+        if (retryCount < 2) {
+          retryCount += 1;
+          retryHandle = setTimeout(init, 500);
+          return;
+        }
+
+        router.push("/login");
       }
-
-      const { data: user } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", sess.user.id)
-        .single();
-
-      if (user?.role !== "owner") {
-        router.push("/");
-        return;
-      }
-
-      setSession(sess);
-
-      const { data: bizData, error } = await supabase
-        .from("businesses")
-        .select("id, name, address, contact_info, slug")
-        .eq("owner_id", sess.user.id)
-        .single();
-
-      if (error || !bizData) {
-        console.error(error);
-        return;
-      }
-
-      setBusinessId(bizData.id);
-      setBusinessData(bizData);
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange(

@@ -148,12 +148,14 @@ export default function BusinessLanding() {
                   <p className="text-lg text-white/90 leading-relaxed mb-8">
                     Modernizing Menus, Streamlining Service. Intelligent menu management for a smarter, faster dining experience. The simplest way for customers to browse, save, and stay connected to the food they love.
                   </p>
-                  <Link
-                    href="/business/dashboard"
-                    className="inline-block px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
-                  >
-                    Create your menu →
-                  </Link>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-start">
+                    <Link
+                      href="/business/dashboard"
+                      className="inline-flex justify-center items-center px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
+                    >
+                      Create your menu →
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
@@ -231,12 +233,14 @@ export default function BusinessLanding() {
                   <p className="text-lg text-white/90 leading-relaxed max-w-2xl mx-auto">
                     MenuQR is an intelligent engagement platform designed to help local eateries transition from static paper menus to a dynamic, cloud-native digital experience. By digitizing your menu, you gain a powerful Control Center and help customers discover you.
                   </p>
-                  <Link
-                    href="/business/dashboard"
-                    className="inline-block px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
-                  >
-                    Get started now →
-                  </Link>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Link
+                      href="/business/dashboard"
+                      className="inline-flex justify-center items-center px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
+                    >
+                      Get started now →
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

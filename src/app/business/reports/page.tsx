@@ -1,6 +1,5 @@
 "use client";
 
-import Head from "next/head";
 import { Fragment, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
@@ -29,10 +28,14 @@ import {
   faFilter,
   faArrowUp,
   faArrowDown,
+  faLightbulb,
 } from "@fortawesome/free-solid-svg-icons";
+
 import DailySalesReportModal from "@/components/business/reports/DailySalesReportModal";
 import DailyOrderDetailsModal from "@/components/business/reports/DailyOrderDetailsModal";
 import OrderDetailModal from "@/components/business/reports/OrderDetailModal";
+import SalesReportAnalyzer from "@/components/SalesReportAnalyzer";
+
 import type {
   DailySalesDataRow,
   DailySalesOrderRow,
@@ -110,6 +113,15 @@ export default function BusinessReportsPage() {
     datasets: []
   });
 
+  const [rawOrders, setRawOrders] = useState<any[]>([]);
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [showAnalyzer, setShowAnalyzer] = useState(false);
+  const [showAnalyzerSetup, setShowAnalyzerSetup] = useState(false);
+  const [analyzerLoading, setAnalyzerLoading] = useState(false);
+  const [analyzerScope, setAnalyzerScope] = useState<'selected' | 'weekly' | 'monthly' | 'overall'>('selected');
+  const [analyzerMonth, setAnalyzerMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [loadingOverallOrders, setLoadingOverallOrders] = useState(false);
+
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
   const [loading, setLoading] = useState(true);
 
@@ -177,45 +189,70 @@ export default function BusinessReportsPage() {
   ========================= */
   useEffect(() => {
     let retryHandle: NodeJS.Timeout | null = null;
+    let retryCount = 0;
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const sess = data.session;
 
-      setAuthChecked(true);
+        setAuthChecked(true);
 
-      if (!sess?.user) {
-        if (!retryHandle) retryHandle = setTimeout(init, 500);
-        return;
+        if (!sess?.user) {
+          if (retryCount < 2) {
+            retryCount += 1;
+            retryHandle = setTimeout(init, 500);
+            return;
+          }
+
+          router.push("/login");
+          return;
+        }
+
+        const { data: user, error: userError } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", sess.user.id)
+          .single();
+
+        if (userError) {
+          console.error("Error loading user role:", userError);
+          return;
+        }
+
+        if (user?.role !== "owner") {
+          router.push("/");
+          return;
+        }
+
+        setSession(sess);
+
+        const { data: bizData, error: bizError } = await supabase
+          .from("businesses")
+          .select("id, name, address, contact_info, slug")
+          .eq("owner_id", sess.user.id)
+          .single();
+
+        if (bizError || !bizData) {
+          console.error("Error loading business:", bizError);
+          return;
+        }
+
+        setBusinessId(bizData.id);
+        setBusinessData(bizData);
+        setBusinessName(bizData.name || "");
+      } catch (error) {
+        console.error("Error checking supabase session:", error);
+        setAuthChecked(true);
+
+        if (retryCount < 2) {
+          retryCount += 1;
+          retryHandle = setTimeout(init, 500);
+          return;
+        }
+
+        router.push("/login");
       }
-
-      const { data: user } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", sess.user.id)
-        .single();
-
-      if (user?.role !== "owner") {
-        router.push("/");
-        return;
-      }
-
-      setSession(sess);
-
-      const { data: bizData, error } = await supabase
-        .from("businesses")
-        .select("id, name, address, contact_info, slug")
-        .eq("owner_id", sess.user.id)
-        .single();
-
-      if (error || !bizData) {
-        console.error(error);
-        return;
-      }
-
-      setBusinessId(bizData.id);
-      setBusinessData(bizData);
-      setBusinessName(bizData.name || "");
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange(
@@ -266,6 +303,8 @@ export default function BusinessReportsPage() {
         .in("status", ["paid", "completed"]);
 
       if (ordersError) throw ordersError;
+
+      setRawOrders(orders || []);
 
       // Calculate metrics (accounting for discounts)
       const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount - (order.discount_amount || 0)), 0) || 0;
@@ -411,6 +450,96 @@ export default function BusinessReportsPage() {
     });
   };
 
+  const fetchOverallOrders = async () => {
+    if (!businessId) return;
+    setLoadingOverallOrders(true);
+
+    try {
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          total_amount,
+          discount_amount,
+          created_at,
+          status,
+          user_id,
+          items
+        `)
+        .eq("business_id", businessId)
+        .in("status", ["paid", "completed"]);
+
+      if (error) throw error;
+      setAllOrders(orders || []);
+    } catch (error) {
+      console.error("Error fetching overall orders:", error);
+    } finally {
+      setLoadingOverallOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!businessId) return;
+    if (analyzerScope === 'overall' && allOrders.length === 0) {
+      fetchOverallOrders();
+    }
+  }, [businessId, analyzerScope, allOrders.length]);
+
+  const analyzerOrders = useMemo(() => {
+    const ordersSource = analyzerScope === 'overall' && allOrders.length > 0 ? allOrders : rawOrders;
+
+    const normalizedOrders = ordersSource.map((order: any) => ({
+      id: order.id,
+      createdAt: order.created_at,
+      total: order.total_amount || 0,
+      items: normalizeOrderItems(order.items).map((item: any) => ({
+        menuItemId: item.menu_item_id || item.id || "unknown",
+        name: item.name || "Unknown Item",
+        price: item.price || item.base_price || 0,
+        quantity: item.qty || item.quantity || 1,
+      }))
+    }));
+
+    if (analyzerScope === 'weekly') {
+      const end = new Date(selectedEndDate || new Date().toISOString().split('T')[0]);
+      end.setHours(23, 59, 59, 999);
+      const start = new Date(end);
+      start.setDate(end.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+
+      return normalizedOrders.filter((order) => {
+        const created = new Date(order.createdAt);
+        return created >= start && created <= end;
+      });
+    }
+
+    if (analyzerScope === 'monthly') {
+      const [year, month] = analyzerMonth.split('-').map(Number);
+      const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
+      return normalizedOrders.filter((order) => {
+        const created = new Date(order.createdAt);
+        return created >= monthStart && created <= monthEnd;
+      });
+    }
+
+    return normalizedOrders;
+  }, [allOrders, analyzerScope, rawOrders, selectedEndDate, analyzerMonth]);
+
+  const analyzerDateLabel = useMemo(() => {
+    switch (analyzerScope) {
+      case 'weekly':
+        return `Weekly review ending ${new Date(selectedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      case 'monthly':
+        return `Monthly review for ${new Date(`${analyzerMonth}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+      case 'overall':
+        return 'Overall business review';
+      default:
+        return `Selected range: ${selectedStartDate} to ${selectedEndDate}`;
+    }
+  }, [analyzerScope, selectedStartDate, selectedEndDate, analyzerMonth]);
+
   useEffect(() => {
     fetchDashboardData();
   }, [businessId]);
@@ -419,6 +548,11 @@ export default function BusinessReportsPage() {
     if (!businessId) return;
     setOrdersCount(0);
   }, [businessId]);
+
+  // Safely handle the document title in the App Router for a Client Component
+  useEffect(() => {
+    document.title = `Sales Dashboard - ${businessName || "Loading..."}`;
+  }, [businessName]);
 
   const formatPercentage = (value: number) => {
     const sign = value >= 0 ? '+' : '';
@@ -586,15 +720,21 @@ export default function BusinessReportsPage() {
   }
 
   if (!session) {
-    return null;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Not Authenticated</h2>
+          <p className="text-slate-600 mb-6">You need to be logged in as a business owner to access the sales dashboard.</p>
+          <a href="/login" className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            Go to Login
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
-      <Head>
-        <title>Sales Dashboard - {businessName}</title>
-      </Head>
-
       <PageShell title="Sales Dashboard" subtitle="Track your business performance and insights." className="overflow-x-hidden">
           <div className="space-y-8">
             <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
@@ -627,6 +767,27 @@ export default function BusinessReportsPage() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Analyzer Button */}
+                    <button
+                      onClick={() => {
+                        setShowAnalyzerSetup(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                      disabled={analyzerLoading || (analyzerScope === 'overall' && loadingOverallOrders)}
+                    >
+                      {analyzerLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <FontAwesomeIcon icon={faLightbulb} />
+                          {showAnalyzer ? 'Hide AI Analyzer' : 'AI Analyzer'}
+                        </>
+                      )}
+                    </button>
 
                     {/* Daily Report Button */}
                     <button
@@ -862,9 +1023,168 @@ export default function BusinessReportsPage() {
                       />
                     </div>
                   </div>
+
                 </>
               )}
             </div>
+
+          {showAnalyzerSetup && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-4 sm:p-6" onClick={() => setShowAnalyzerSetup(false)}>
+              <div className="relative w-full max-w-3xl overflow-hidden rounded-[32px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
+                <div className="border-b border-slate-200 p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-2xl font-semibold text-slate-900">AI Analyzer settings</h3>
+                      <p className="mt-1 text-sm text-slate-500">Choose which report to analyze before displaying the results.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAnalyzerSetup(false)}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                    >
+                      <span className="text-xl">×</span>
+                      <span className="sr-only">Close settings</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="p-5 sm:p-6">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {[
+                      { key: 'selected', label: 'Selected date range' },
+                      { key: 'weekly', label: 'Weekly' },
+                      { key: 'monthly', label: 'Monthly' },
+                      { key: 'overall', label: 'Overall' },
+                    ].map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setAnalyzerScope(option.key as any)}
+                        className={`rounded-2xl border px-4 py-4 text-left transition ${analyzerScope === option.key ? 'border-blue-600 bg-blue-50 text-slate-900' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}
+                      >
+                        <p className="font-semibold">{option.label}</p>
+                        <p className="text-sm text-slate-500 mt-1">{option.key === 'selected' ? 'Use a custom start/end date.' : option.key === 'weekly' ? 'Analyze the last 7 days.' : option.key === 'monthly' ? 'Analyze the selected month.' : 'Analyze all available orders.'}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+                    {analyzerScope === 'selected' && (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="flex flex-col text-sm text-slate-600">
+                          <span className="mb-1 font-semibold text-slate-700">Start date</span>
+                          <input
+                            type="date"
+                            value={selectedStartDate}
+                            onChange={(e) => setSelectedStartDate(e.target.value)}
+                            className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                          />
+                        </label>
+                        <label className="flex flex-col text-sm text-slate-600">
+                          <span className="mb-1 font-semibold text-slate-700">End date</span>
+                          <input
+                            type="date"
+                            value={selectedEndDate}
+                            onChange={(e) => setSelectedEndDate(e.target.value)}
+                            className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    {analyzerScope === 'monthly' && (
+                      <label className="flex flex-col text-sm text-slate-600">
+                        <span className="mb-1 font-semibold text-slate-700">Month</span>
+                        <input
+                          type="month"
+                          value={analyzerMonth}
+                          onChange={(e) => setAnalyzerMonth(e.target.value)}
+                          className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        />
+                      </label>
+                    )}
+
+                    {analyzerScope === 'weekly' && (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm text-slate-700">Weekly analysis will use the last 7 days ending on the selected end date.</p>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          <label className="flex flex-col text-sm text-slate-600">
+                            <span className="mb-1 font-semibold text-slate-700">End date</span>
+                            <input
+                              type="date"
+                              value={selectedEndDate}
+                              onChange={(e) => setSelectedEndDate(e.target.value)}
+                              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 border-t border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-end sm:p-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowAnalyzerSetup(false)}
+                    className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAnalyzerSetup(false);
+                      setShowAnalyzer(true);
+                      setAnalyzerLoading(true);
+                      setTimeout(() => setAnalyzerLoading(false), 700);
+                    }}
+                    className="rounded-2xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+                  >
+                    Analyze now
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showAnalyzer && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-4 sm:p-6" onClick={() => setShowAnalyzer(false)}>
+              <div className="relative w-full max-w-6xl overflow-hidden rounded-[32px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 p-5 sm:p-6">
+                  <div>
+                    <h3 className="text-2xl font-semibold text-slate-900">AI Analyzer</h3>
+                    <p className="text-sm text-slate-500 mt-1">{analyzerDateLabel}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAnalyzer(false)}
+                    className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 sm:mt-0"
+                  >
+                    <span className="text-xl">×</span>
+                    <span className="sr-only">Close analyzer</span>
+                  </button>
+                </div>
+                <div className="max-h-[85vh] overflow-y-auto p-5 sm:p-6">
+                  {analyzerLoading ? (
+                    <div className="flex min-h-[320px] items-center justify-center py-20">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600 mx-auto mb-4"></div>
+                        <p className="text-slate-600 text-lg font-medium">Analyzing your sales data...</p>
+                        <p className="text-slate-500 text-sm mt-2">This may take a moment</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <SalesReportAnalyzer
+                      orders={analyzerOrders}
+                      suggestionThreshold={3}
+                      analysisType={analyzerScope}
+                      selectedMonth={analyzerMonth}
+                      dateRangeLabel={analyzerDateLabel}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <DailySalesReportModal
             isOpen={showDailyReportModal}
@@ -916,4 +1236,3 @@ export default function BusinessReportsPage() {
     </>
   );
 }
-
