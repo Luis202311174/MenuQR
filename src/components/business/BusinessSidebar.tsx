@@ -52,18 +52,18 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
               key={item.path + item.label}
               type="button"
               onClick={() => router.push(item.path)}
-              className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-xs font-semibold transition ${
+              className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-1.5 text-left text-[11px] sm:text-xs font-semibold transition ${
                 isActive
                   ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white shadow-md shadow-[#4f65ff]/15"
                   : "bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
             >
-              <span className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              <span className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg transition ${
                 isActive ? "bg-white/15 text-white" : "bg-white text-slate-600 group-hover:bg-slate-200"
               }`}>
-                <FontAwesomeIcon icon={item.icon} className="text-xs" />
+                <FontAwesomeIcon icon={item.icon} className="text-[11px] sm:text-xs" />
               </span>
-              <span className="capitalize">{item.label}</span>
+              <span className="capitalize text-[11px] sm:text-xs">{item.label}</span>
             </button>
           );
         })}

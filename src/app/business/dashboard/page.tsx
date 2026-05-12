@@ -176,26 +176,26 @@ export default function BusinessDashboardPage() {
 
             <div className="space-y-8">
               {/* HEADER */}
-              <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="rounded-[28px] border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
-                    <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-semibold text-slate-500 mb-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] font-semibold text-slate-500 mb-2">
                       Welcome back
                     </p>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+                    <h1 className="text-lg sm:text-2xl font-bold text-slate-900 truncate">
                       {businessData?.name || "Business"}
                     </h1>
                   </div>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5">
                     <div>
-                      <p className="text-[10px] sm:text-[11px] text-slate-500 uppercase tracking-[0.2em]">Address</p>
-                      <p className="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[260px]">
+                      <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-[0.2em]">Address</p>
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate max-w-[260px]">
                         {businessData?.address || "Not set"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] sm:text-[11px] text-slate-500 uppercase tracking-[0.2em]">Contact</p>
-                      <p className="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[180px]">
+                      <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-[0.2em]">Contact</p>
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate max-w-[180px]">
                         {businessData?.contact_info || "Not set"}
                       </p>
                     </div>
@@ -206,51 +206,51 @@ export default function BusinessDashboardPage() {
               {/* STATS SECTION */}
               <section className="space-y-6">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Overview</p>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2">
+                  <p className="text-xs uppercase tracking-[0.3em] font-semibold text-slate-500">Overview</p>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-2">
                     Dashboard Metrics
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                    <p className="text-[11px] sm:text-xs font-medium text-white/80">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
+                    <p className="text-[10px] sm:text-[11px] font-medium text-white/80">
                       Total Menu Items
                     </p>
                     <p className="text-2xl sm:text-3xl font-black mt-3">
                       {menuCount}
                     </p>
-                    <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">Items in your menu</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/60 mt-2 font-medium">Items in your menu</p>
                   </div>
 
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-200 to-blue-400 text-slate-900 p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                    <p className="text-[11px] sm:text-xs font-medium text-slate-700">
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-200 to-blue-400 text-slate-900 p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
+                    <p className="text-[10px] sm:text-[11px] font-medium text-slate-700">
                       Active Orders
                     </p>
                     <p className="text-2xl sm:text-3xl font-black mt-3">
                       {activeOrdersCount}
                     </p>
-                    <p className="text-[9px] sm:text-[10px] text-slate-600 mt-2 font-medium">Waiting for you</p>
+                    <p className="text-[8px] sm:text-[9px] text-slate-600 mt-2 font-medium">Waiting for you</p>
                   </div>
 
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                    <p className="text-[11px] sm:text-xs font-medium text-white/80">
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
+                    <p className="text-[10px] sm:text-[11px] font-medium text-white/80">
                       Completed Orders
                     </p>
                     <p className="text-2xl sm:text-3xl font-black mt-3">
                       {completedOrdersCount}
                     </p>
-                    <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">This month</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/60 mt-2 font-medium">This month</p>
                   </div>
 
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-4 sm:p-5 shadow-sm hover:shadow-md transition min-h-[150px]">
-                    <p className="text-[11px] sm:text-xs font-medium text-white/80">
+                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
+                    <p className="text-[10px] sm:text-[11px] font-medium text-white/80">
                       Today's Orders
                     </p>
                     <p className="text-2xl sm:text-3xl font-black mt-3">
                       {dailyOrdersCount}
                     </p>
-                    <p className="text-[9px] sm:text-[10px] text-white/60 mt-2 font-medium">Received today</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/60 mt-2 font-medium">Received today</p>
                   </div>
                 </div>
               </section>

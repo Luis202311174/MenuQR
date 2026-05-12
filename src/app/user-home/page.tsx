@@ -106,22 +106,22 @@ export default function UserHome() {
   }
 
   const BusinessCard = ({ item, isSaved, onToggleSave, showRemove = false }: any) => (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5 shadow-sm hover:shadow-md transition-all">
-      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[18px] overflow-hidden mb-3 sm:mb-4 border border-slate-200 mx-auto bg-slate-50">
+    <div className="rounded-[22px] border border-slate-200 bg-white p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[16px] overflow-hidden mb-3 border border-slate-200 mx-auto bg-slate-50">
         <img src={item.logoUrl} alt={`${item.title} logo`} className="w-full h-full object-cover" loading="lazy" />
       </div>
       <div className="text-center">
-        <p className="text-sm sm:text-base font-bold text-slate-900">{item.title}</p>
-        <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wider mt-1 mb-3 font-semibold">{item.source}</p>
-        <p className="text-sm text-slate-600 mb-1 line-clamp-2">{item.address}</p>
-        <p className="text-sm text-slate-600 mb-3 line-clamp-1">{item.contact}</p>
+        <p className="text-sm font-bold text-slate-900 truncate">{item.title}</p>
+        <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wider mt-1 mb-2 font-semibold">{item.source}</p>
+        <p className="text-xs sm:text-sm text-slate-600 mb-1 line-clamp-2">{item.address}</p>
+        <p className="text-xs sm:text-sm text-slate-600 mb-3 line-clamp-1">{item.contact}</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <a href={`/${item.slug}`} className="rounded-[18px] bg-[#E23838] px-3 py-2 text-[10px] sm:text-xs font-bold text-[#F2FF00] hover:bg-[#c22f2f] transition-all text-center">
+          <a href={`/${item.slug}`} className="rounded-[18px] bg-[#E23838] px-2.5 py-1.5 text-[9px] sm:text-[10px] font-bold text-[#F2FF00] hover:bg-[#c22f2f] transition-all text-center">
             Visit Menu
           </a>
           <button 
             onClick={() => onToggleSave(item)} 
-            className={`rounded-[18px] px-3 py-2 text-[10px] sm:text-xs font-bold transition-all ${
+            className={`rounded-[18px] px-2.5 py-1.5 text-[9px] sm:text-[10px] font-bold transition-all ${
               isSaved 
                 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" 
                 : "border border-slate-300 text-slate-700 hover:bg-slate-50"
@@ -194,25 +194,25 @@ export default function UserHome() {
       return (
         <div className="space-y-8">
           <section>
-            <div className="mb-6 pb-3 border-b border-slate-200">
-              <h3 className="text-xl font-bold text-slate-900">Suggestions</h3>
-              <p className="text-sm text-slate-500 mt-1">Handpicked recommendations for you</p>
+            <div className="mb-5 pb-3 border-b border-slate-200">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900">Suggestions</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Handpicked recommendations for you</p>
             </div>
             {suggestionCards()}
           </section>
 
           <section>
-            <div className="mb-6 pb-3 border-b border-slate-200">
-              <h3 className="text-xl font-bold text-slate-900">Saved Menus</h3>
-              <p className="text-sm text-slate-500 mt-1">Your favorite restaurants</p>
+            <div className="mb-5 pb-3 border-b border-slate-200">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900">Saved Menus</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Your favorite restaurants</p>
             </div>
             {savedCards()}
           </section>
 
           <section>
-            <div className="mb-6 pb-3 border-b border-slate-200">
-              <h3 className="text-xl font-bold text-slate-900">All Menus</h3>
-              <p className="text-sm text-slate-500 mt-1">Browse all available restaurants</p>
+            <div className="mb-5 pb-3 border-b border-slate-200">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900">All Menus</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Browse all available restaurants</p>
             </div>
             {menuCards()}
           </section>
@@ -282,12 +282,12 @@ export default function UserHome() {
             <div className="space-y-6">
               <div className="lg:hidden rounded-3xl border border-slate-200 bg-white p-3 shadow-sm flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Navigation</p>
-                  <p className="text-sm font-semibold text-slate-900">Tap to open menu</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Navigation</p>
+                  <p className="text-sm sm:text-base font-semibold text-slate-900">Tap to open menu</p>
                 </div>
                 <button
                   onClick={() => setMobileNavOpen(true)}
-                  className="rounded-full bg-[#4f65ff] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#3a52d5] transition"
+                  className="rounded-full bg-[#4f65ff] px-3 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-[#3a52d5] transition"
                 >
                   Menu
                 </button>
@@ -326,18 +326,18 @@ export default function UserHome() {
                             setActivePanel(panel as any);
                             setMobileNavOpen(false);
                           }}
-                          className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                          className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[12px] sm:text-sm font-semibold transition ${
                             activePanel === panel
                               ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white"
                               : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                           }`}
                         >
-                          <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                          <span className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl ${
                             activePanel === panel ? "bg-white/20 text-white" : "bg-white text-slate-600"
                           }`}>
-                            <FontAwesomeIcon icon={icon} className="text-sm" />
+                            <FontAwesomeIcon icon={icon} className="text-[11px] sm:text-sm" />
                           </span>
-                          <span>{label}</span>
+                          <span className="text-[12px] sm:text-sm">{label}</span>
                         </button>
                       ))}
                     </nav>

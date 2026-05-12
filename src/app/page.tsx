@@ -162,7 +162,7 @@ export default function Home() {
                 <div className="max-w-3xl w-full space-y-8">
                   {/* Card 1: Text Content */}
                   <div
-                    className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-12 lg:p-16 shadow-2xl transition-all duration-700"
+                    className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-6 sm:p-10 lg:p-16 shadow-2xl transition-all duration-700"
                     data-scroll-id="hero"
                     data-scroll-animate="fadeInUp"
                   >
@@ -173,15 +173,15 @@ export default function Home() {
                         data-scroll-animate="slideInLeft"
                       >
                         <p className="text-sm uppercase tracking-[0.3em] font-semibold text-white/80 mb-4">Welcome Back</p>
-                        <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
+                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
                           Hello, {userName || "Guest"}!
                         </h1>
-                        <p className="text-lg text-white/90 leading-relaxed mb-8">
+                        <p className="text-base sm:text-lg text-white/90 leading-relaxed mb-8">
                           MenuQR is an intelligent engagement tool providing a seamless, contactless dining experience. Our platform brings your favorite menus straight to your phone, making it easier than ever to explore, save, and enjoy local eateries.
                         </p>
                         <a
                           href="/user-home"
-                          className="inline-block px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
+                          className="inline-block px-6 py-3 sm:px-8 sm:py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
                         >
                           Browse Menus →
                         </a>
@@ -201,8 +201,8 @@ export default function Home() {
                     data-scroll-id="features-header"
                     data-scroll-animate="fadeInUp"
                   >
-                    <h2 className="text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why MenuQR is Great</h2>
-                    <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                    <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why MenuQR is Great</h2>
+                    <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto">
                       Experience the platform that revolutionizes how you discover and enjoy local dining
                     </p>
                   </div>
@@ -210,12 +210,12 @@ export default function Home() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Easy Access Card */}
                     <div
-                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
                       data-scroll-id="feature-1"
                       data-scroll-animate="fadeInUp"
                     >
-                      <h3 className="text-2xl font-bold text-white mb-4">Easy Access</h3>
-                      <p className="text-white/80 mb-6 leading-relaxed">
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Easy Access</h3>
+                      <p className="text-sm sm:text-base text-white/80 mb-6 leading-relaxed">
                         Find and access menus instantly via QR codes. No downloads needed, just scan and explore.
                       </p>
                       <a
@@ -228,12 +228,12 @@ export default function Home() {
 
                     {/* Save Favorites Card */}
                     <div
-                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
                       data-scroll-id="feature-2"
                       data-scroll-animate="fadeInUp"
                     >
-                      <h3 className="text-2xl font-bold text-white mb-4">Save Favorites</h3>
-                      <p className="text-white/80 mb-6 leading-relaxed">
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Save Favorites</h3>
+                      <p className="text-sm sm:text-base text-white/80 mb-6 leading-relaxed">
                         Heart your favorite restaurants and access them anytime. Never lose a great spot again.
                       </p>
                       <a
@@ -246,12 +246,12 @@ export default function Home() {
 
                     {/* Live Updates Card */}
                     <div
-                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
                       data-scroll-id="feature-3"
                       data-scroll-animate="fadeInUp"
                     >
-                      <h3 className="text-2xl font-bold text-white mb-4">Live Updates</h3>
-                      <p className="text-white/80 mb-6 leading-relaxed">
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Live Updates</h3>
+                      <p className="text-sm sm:text-base text-white/80 mb-6 leading-relaxed">
                         See the latest menus with real-time price updates. Always stay informed.
                       </p>
                       <a
@@ -269,17 +269,17 @@ export default function Home() {
               <section className="py-20 px-4 pb-32">
                 <div className="max-w-3xl mx-auto">
                   <div
-                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-3xl p-16 text-center hover:bg-black/50 hover:border-white/40 transition duration-300 transform hover:-translate-y-2 transition-all duration-700"
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-3xl p-8 sm:p-10 text-center hover:bg-black/50 hover:border-white/40 transition duration-300 transform hover:-translate-y-2 transition-all duration-700"
                     data-scroll-id="cta"
                     data-scroll-animate="fadeInUp"
                   >
-                    <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 drop-shadow-lg">Ready to Explore?</h2>
-                    <p className="text-lg text-white/80 mb-10 leading-relaxed">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 drop-shadow-lg">Ready to Explore?</h2>
+                    <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed">
                       Start browsing menus, saving your favorite restaurants, and discovering new dining experiences today.
                     </p>
                     <a
                       href="/user-home"
-                      className="inline-block px-10 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-bold text-lg rounded-full transition duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105"
+                      className="inline-block px-6 py-3 sm:px-8 sm:py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-bold text-base rounded-full transition duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105"
                     >
                       Go to Dashboard →
                     </a>
@@ -295,7 +295,7 @@ export default function Home() {
                 <div className="max-w-5xl w-full">
                   {/* Glass Card */}
                   <div
-                    className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-12 lg:p-16 shadow-2xl transition-all duration-700"
+                    className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-8 sm:p-10 lg:p-16 shadow-2xl transition-all duration-700"
                     data-scroll-id="hero-guest"
                     data-scroll-animate="fadeInUp"
                   >
@@ -307,16 +307,16 @@ export default function Home() {
                         data-scroll-animate="slideInLeft"
                       >
                         <p className="text-sm uppercase tracking-[0.3em] font-semibold text-white/80 mb-4">Welcome</p>
-                        <h1 className="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
+                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
                           Your Favorite Menus,<br />
                           <span className="text-white/80">Always in Your Pocket.</span>
                         </h1>
-                        <p className="text-lg text-white/90 leading-relaxed mb-8">
+                        <p className="text-base sm:text-lg text-white/90 leading-relaxed mb-8">
                           The simplest way for customers to browse, save, and stay connected to the food they love. Discover local eateries with just a scan.
                         </p>
                         <button
                           onClick={() => setShowModal(true)}
-                          className="inline-block px-8 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm cursor-pointer"
+                          className="inline-block px-6 py-3 sm:px-8 sm:py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm cursor-pointer"
                         >
                           Get Started →
                         </button>
@@ -324,7 +324,7 @@ export default function Home() {
 
                       {/* LOGO BELOW */}
                       <div
-                        className="w-32 h-32 lg:w-40 lg:h-40 relative opacity-90 hover:opacity-100 transition-all duration-500 transform hover:scale-105 transition-all duration-700"
+                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 relative opacity-90 hover:opacity-100 transition-all duration-500 transform hover:scale-105 transition-all duration-700"
                         data-scroll-id="hero-guest-logo"
                         data-scroll-animate="fadeIn"
                       >
@@ -355,8 +355,8 @@ export default function Home() {
                     data-scroll-id="features-header-guest"
                     data-scroll-animate="fadeInUp"
                   >
-                    <h2 className="text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why MenuQR is Great</h2>
-                    <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                    <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why MenuQR is Great</h2>
+                    <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto">
                       Experience the platform that revolutionizes how you discover and enjoy local dining
                     </p>
                   </div>
@@ -364,7 +364,7 @@ export default function Home() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Easy Access Card */}
                     <div
-                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
                       data-scroll-id="feature-guest-1"
                       data-scroll-animate="fadeInUp"
                     >
@@ -382,7 +382,7 @@ export default function Home() {
 
                     {/* Save Favorites Card */}
                     <div
-                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
                       data-scroll-id="feature-guest-2"
                       data-scroll-animate="fadeInUp"
                     >
@@ -400,7 +400,7 @@ export default function Home() {
 
                     {/* Live Updates Card */}
                     <div
-                      className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
                       data-scroll-id="feature-guest-3"
                       data-scroll-animate="fadeInUp"
                     >
@@ -423,17 +423,17 @@ export default function Home() {
               <section className="py-20 px-4 pb-32">
                 <div className="max-w-3xl mx-auto">
                   <div
-                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-3xl p-16 text-center hover:bg-black/50 hover:border-white/40 transition duration-300 transform hover:-translate-y-2 transition-all duration-700"
+                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-3xl p-8 sm:p-10 text-center hover:bg-black/50 hover:border-white/40 transition duration-300 transform hover:-translate-y-2 transition-all duration-700"
                     data-scroll-id="cta-guest"
                     data-scroll-animate="fadeInUp"
                   >
-                    <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 drop-shadow-lg">Ready to Explore?</h2>
-                    <p className="text-lg text-white/80 mb-10 leading-relaxed">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 drop-shadow-lg">Ready to Explore?</h2>
+                    <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed">
                       Join MenuQR today and start exploring local dining experiences in a whole new way.
                     </p>
                     <button
                       onClick={() => setShowModal(true)}
-                      className="inline-block px-10 py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-bold text-lg rounded-full transition duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105 cursor-pointer"
+                      className="inline-block px-6 py-3 sm:px-8 sm:py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-bold text-base rounded-full transition duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105 cursor-pointer"
                     >
                       Get Started →
                     </button>
@@ -448,11 +448,11 @@ export default function Home() {
         {showModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/50 px-4 z-50">
             {/* Modal */}
-            <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-5xl w-full relative">
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-w-5xl w-full relative">
               {/* Close button */}
               <button
                 onClick={() => setShowModal(false)}
-                className="absolute top-6 right-6 text-white hover:text-gray-100 text-2xl font-semibold z-10"
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white hover:text-gray-100 text-xl sm:text-2xl font-semibold z-10"
               >
                 ×
               </button>
@@ -460,40 +460,40 @@ export default function Home() {
               {/* Container */}
               <div className="grid md:grid-cols-2">
                 {/* Left Side - Logo and Text */}
-                <div className="bg-white p-12 flex flex-col items-center justify-center">
+                <div className="bg-white p-6 sm:p-12 flex flex-col items-center justify-center">
                   <Image
                     src="/hero-icon.png"
                     alt="MenuQR Logo"
-                    width={300}
-                    height={240}
-                    className="mb-8"
+                    width={240}
+                    height={192}
+                    className="w-40 h-32 sm:w-80 sm:h-60 mb-4 sm:mb-8"
                   />
-                  <h3 className="text-5xl font-bold text-[#111] mb-3 text-center">MenuQR</h3>
-                  <p className="text-2xl text-[#333] text-center font-semibold">Save Your Favorites!</p>
+                  <h3 className="text-3xl sm:text-5xl font-bold text-[#111] mb-2 sm:mb-3 text-center">MenuQR</h3>
+                  <p className="text-lg sm:text-2xl text-[#333] text-center font-semibold">Save Your Favorites!</p>
                 </div>
 
                 {/* Right Side - Registration Options (Red Background) */}
-                <div className="bg-[#E23838] p-12 flex flex-col justify-center">
+                <div className="bg-[#E23838] p-6 sm:p-12 flex flex-col justify-center">
                   {/* Title */}
-                  <h2 className="text-center text-4xl font-bold text-white mb-10">
+                  <h2 className="text-center text-2xl sm:text-4xl font-bold text-white mb-6 sm:mb-10">
                     Register as
                   </h2>
 
                   {/* Options Grid */}
-                  <div className="grid grid-cols-2 gap-6 mb-10">
+                  <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-10">
                     {/* Business Owner Option */}
                     <Link
                       href="/signup-auth?role=owner"
                       onClick={() => handleSelectRole("owner")}
-                      className="flex flex-col items-center p-8 bg-gray-300 rounded-2xl hover:bg-gray-400 transition-all duration-300 hover:scale-105 group cursor-pointer"
+                      className="flex flex-col items-center p-4 sm:p-8 bg-gray-300 rounded-lg sm:rounded-2xl hover:bg-gray-400 transition-all duration-300 hover:scale-105 group cursor-pointer"
                     >
                       {/* Icon */}
-                      <div className="mb-4 text-7xl">
+                      <div className="mb-2 sm:mb-4 text-5xl sm:text-7xl">
                         🏪
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-xl font-bold text-[#111] text-center">
+                      <h3 className="text-sm sm:text-xl font-bold text-[#111] text-center">
                         Business
                       </h3>
                     </Link>
@@ -502,22 +502,22 @@ export default function Home() {
                     <Link
                       href="/signup-auth?role=user"
                       onClick={() => handleSelectRole("user")}
-                      className="flex flex-col items-center p-8 bg-gray-300 rounded-2xl hover:bg-gray-400 transition-all duration-300 hover:scale-105 group cursor-pointer"
+                      className="flex flex-col items-center p-4 sm:p-8 bg-gray-300 rounded-lg sm:rounded-2xl hover:bg-gray-400 transition-all duration-300 hover:scale-105 group cursor-pointer"
                     >
                       {/* Icon */}
-                      <div className="mb-4 text-7xl">
+                      <div className="mb-2 sm:mb-4 text-5xl sm:text-7xl">
                         👤
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-xl font-bold text-[#111] text-center">
+                      <h3 className="text-sm sm:text-xl font-bold text-[#111] text-center">
                         User
                       </h3>
                     </Link>
                   </div>
 
                   {/* Description */}
-                  <p className="text-center text-white text-base leading-relaxed">
+                  <p className="text-center text-white text-xs sm:text-base leading-relaxed">
                     We offer two registration choices to ensure that both Business Owners get the management tools they need to update menus, and Customers get the personalized features needed to save and view their favorite spots.
                   </p>
                 </div>

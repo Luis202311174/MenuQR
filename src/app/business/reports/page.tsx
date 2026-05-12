@@ -18,6 +18,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import jsPDF from "jspdf";
 import {
   faChartLine,
   faDollarSign,
@@ -130,6 +131,8 @@ export default function BusinessReportsPage() {
   const [dailySalesData, setDailySalesData] = useState<DailySalesDataRow[]>([]);
   const [selectedDailyOrders, setSelectedDailyOrders] = useState<DailySalesDataRow | null>(null);
   const [loadingDailyReport, setLoadingDailyReport] = useState(false);
+  const [unavailableItems, setUnavailableItems] = useState<Array<{id: string; name: string; current_stock?: number | null; is_trackable?: boolean; availability?: boolean;}>>([]);
+  const [exportingReport, setExportingReport] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState<string>(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
@@ -295,7 +298,9 @@ export default function BusinessReportsPage() {
           created_at,
           status,
           user_id,
-          items
+          items,
+          payment_method,
+          table_id
         `)
         .eq("business_id", businessId)
         .gte("created_at", startDate.toISOString())
@@ -355,6 +360,21 @@ export default function BusinessReportsPage() {
 
       // Generate chart data
       generateChartData(orders || []);
+
+      const { data: menuItems, error: availabilityError } = await supabase
+        .from("menu_items")
+        .select("id,name,current_stock,is_trackable,availability")
+        .eq("business_id", businessId);
+
+      if (!availabilityError && menuItems) {
+        setUnavailableItems(
+          menuItems.filter(
+            (item) =>
+              item.availability === false ||
+              (item.is_trackable === true && Number(item.current_stock ?? 0) <= 0)
+          )
+        );
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -557,6 +577,225 @@ export default function BusinessReportsPage() {
   const formatPercentage = (value: number) => {
     const sign = value >= 0 ? '+' : '';
     return `${sign}${value.toFixed(1)}%`;
+  };
+
+  const formatPdfCurrency = (value: number) => {
+    const amount = Number(value || 0);
+    const formatted = amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `P ${formatted}`;
+  };
+
+  const handleExportSalesReportPDF = async () => {
+    setExportingReport(true);
+
+    try {
+      if (!businessId) throw new Error("Business not loaded.");
+      const fromDate = new Date(selectedStartDate);
+      fromDate.setHours(0, 0, 0, 0);
+      const toDate = new Date(selectedEndDate);
+      toDate.setHours(23, 59, 59, 999);
+
+      const { data: orders, error: exportOrdersError } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          total_amount,
+          discount_amount,
+          created_at,
+          status,
+          user_id,
+          items,
+          payment_method,
+          table_id
+        `)
+        .eq("business_id", businessId)
+        .gte("created_at", fromDate.toISOString())
+        .lte("created_at", toDate.toISOString())
+        .in("status", ["paid", "completed"])
+        .order("created_at", { ascending: true });
+
+      if (exportOrdersError) {
+        throw exportOrdersError;
+      }
+
+      const ordersForExport = orders || [];
+      const paymentGroups = ordersForExport.reduce((acc: Record<string, { count: number; total: number }>, order: any) => {
+        const method = (order.payment_method || "unknown").toString().toLowerCase();
+        const key = method === "gcash" ? "GCash" : method === "cash" ? "Cash" : "Other";
+        if (!acc[key]) acc[key] = { count: 0, total: 0 };
+        acc[key].count += 1;
+        acc[key].total += Number(order.total_amount || 0) - Number(order.discount_amount || 0);
+        return acc;
+      }, {});
+
+      const bestSellerMap = ordersForExport.reduce((acc: Record<string, { quantity: number; revenue: number }>, order: any) => {
+        normalizeOrderItems(order.items).forEach((item: any) => {
+          const name = item.name || item.title || item.menu_item_id || "Unknown Item";
+          const quantity = Number(item.qty ?? item.quantity ?? 0);
+          const price = Number(item.price ?? item.base_price ?? item.total ?? 0);
+          if (!acc[name]) acc[name] = { quantity: 0, revenue: 0 };
+          acc[name].quantity += quantity;
+          acc[name].revenue += quantity * price;
+        });
+        return acc;
+      }, {});
+
+      const bestSellers = Object.entries(bestSellerMap)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 15);
+
+      const salesByHourMap = Array.from({ length: 24 }, (_, hour) => {
+        const label = `${hour.toString().padStart(2, "0")}:00 - ${hour.toString().padStart(2, "0")}:59`;
+        return [label, { count: 0, total: 0 }] as const;
+      }).reduce((acc, [label, value]) => {
+        acc[label] = { ...value };
+        return acc;
+      }, {} as Record<string, { count: number; total: number }>);
+
+      ordersForExport.forEach((order: any) => {
+        const date = new Date(order.created_at);
+        if (Number.isNaN(date.getTime())) return;
+        const hour = date.getHours();
+        const label = `${hour.toString().padStart(2, "0")}:00 - ${hour.toString().padStart(2, "0")}:59`;
+        if (!salesByHourMap[label]) {
+          salesByHourMap[label] = { count: 0, total: 0 };
+        }
+        salesByHourMap[label].count += 1;
+        salesByHourMap[label].total += Number(order.total_amount || 0) - Number(order.discount_amount || 0);
+      });
+
+      const salesByHour = Object.entries(salesByHourMap)
+        .map(([label, data]) => ({ label, ...data }));
+
+      const dineInOrders = orders.filter((order: any) => order.table_id).length;
+      const takeoutOrders = orders.length - dineInOrders;
+      const dineInRatio = orders.length > 0 ? `${((dineInOrders / orders.length) * 100).toFixed(0)}%` : "0%";
+      const takeoutRatio = orders.length > 0 ? `${((takeoutOrders / orders.length) * 100).toFixed(0)}%` : "0%";
+
+      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const margin = 15;
+      const pageWidth = 210;
+      const contentWidth = pageWidth - margin * 2;
+      let y = 20;
+
+      const drawSectionTitle = (title: string) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor("#1f2937");
+        doc.text(title, margin, y);
+        y += 8;
+      };
+
+      const drawRow = (cells: string[], widths: number[], options?: { header?: boolean; fill?: boolean; fillColor?: string; textColor?: string }) => {
+        const lineHeight = 5;
+        const cellLines = cells.map((cell, index) => doc.splitTextToSize(cell, widths[index] - 2));
+        const maxLines = Math.max(...cellLines.map((lines) => lines.length));
+        const rowHeight = lineHeight * maxLines + 4;
+        if (options?.fill) {
+          const fillColor = options.fillColor || "#EAF3FB";
+          doc.setFillColor(fillColor);
+          doc.rect(margin, y, contentWidth, rowHeight, "F");
+        }
+        let x = margin;
+        cells.forEach((cell, index) => {
+          const lines = cellLines[index];
+          const align = "center";
+          doc.setFont("helvetica", options?.header ? "bold" : "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(options?.textColor || "#0f172a");
+          const textX = x + widths[index] / 2;
+          lines.forEach((line: string, lineIndex: number) => {
+            doc.text(line, textX, y + 4 + lineIndex * lineHeight, {
+              align,
+              maxWidth: widths[index] - 2,
+            });
+          });
+          x += widths[index];
+        });
+        y += rowHeight;
+      };
+
+      const maybeAddPage = (requiredHeight: number) => {
+        if (y + requiredHeight > 287) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor("#1f2937");
+      doc.text("Sales Report", pageWidth / 2, y, { align: "center" });
+      y += 10;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Business: ${businessName || "Business"}`, margin, y);
+      y += 5;
+      doc.text(`Period: ${selectedStartDate} – ${selectedEndDate}`, margin, y);
+      y += 5;
+      doc.text(`Report generated: ${new Date().toLocaleString()}`, margin, y);
+      y += 10;
+
+      // summary header
+      drawSectionTitle("Summary");
+      maybeAddPage(26);
+      drawRow(["Metric", "Value", "Ratio"], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3], { header: true, fill: true, fillColor: "#4a7ebb", textColor: "#ffffff" });
+      drawRow(["Total Sales", formatPdfCurrency(metrics.totalRevenue), ""], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3], { fill: true, fillColor: "#EAF3FB" });
+      drawRow(["Total Transactions", orders.length.toString(), ""], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3]);
+      drawRow(["Dine In vs Takeout", `${dineInOrders} / ${takeoutOrders}`, `${dineInRatio} / ${takeoutRatio}`], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3], { fill: true, fillColor: "#EAF3FB" });
+      y += 4;
+
+      // payment breakdown
+      drawSectionTitle("Payment Breakdown");
+      maybeAddPage(26 + bestSellers.length * 8);
+      drawRow(["Method", "Transaction Count", "Total Amount"], [contentWidth * 0.35, contentWidth * 0.25, contentWidth * 0.4], { header: true, fill: true, fillColor: "#4a7ebb", textColor: "#ffffff" });
+      Object.entries(paymentGroups).forEach(([method, summary], index) => {
+        drawRow([method, summary.count.toString(), formatPdfCurrency(summary.total)], [contentWidth * 0.35, contentWidth * 0.25, contentWidth * 0.4], { fill: index % 2 === 0, fillColor: "#EAF3FB" });
+      });
+      y += 4;
+
+      // best sellers
+      drawSectionTitle("Best Sellers");
+      maybeAddPage(26 + bestSellers.length * 8);
+      drawRow(["Item Name", "Quantity Sold", "Revenue"], [contentWidth * 0.45, contentWidth * 0.2, contentWidth * 0.35], { header: true, fill: true, fillColor: "#4a7ebb", textColor: "#ffffff" });
+      bestSellers.forEach((item, idx) => {
+        drawRow([item.name, item.quantity.toString(), formatPdfCurrency(item.revenue)], [contentWidth * 0.45, contentWidth * 0.2, contentWidth * 0.35], { fill: idx % 2 === 0, fillColor: "#EAF3FB" });
+      });
+      y += 4;
+
+      // start a new page for hourly items
+      doc.addPage();
+      y = margin;
+
+      // sales by hour
+      drawSectionTitle("Sales by Hour");
+      maybeAddPage(26 + salesByHour.length * 8);
+      drawRow(["Time Block", "Transactions", "Sales"], [contentWidth * 0.45, contentWidth * 0.2, contentWidth * 0.35], { header: true, fill: true, fillColor: "#4a7ebb", textColor: "#ffffff" });
+      salesByHour.forEach((row, idx) => {
+        drawRow([row.label, row.count.toString(), formatPdfCurrency(row.total)], [contentWidth * 0.45, contentWidth * 0.2, contentWidth * 0.35], { fill: idx % 2 === 0, fillColor: "#EAF3FB" });
+      });
+      y += 4;
+
+      // move unavailable items to its own page
+      doc.addPage();
+      y = margin;
+      drawSectionTitle("Unavailable Items");
+      maybeAddPage(26 + unavailableItems.length * 8);
+      drawRow(["Item Name", "Status"], [contentWidth * 0.65, contentWidth * 0.35], { header: true, fill: true, fillColor: "#C0392B", textColor: "#ffffff" });
+      unavailableItems.forEach((item, idx) => {
+        const status = item.availability === false ? "Not available" : item.is_trackable ? "Out of stock" : "Unavailable";
+        drawRow([item.name || "Unknown", status], [contentWidth * 0.65, contentWidth * 0.35], { fill: idx % 2 === 0, fillColor: "#FDEDEC" });
+      });
+
+      doc.save(`Sales-Report-${selectedStartDate}-to-${selectedEndDate}.pdf`);
+    } catch (error) {
+      console.error("Error generating sales report PDF:", error);
+      window.alert("Failed to generate the sales report PDF. Please try again.");
+    } finally {
+      setExportingReport(false);
+    }
   };
 
   // Daily Sales Report Functions
@@ -772,9 +1011,13 @@ export default function BusinessReportsPage() {
                       </div>
 
                       {/* Export Button */}
-                      <button className="flex h-10 min-h-[38px] items-center gap-2 px-3 py-2 text-xs leading-none sm:px-4 sm:py-2 sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                      <button
+                        onClick={handleExportSalesReportPDF}
+                        disabled={exportingReport}
+                        className="flex h-10 min-h-[38px] items-center gap-2 px-3 py-2 text-xs leading-none sm:px-4 sm:py-2 sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
                         <FontAwesomeIcon icon={faDownload} className="text-sm" />
-                        Export
+                        {exportingReport ? 'Exporting...' : 'Export'}
                       </button>
                     </div>
 
