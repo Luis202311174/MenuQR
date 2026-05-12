@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchStores } from "@/utils/fetchStores";
 import PageShell from "@/components/PageShell";
+import CraveBot from "@/components/CraveBot";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faGaugeHigh,
@@ -18,6 +19,7 @@ export default function UserHome() {
   const [allBusinesses, setAllBusinesses] = useState<any[]>([]);
   const [savedBusinessIds, setSavedBusinessIds] = useState<string[]>([]);
   const [activePanel, setActivePanel] = useState<"dashboard" | "suggestions" | "saved" | "menus">("dashboard");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("Food Lover");
 
@@ -52,6 +54,17 @@ export default function UserHome() {
       }
 
       const stores = await fetchStores();
+      const { data: menuItems, error: menuError } = await supabase
+        .from("menu_items")
+        .select("id,name,business_id,availability");
+
+      if (menuError) {
+        console.error("Error fetching menu items:", menuError.message);
+      }
+      console.log('Loaded menu items:', menuItems?.length || 0, 'items');
+      const availableMenuItems = (menuItems || []).filter((item: any) => item.availability !== false);
+      console.log('Available menu items:', availableMenuItems.length, 'items');
+
       const businessItems = stores.map((biz) => ({
         id: biz.id,
         title: biz.name,
@@ -60,7 +73,12 @@ export default function UserHome() {
         contact: biz.contact_info || "No contact info",
         logoUrl: biz.logo_url || "/hero-icon.png",
         slug: biz.slug,
+        menuItems: availableMenuItems
+          .filter((menu: any) => menu.business_id === biz.id)
+          .map((menu: any) => menu.name || ""),
       }));
+      
+      console.log('businessItems with menus:', businessItems.map(b => ({ title: b.title, menuCount: b.menuItems.length, menuSample: b.menuItems.slice(0, 3) })));
 
       setSuggestions(businessItems);
       setAllBusinesses(businessItems);
@@ -88,22 +106,22 @@ export default function UserHome() {
   }
 
   const BusinessCard = ({ item, isSaved, onToggleSave, showRemove = false }: any) => (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all">
-      <div className="w-32 h-32 rounded-[20px] overflow-hidden mb-4 border border-slate-200 mx-auto bg-slate-50">
+    <div className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5 shadow-sm hover:shadow-md transition-all">
+      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[18px] overflow-hidden mb-3 sm:mb-4 border border-slate-200 mx-auto bg-slate-50">
         <img src={item.logoUrl} alt={`${item.title} logo`} className="w-full h-full object-cover" loading="lazy" />
       </div>
       <div className="text-center">
-        <p className="text-base font-bold text-slate-900">{item.title}</p>
-        <p className="text-xs text-slate-500 uppercase tracking-wider mt-1 mb-3 font-semibold">{item.source}</p>
+        <p className="text-sm sm:text-base font-bold text-slate-900">{item.title}</p>
+        <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wider mt-1 mb-3 font-semibold">{item.source}</p>
         <p className="text-sm text-slate-600 mb-1 line-clamp-2">{item.address}</p>
-        <p className="text-sm text-slate-600 mb-4 line-clamp-1">{item.contact}</p>
-        <div className="flex gap-2">
-          <a href={`/${item.slug}`} className="flex-1 px-3 py-2.5 rounded-[18px] bg-[#E23838] text-[#F2FF00] text-xs font-bold hover:bg-[#c22f2f] transition-all text-center">
+        <p className="text-sm text-slate-600 mb-3 line-clamp-1">{item.contact}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <a href={`/${item.slug}`} className="rounded-[18px] bg-[#E23838] px-3 py-2 text-[10px] sm:text-xs font-bold text-[#F2FF00] hover:bg-[#c22f2f] transition-all text-center">
             Visit Menu
           </a>
           <button 
             onClick={() => onToggleSave(item)} 
-            className={`flex-1 px-3 py-2.5 rounded-[18px] text-xs font-bold transition-all ${
+            className={`rounded-[18px] px-3 py-2 text-[10px] sm:text-xs font-bold transition-all ${
               isSaved 
                 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" 
                 : "border border-slate-300 text-slate-700 hover:bg-slate-50"
@@ -118,7 +136,7 @@ export default function UserHome() {
 
   const suggestionCards = () =>
     suggestions.length ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {suggestions.map((item) => (
           <BusinessCard 
             key={item.id} 
@@ -136,7 +154,7 @@ export default function UserHome() {
 
   const savedCards = () =>
     saved.length ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {saved.map((item) => (
           <BusinessCard 
             key={item.id} 
@@ -155,7 +173,7 @@ export default function UserHome() {
 
   const menuCards = () =>
     allBusinesses.length ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {allBusinesses.map((item) => (
           <BusinessCard 
             key={item.id} 
@@ -261,11 +279,76 @@ export default function UserHome() {
         {/* Main Content */}
         <div className="overflow-y-auto">
           <PageShell title="Welcome" subtitle={`Hello, ${displayName}!`}>
-            <div className="space-y-8">
+            <div className="space-y-6">
+              <div className="lg:hidden rounded-3xl border border-slate-200 bg-white p-3 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Navigation</p>
+                  <p className="text-sm font-semibold text-slate-900">Tap to open menu</p>
+                </div>
+                <button
+                  onClick={() => setMobileNavOpen(true)}
+                  className="rounded-full bg-[#4f65ff] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#3a52d5] transition"
+                >
+                  Menu
+                </button>
+              </div>
+
+              {mobileNavOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40 bg-black/20 lg:hidden"
+                    onClick={() => setMobileNavOpen(false)}
+                  />
+                  <div className="fixed inset-y-0 left-0 z-50 w-[90vw] max-w-xs overflow-y-auto bg-white shadow-xl border-r border-slate-200 lg:hidden">
+                    <div className="flex items-center justify-between border-b border-slate-200 p-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">User Menu</p>
+                        <p className="text-sm font-semibold text-slate-900">Choose a panel</p>
+                      </div>
+                      <button
+                        onClick={() => setMobileNavOpen(false)}
+                        className="rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200"
+                        aria-label="Close menu"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <nav className="space-y-2 p-4">
+                      {[
+                        { panel: "dashboard", label: "Dashboard", icon: faGaugeHigh },
+                        { panel: "suggestions", label: "Suggestions", icon: faLightbulb },
+                        { panel: "saved", label: "Saved", icon: faBookmark },
+                        { panel: "menus", label: "All Menus", icon: faUtensils },
+                      ].map(({ panel, label, icon }) => (
+                        <button
+                          key={panel}
+                          onClick={() => {
+                            setActivePanel(panel as any);
+                            setMobileNavOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                            activePanel === panel
+                              ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white"
+                              : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                            activePanel === panel ? "bg-white/20 text-white" : "bg-white text-slate-600"
+                          }`}>
+                            <FontAwesomeIcon icon={icon} className="text-sm" />
+                          </span>
+                          <span>{label}</span>
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                </>
+              )}
+
           {/* Content Section */}
           {activePanel !== "dashboard" && (
-            <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm p-8">
-              <div className="mb-6">
+            <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm p-6 sm:p-8">
+              <div className="mb-5">
                 <h2 className="text-xl font-semibold text-slate-900 capitalize">
                   {activePanel === "suggestions" && "Suggestions"}
                   {activePanel === "saved" && "Saved Menus"}
@@ -283,7 +366,7 @@ export default function UserHome() {
 
             {/* Dashboard View - Without Content Card Wrapper */}
             {activePanel === "dashboard" && (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {panelContent()}
               </div>
             )}
@@ -291,6 +374,12 @@ export default function UserHome() {
           </PageShell>
         </div>
       </div>
+      <CraveBot
+        businessOptions={suggestions}
+        businessSlug={suggestions?.[0]?.slug}
+        businessName={suggestions?.[0]?.title}
+        businessAddress={suggestions?.[0]?.address}
+      />
     </div>
   );
 }

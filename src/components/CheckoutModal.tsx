@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faX, faChevronLeft, faChevronRight, faCheck, faShoppingCart, faTag, faUsers, faCreditCard, faClipboardList } from "@fortawesome/free-solid-svg-icons";
+import { supabase } from "@/lib/supabaseClient";
 
 type CartItem = {
   id: string;
@@ -22,13 +23,14 @@ type CartItem = {
 type CheckoutStep = "cart-review" | "discount" | "guests" | "payment" | "summary";
 
 type SubmittedOrderDetails = {
-  discountType: "none" | "senior" | "pwd";
+  discountType: "none" | "senior" | "pwd" | "promo";
   totalGuests: number;
   seniorCount: number;
   discountAmount: number;
   paymentMethod: "cash" | "gcash";
   cartTotal: number;
   finalAmount: number;
+  promoCode?: string;
 };
 
 interface CheckoutModalProps {
@@ -37,16 +39,19 @@ interface CheckoutModalProps {
   cartTotal: number;
   businessName?: string;
   business?: {
+    id?: string;
     cash_enabled?: boolean;
     gcash_enabled?: boolean;
   };
   onClose: () => void;
   onSubmitOrder: (orderData: {
-    discountType: "none" | "senior" | "pwd";
+    discountType: "none" | "senior" | "pwd" | "promo";
     totalGuests: number;
     seniorCount: number;
     discountAmount: number;
     paymentMethod: "cash" | "gcash";
+    promoCode?: string;
+    couponId?: string;
   }) => Promise<void>;
   onRemoveCartItem: (index: number) => void;
   isSubmitting?: boolean;
@@ -74,21 +79,98 @@ export default function CheckoutModal({
   orderInProgressMessage = null,
 }: CheckoutModalProps) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("cart-review");
-  const [discountType, setDiscountType] = useState<"none" | "senior" | "pwd">("none");
+  const [discountType, setDiscountType] = useState<"none" | "senior" | "pwd" | "promo">("none");
   const [totalGuests, setTotalGuests] = useState(1);
   const [seniorCount, setSeniorCount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "gcash">("cash");
   const [guestError, setGuestError] = useState<string | null>(null);
+  const [cartError, setCartError] = useState<string | null>(null);
   const [localSubmitting, setLocalSubmitting] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; couponId?: string } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) {
+      setPromoError("Please enter a promo code");
+      return;
+    }
+
+    setPromoError(null);
+    setAppliedPromo(null);
+
+    if (!business?.id) {
+      setPromoError("Unable to validate promo code without business information.");
+      return;
+    }
+
+    try {
+      // Call Supabase function to validate coupon
+      const { data, error } = await supabase.rpc('validate_and_apply_coupon', {
+        p_coupon_code: promoCode.trim(),
+        p_business_id: business.id,
+        p_order_total: cartTotal,
+      });
+
+      if (error) {
+        console.error("Supabase coupon RPC error:", error, { promoCode, businessId: business.id });
+        setAppliedPromo(null);
+        setPromoError(error.message || "Error validating coupon. Please try again.");
+        return;
+      }
+
+      const normalizedData = (() => {
+        if (data == null) return null;
+        if (typeof data === 'string') {
+          try {
+            return JSON.parse(data);
+          } catch {
+            return null;
+          }
+        }
+        if (Array.isArray(data)) {
+          return data[0] ?? null;
+        }
+        return data;
+      })();
+
+      if (!normalizedData || typeof normalizedData !== 'object') {
+        console.error("Unexpected coupon validation response:", data);
+        setPromoError("Invalid coupon validation response. Please try again.");
+        return;
+      }
+
+      if (normalizedData.valid) {
+        setAppliedPromo({
+          code: promoCode.trim().toUpperCase(),
+          discount: normalizedData.discount_amount,
+          couponId: normalizedData.coupon_id,
+        });
+        setPromoError(null);
+      } else {
+        setAppliedPromo(null);
+        setPromoError(normalizedData.message || "Invalid coupon code");
+      }
+    } catch (error: any) {
+      console.error("Error validating coupon:", error, { promoCode, businessId: business?.id });
+      setAppliedPromo(null);
+      setPromoError("Error validating coupon. Please try again.");
+    }
+  };
 
   const SENIOR_DISCOUNT_PERCENT = 0.2; // 20% for senior/PWD
   const effectiveSeniorCount = Math.min(Math.max(0, seniorCount), totalGuests);
   const perGuestShare = cartTotal / Math.max(1, totalGuests);
-  const discountAmount =
-    discountType === "none" || effectiveSeniorCount === 0
-      ? 0
-      : Math.round(perGuestShare * effectiveSeniorCount * SENIOR_DISCOUNT_PERCENT * 100) / 100;
-  const finalTotal = cartTotal - discountAmount;
+  const hasCartItems = cartItems.length > 0;
+  
+  let discountAmount = 0;
+  if (discountType === "senior" || discountType === "pwd") {
+    discountAmount = effectiveSeniorCount === 0 ? 0 : Math.round(perGuestShare * effectiveSeniorCount * SENIOR_DISCOUNT_PERCENT * 100) / 100;
+  } else if (discountType === "promo" && appliedPromo) {
+    discountAmount = appliedPromo.discount;
+  }
+  
+  const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   const handleBack = () => {
     const steps: CheckoutStep[] = ["cart-review", "discount", "guests", "payment", "summary"];
@@ -99,14 +181,28 @@ export default function CheckoutModal({
   };
 
   const handleNext = () => {
+    if (currentStep === "cart-review") {
+      if (!hasCartItems) {
+        setCartError("Your cart is empty. Add items to continue.");
+        return;
+      }
+      setCartError(null);
+    }
+
+    if (currentStep === "discount" && discountType === "promo" && !appliedPromo) {
+      // Prevent proceeding if promo is selected but not successfully applied
+      setPromoError("Please apply a valid promo code or select No Discount.");
+      return;
+    }
+
     if (currentStep === "guests") {
       if (totalGuests < 1) {
         setGuestError("Enter the number of guests.");
         return;
       }
-      if (discountType !== "none") {
+      if (discountType === "senior" || discountType === "pwd") {
         if (effectiveSeniorCount < 1) {
-          setGuestError("Enter how many Senior/PWD guests are dining.");
+          setGuestError(`Enter how many ${discountType === "senior" ? "Senior" : "PWD"} guests are dining.`);
           return;
         }
         if (effectiveSeniorCount > totalGuests) {
@@ -125,7 +221,7 @@ export default function CheckoutModal({
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting || localSubmitting || orderInProgress) return;
+    if (!hasCartItems || isSubmitting || localSubmitting || orderInProgress) return;
 
     setLocalSubmitting(true);
     try {
@@ -135,6 +231,8 @@ export default function CheckoutModal({
         seniorCount: effectiveSeniorCount,
         discountAmount,
         paymentMethod,
+        promoCode: appliedPromo?.code,
+        couponId: appliedPromo?.couponId,
       });
       // Only close on success
       onClose();
@@ -215,7 +313,9 @@ export default function CheckoutModal({
                   ? "Discount"
                   : submittedOrderDetails.discountType === "senior"
                   ? "Senior Discount"
-                  : "PWD Discount"}
+                  : submittedOrderDetails.discountType === "pwd"
+                  ? "PWD Discount"
+                  : `Promo (${submittedOrderDetails.promoCode})`}
               </span>
               <span className="font-semibold text-slate-900">-₱{submittedOrderDetails.discountAmount.toFixed(2)}</span>
             </div>
@@ -264,39 +364,53 @@ export default function CheckoutModal({
           {/* Cart Review Step */}
           {currentStep === "cart-review" && (
             <div className="space-y-2 lg:space-y-4">
-              {cartItems.map((item, index) => (
-                <div key={index} className="relative flex justify-between rounded-lg bg-slate-50 p-2 lg:p-3 pr-12 lg:pr-14">
-                  <button
-                    type="button"
-                    onClick={() => onRemoveCartItem(index)}
-                    className="absolute right-2 lg:right-3 top-2 lg:top-3 rounded-full p-1.5 lg:p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    aria-label={`Remove ${item.name}`}
-                  >
-                    <FontAwesomeIcon icon={faX} className="text-xs lg:text-base" />
-                  </button>
-                  <div className="flex-1 pr-8 lg:pr-10 min-w-0">
-                    <p className="font-semibold text-slate-900 text-sm lg:text-base truncate">{item.name}</p>
-                    <p className="text-xs lg:text-sm text-slate-600">Qty: {item.qty}</p>
-                    {item.selected_options && item.selected_options.length > 0 && (
-                      <div className="mt-1 space-y-0.5">
-                        {item.selected_options.map((opt, idx) => (
-                          <p key={idx} className="text-xs text-slate-500 line-clamp-1">
-                            • {opt.group_name}: {opt.option_name}
-                          </p>
-                        ))}
+              {!hasCartItems ? (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                  <p className="text-base font-semibold text-slate-900">Your cart is empty</p>
+                  <p className="mt-2 text-sm text-slate-600">Add items to your cart before continuing to checkout.</p>
+                </div>
+              ) : (
+                <>
+                  {cartItems.map((item, index) => (
+                    <div key={index} className="relative flex justify-between rounded-lg bg-slate-50 p-2 lg:p-3 pr-12 lg:pr-14">
+                      <button
+                        type="button"
+                        onClick={() => onRemoveCartItem(index)}
+                        className="absolute right-2 lg:right-3 top-2 lg:top-3 rounded-full p-1.5 lg:p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        aria-label={`Remove ${item.name}`}
+                      >
+                        <FontAwesomeIcon icon={faX} className="text-xs lg:text-base" />
+                      </button>
+                      <div className="flex-1 pr-8 lg:pr-10 min-w-0">
+                        <p className="font-semibold text-slate-900 text-sm lg:text-base truncate">{item.name}</p>
+                        <p className="text-xs lg:text-sm text-slate-600">Qty: {item.qty}</p>
+                        {item.selected_options && item.selected_options.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {item.selected_options.map((opt, idx) => (
+                              <p key={idx} className="text-xs text-slate-500 line-clamp-1">
+                                • {opt.group_name}: {opt.option_name}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <p className="min-w-[60px] lg:min-w-[72px] text-right font-semibold text-slate-900 text-sm lg:text-base">₱{(item.total || item.price * item.qty).toFixed(2)}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500">Tap the X to remove an item from your order.</p>
+                  <div className="border-t border-slate-200 pt-3 lg:pt-4">
+                    <div className="flex justify-between text-base lg:text-lg font-bold text-slate-900">
+                      <span>Subtotal</span>
+                      <span>₱{cartTotal.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <p className="min-w-[60px] lg:min-w-[72px] text-right font-semibold text-slate-900 text-sm lg:text-base">₱{(item.total || item.price * item.qty).toFixed(2)}</p>
+                </>
+              )}
+              {cartError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {cartError}
                 </div>
-              ))}
-              <p className="text-xs text-slate-500">Tap the X to remove an item from your order.</p>
-              <div className="border-t border-slate-200 pt-3 lg:pt-4">
-                <div className="flex justify-between text-base lg:text-lg font-bold text-slate-900">
-                  <span>Subtotal</span>
-                  <span>₱{cartTotal.toFixed(2)}</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -308,10 +422,18 @@ export default function CheckoutModal({
                 { type: "none" as const, label: "No Discount", description: "Regular Price" },
                 { type: "senior" as const, label: "Senior Citizen", description: "20% Discount" },
                 { type: "pwd" as const, label: "PWD (Person with Disability)", description: "20% Discount" },
+                { type: "promo" as const, label: "Promo Code", description: "Enter a coupon or promo code" },
               ].map((option) => (
                 <button
                   key={option.type}
-                  onClick={() => setDiscountType(option.type)}
+                  onClick={() => {
+                    setDiscountType(option.type);
+                    if (option.type !== "promo") {
+                      setAppliedPromo(null);
+                      setPromoCode("");
+                      setPromoError(null);
+                    }
+                  }}
                   className={`w-full rounded-lg lg:rounded-2xl border-2 p-3 lg:p-4 text-left transition ${
                     discountType === option.type
                       ? "border-[#4f65ff] bg-blue-50"
@@ -329,6 +451,37 @@ export default function CheckoutModal({
                   </div>
                 </button>
               ))}
+
+              {discountType === "promo" && (
+                <div className="mt-4 p-4 border rounded-2xl bg-white shadow-sm space-y-3">
+                  <label className="text-sm font-semibold text-slate-700">Enter Promo Code</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. DISCOUNT10"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value);
+                        setPromoError(null);
+                      }}
+                      className="flex-1 border border-slate-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4f65ff]"
+                    />
+                    <button
+                      onClick={handleApplyPromo}
+                      disabled={!promoCode.trim()}
+                      className="bg-[#4f65ff] text-white px-4 py-2 rounded-xl font-semibold text-sm hover:bg-[#3f52e3] transition disabled:opacity-50"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {promoError && <p className="text-xs text-red-600">{promoError}</p>}
+                  {appliedPromo && (
+                    <p className="text-xs text-green-600 font-semibold">
+                      Promo applied! ₱{appliedPromo.discount.toFixed(2)} off.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -366,7 +519,7 @@ export default function CheckoutModal({
                 <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">Guest(s)</p>
               </div>
 
-              {discountType !== "none" && (
+              {(discountType === "senior" || discountType === "pwd") && (
                 <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-5 shadow-sm">
                   <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">How many {discountType === "senior" ? "Senior" : "PWD"} guests?</p>
                   <div className="flex items-center justify-center gap-3 lg:gap-4">
@@ -446,7 +599,7 @@ export default function CheckoutModal({
                 {discountType !== "none" && (
                   <div className="flex justify-between text-xs lg:text-sm">
                     <span className="text-slate-600">
-                      {discountType === "senior" ? "Senior Discount" : "PWD Discount"} (20%)
+                      {discountType === "senior" ? "Senior Discount (20%)" : discountType === "pwd" ? "PWD Discount (20%)" : `Promo (${appliedPromo?.code})`}
                     </span>
                     <span className="font-semibold text-emerald-600">−₱{discountAmount.toFixed(2)}</span>
                   </div>
@@ -462,7 +615,7 @@ export default function CheckoutModal({
                   <span className="text-slate-600">Guests</span>
                   <span className="font-semibold text-slate-900">{totalGuests}</span>
                 </div>
-                {discountType !== "none" && (
+                {(discountType === "senior" || discountType === "pwd") && (
                   <div className="flex justify-between text-xs lg:text-sm">
                     <span className="text-slate-600">{discountType === "senior" ? "Senior" : "PWD"} guests</span>
                     <span className="font-semibold text-slate-900">{effectiveSeniorCount}</span>
@@ -471,7 +624,7 @@ export default function CheckoutModal({
                 <div className="flex justify-between text-xs lg:text-sm">
                   <span className="text-slate-600">Discount</span>
                   <span className="font-semibold text-slate-900">
-                    {discountType === "none" ? "None" : discountType === "senior" ? "Senior (20%)" : "PWD (20%)"}
+                    {discountType === "none" ? "None" : discountType === "senior" ? "Senior (20%)" : discountType === "pwd" ? "PWD (20%)" : "Promo Applied"}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs lg:text-sm">
@@ -504,7 +657,13 @@ export default function CheckoutModal({
             )}
             <button
               onClick={currentStep === "summary" ? handleSubmit : handleNext}
-              disabled={isSubmitting || localSubmitting || submissionComplete || orderInProgress}
+              disabled={
+                isSubmitting ||
+                localSubmitting ||
+                submissionComplete ||
+                orderInProgress ||
+                (currentStep === "cart-review" && !hasCartItems)
+              }
               className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 rounded-xl lg:rounded-2xl bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] py-2 lg:py-3 font-semibold text-sm lg:text-base text-white hover:shadow-xl transition disabled:opacity-50"
             >
               {currentStep === "summary" ? (

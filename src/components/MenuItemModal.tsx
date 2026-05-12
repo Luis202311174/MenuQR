@@ -13,11 +13,22 @@ type MenuItem = {
   price: number;
   category?: string;
   image_url?: string;
+  image_position?: string;
   availability?: boolean;
   description?: string;
   menu_desc?: string;
   is_trackable?: boolean;
   current_stock?: number | null;
+  // Nutrition facts
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  serving_size?: string;
+  allergens?: string[];
 };
 
 type CartItemWithOptions = MenuItem & {
@@ -50,6 +61,7 @@ export default function MenuItemModal({
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [qty, setQty] = useState(1);
   const [qtyInput, setQtyInput] = useState("1");
+  const [showNutritionMobile, setShowNutritionMobile] = useState(false);
 
   const requestIdRef = useRef(0);
 
@@ -88,6 +100,10 @@ export default function MenuItemModal({
     };
 
     loadOptions();
+  }, [viewItem]);
+
+  useEffect(() => {
+    setShowNutritionMobile(false);
   }, [viewItem]);
 
   const handleOptionSelect = (
@@ -133,6 +149,19 @@ export default function MenuItemModal({
 
     return total;
   };
+
+  const nutritionFacts = [
+    { label: "Serving Size", value: viewItem.serving_size },
+    { label: "Calories", value: viewItem.calories },
+    { label: "Protein", value: viewItem.protein ? `${viewItem.protein} g` : undefined },
+    { label: "Carbs", value: viewItem.carbs ? `${viewItem.carbs} g` : undefined },
+    { label: "Fat", value: viewItem.fat ? `${viewItem.fat} g` : undefined },
+    { label: "Fiber", value: viewItem.fiber ? `${viewItem.fiber} g` : undefined },
+    { label: "Sugar", value: viewItem.sugar ? `${viewItem.sugar} g` : undefined },
+    { label: "Sodium", value: viewItem.sodium ? `${viewItem.sodium} mg` : undefined },
+  ].filter((item) => item.value !== undefined && item.value !== null);
+
+  const hasNutritionFacts = nutritionFacts.length > 0 || (viewItem.allergens?.length ?? 0) > 0;
 
   const availableStock = viewItem?.is_trackable ? Math.max(0, Number(viewItem.current_stock ?? 0)) : null;
   const isSoldOut = viewItem?.availability === false || (viewItem?.is_trackable && availableStock === 0);
@@ -269,51 +298,103 @@ export default function MenuItemModal({
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Item Image & Basic Info */}
+          {/* Item Image & Nutrition Info */}
           <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
-            <div className="h-40 w-full rounded-2xl border border-gray-300 bg-gray-100 overflow-hidden flex-shrink-0">
+            <div className="w-full rounded-2xl border border-gray-300 bg-gray-100 overflow-hidden flex-shrink-0">
               {viewItem.image_url ? (
                 <img
                   src={viewItem.image_url}
                   alt={viewItem.name}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover min-h-[180px]"
+                  style={{ objectPosition: viewItem.image_position || "center" }}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-xs font-semibold text-gray-500">
+                <div className="flex min-h-[180px] items-center justify-center text-xs font-semibold text-gray-500">
                   No image
                 </div>
               )}
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <p className="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">
-                  Description
-                </p>
-                <p className="text-sm sm:text-base text-gray-700 leading-6 mt-2">
-                  {viewItem.description ||
-                    viewItem.menu_desc ||
-                    "No description available."}
-                </p>
+            <div className="rounded-3xl border border-gray-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold text-slate-900 mb-2">Nutrition Facts</p>
+                <button
+                  type="button"
+                  onClick={() => setShowNutritionMobile((prev) => !prev)}
+                  className="sm:hidden rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  {showNutritionMobile ? "Hide" : "Show"}
+                </button>
               </div>
+              <div className={`${showNutritionMobile ? "block" : "hidden"} sm:block`}>
+                {hasNutritionFacts ? (
+                  <>
+                    <div className="grid gap-1 grid-cols-2 text-[11px] text-gray-700">
+                      {nutritionFacts.map((fact) => (
+                        <div key={fact.label}>
+                          <p className="text-[9px] text-gray-500 uppercase tracking-[0.25em]">
+                            {fact.label}
+                          </p>
+                          <p className="mt-0.5 font-semibold text-[11px]">{fact.value}</p>
+                        </div>
+                      ))}
+                    </div>
 
-              <div className="border-t border-gray-200 pt-3">
-                <p className="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">
+                    {viewItem.allergens?.length ? (
+                      <div className="mt-3 rounded-2xl bg-white p-3 border border-gray-200">
+                        <p className="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-2">
+                          Allergens
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {viewItem.allergens.map((allergen) => (
+                            <span
+                              key={allergen}
+                              className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700"
+                            >
+                              {allergen}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-3 text-sm text-gray-500">
+                    No nutrition facts available for this item.
+                  </div>
+                )}
+              </div>
+          </div>
+
+          <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
                   Base Price
                 </p>
-                <p className="text-xl sm:text-2xl font-black text-blue-600">
+                <p className="text-2xl sm:text-3xl font-black text-blue-600 mt-2">
                   ₱{viewItem.price}
                 </p>
               </div>
-
               <div>
-                <p className="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">
+                <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
                   Category
                 </p>
-                <p className="text-sm sm:text-base text-gray-700 font-semibold">
+                <p className="text-sm sm:text-base text-gray-700 font-semibold mt-2">
                   {viewItem.category || "Unknown"}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
+                Description
+              </p>
+              <p className="text-sm sm:text-base text-gray-700 leading-6 mt-2">
+                {viewItem.description ||
+                  viewItem.menu_desc ||
+                  "No description available."}
+              </p>
             </div>
           </div>
 
@@ -485,20 +566,14 @@ export default function MenuItemModal({
               </p>
             )}
 
-            <div className="grid gap-3 justify-center sm:grid-cols-[auto_minmax(140px,1fr)_auto] items-center">
-              <button
-                onClick={() => setViewItem(null)}
-                className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-700 flex flex-col gap-2 items-center sm:flex-row sm:items-center sm:justify-between w-full max-w-[180px]">
+            <div className="grid gap-3 sm:hidden">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-700 flex flex-col gap-2 items-center">
                 <span className="text-[11px] uppercase tracking-[0.12em] text-slate-600">Qty</span>
                 <div className="flex items-center gap-1 text-sm font-semibold">
                   <button
                     onClick={() => handleQtyChange(qty - 1)}
                     disabled={qty <= 1}
-                    className="w-7 h-7 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     -
                   </button>
@@ -509,34 +584,97 @@ export default function MenuItemModal({
                     max={availableStock ?? undefined}
                     value={qtyInput}
                     onChange={(e) => handleQtyInputChange(e.target.value)}
-                    className="w-16 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
+                    className="w-20 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
                   />
                   <button
                     onClick={() => handleQtyChange(qty + 1)}
                     disabled={availableStock !== null && qty >= availableStock}
-                    className="w-7 h-7 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     +
                   </button>
                 </div>
               </div>
+
+              <button
+                onClick={() => setViewItem(null)}
+                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleAddToCart}
                 disabled={isSoldOut}
-                className={`rounded-2xl px-4 py-2 text-sm font-bold text-white transition ${
+                className={`w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${
                   isSoldOut
                     ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
                 {isSoldOut ? (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center justify-center gap-2">
                     <span>🚫</span> Out of Stock
                   </span>
                 ) : (
                   `Add ₱${totalPrice.toFixed(2)}`
                 )}
               </button>
+            </div>
+
+              {/* Desktop layout */}
+              <div className="hidden sm:grid sm:grid-cols-[auto_minmax(140px,1fr)_auto] sm:items-center sm:gap-3">
+                <button
+                  onClick={() => setViewItem(null)}
+                  className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-700 flex flex-col gap-2 items-center sm:flex-row sm:items-center sm:justify-between w-full max-w-[180px]">
+                  <span className="text-[11px] uppercase tracking-[0.12em] text-slate-600">Qty</span>
+                  <div className="flex items-center gap-1 text-sm font-semibold">
+                    <button
+                      onClick={() => handleQtyChange(qty - 1)}
+                      disabled={qty <= 1}
+                      className="w-7 h-7 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={availableStock ?? undefined}
+                      value={qtyInput}
+                      onChange={(e) => handleQtyInputChange(e.target.value)}
+                      className="w-16 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
+                    />
+                    <button
+                      onClick={() => handleQtyChange(qty + 1)}
+                      disabled={availableStock !== null && qty >= availableStock}
+                      className="w-7 h-7 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isSoldOut}
+                  className={`rounded-2xl px-4 py-2 text-sm font-bold text-white transition ${
+                    isSoldOut
+                      ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {isSoldOut ? (
+                    <span className="flex items-center gap-1">
+                      <span>🚫</span> Out of Stock
+                    </span>
+                  ) : (
+                    `Add ₱${totalPrice.toFixed(2)}`
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

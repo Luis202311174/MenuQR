@@ -20,6 +20,7 @@ type Order = {
   } | null;
   total_guests?: number;
   senior_pwd_count?: number;
+  coupon_id?: string | null;
   discount_amount?: number;
   discount_approved?: boolean;
 };
@@ -88,6 +89,7 @@ const BusinessOrderTile: React.FC<Props> = ({
   }, [order.status]);
 
   const hasDiscountPendingApproval = (order.discount_amount || 0) > 0 && !order.discount_approved;
+  const orderDiscountLabel = order.coupon_id ? "Coupon Discount" : order.senior_pwd_count ? "Senior/PWD Discount" : "Discount";
 
   const actions = useMemo<Record<string, any[]>>(() => ({
     pending: [
@@ -304,12 +306,12 @@ const BusinessOrderTile: React.FC<Props> = ({
                         : "bg-amber-100 text-amber-700 border-amber-200"
                     }`}
                   >
-                    Senior/PWD Discount: -₱{(order.discount_amount || 0).toFixed(2)}
+                    {orderDiscountLabel}: -₱{(order.discount_amount || 0).toFixed(2)}
                   </span>
                   <p className={`text-[10px] font-semibold uppercase tracking-[0.3em] ${order.discount_approved ? "text-emerald-700" : "text-amber-700"}`}>
                     {order.discount_approved
-                      ? "Discount approved"
-                      : "Discount pending approval"
+                      ? `${order.coupon_id ? "Coupon" : order.senior_pwd_count ? "Senior/PWD" : "Discount"} discount approved`
+                      : `${order.coupon_id ? "Coupon" : order.senior_pwd_count ? "Senior/PWD" : "Discount"} discount pending approval`
                     }
                   </p>
                 </div>

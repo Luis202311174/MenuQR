@@ -39,6 +39,11 @@ export default function ReceiptPrintModal({
     }, 0);
 
     const discount = order.discount_amount || 0;
+    const discountLabel = order.coupon_id
+      ? "Coupon Discount"
+      : order.senior_pwd_count
+      ? "Senior/PWD Discount"
+      : "Discount";
     const total = subtotal - discount;
 
     const receiptData: ReceiptData = {
@@ -70,6 +75,7 @@ export default function ReceiptPrintModal({
       }),
       subtotal,
       discount,
+      discountLabel,
       total,
       paymentMethod: order.payment_method,
       isPaid: order.is_paid,
@@ -96,6 +102,11 @@ export default function ReceiptPrintModal({
   }, 0);
 
   const discount = order.discount_amount || 0;
+  const discountLabel = order.coupon_id
+    ? "Coupon Discount"
+    : order.senior_pwd_count
+    ? "Senior/PWD Discount"
+    : "Discount";
   const total = subtotal - discount;
 
   return (
@@ -236,7 +247,7 @@ export default function ReceiptPrintModal({
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between">
-                    <span>Senior/PWD Discount:</span>
+                    <span>{discountLabel}:</span>
                     <span>-P {discount.toFixed(2)}</span>
                   </div>
                 )}

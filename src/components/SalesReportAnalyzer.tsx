@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { faChartLine, faLightbulb, faStar, faThumbsDown } from '@fortawesome/free-solid-svg-icons';
+import { faChartLine, faLightbulb, faStar, faChartBar, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // You'll need to define these types based on your actual data structure from Supabase
@@ -102,11 +102,14 @@ export default function SalesReportAnalyzer({
 
       const frequentPairs = Object.values(itemPairCounts)
         .filter(pair => pair.count >= suggestionThreshold)
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
-      const suggestions = frequentPairs.map(pair => 
-        `Customers frequently purchase "${pair.items[0]}" and "${pair.items[1]}" together. Consider creating a combo deal to boost sales.`
-      );
+      const suggestions = frequentPairs.map(pair => ({
+        items: pair.items,
+        count: pair.count,
+        text: `"${pair.items[0]}" + "${pair.items[1]}"`,
+      }));
 
       return {
         totalRevenue,
@@ -143,143 +146,223 @@ export default function SalesReportAnalyzer({
     const monthlySummary = summarizeOrders(filterByDate(orders, monthStart, monthEnd));
 
     return {
-      ...overallSummary,
+      overall: overallSummary,
       weekly: weeklySummary,
       monthly: monthlySummary,
     };
   }, [orders, suggestionThreshold, selectedMonth]);
 
+  // Get the data to display based on analysisType
+  const currentAnalysis = useMemo(() => {
+    switch (analysisType) {
+      case 'weekly':
+        return analysis.weekly;
+      case 'monthly':
+        return analysis.monthly;
+      case 'overall':
+        return analysis.overall;
+      default:
+        return analysis.overall;
+    }
+  }, [analysis, analysisType]);
+
   if (!orders || orders.length === 0) {
     return (
-      <div className="bg-gray-100 text-gray-800 p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold mb-4">Sales Analyzer</h2>
-        <p>No sales data available to analyze.</p>
+      <div className="text-center py-16 px-4">
+        <FontAwesomeIcon icon={faChartLine} className="text-slate-300 text-4xl mb-4" />
+        <h3 className="text-lg font-semibold text-slate-700 mb-2">No Sales Data</h3>
+        <p className="text-slate-500">No sales data available to analyze for this period.</p>
       </div>
     );
   }
 
+  if (currentAnalysis.totalOrders === 0) {
+    return (
+      <div className="text-center py-16 px-4">
+        <FontAwesomeIcon icon={faChartLine} className="text-slate-300 text-4xl mb-4" />
+        <h3 className="text-lg font-semibold text-slate-700 mb-2">No Orders Found</h3>
+        <p className="text-slate-500">No orders found for this period. Try selecting a different date range.</p>
+      </div>
+    );
+  }
+
+  const getPeriodLabel = () => {
+    switch (analysisType) {
+      case 'weekly':
+        return 'Weekly Analysis';
+      case 'monthly':
+        return 'Monthly Analysis';
+      case 'overall':
+        return 'Overall Analysis';
+      default:
+        return 'Analysis';
+    }
+  };
+
   return (
-    <div className="bg-slate-100/50 text-slate-900 p-4 sm:p-8 rounded-2xl shadow-inner border border-slate-200 space-y-12">
-      <h2 className="text-3xl sm:text-4xl font-bold text-center mb-2 flex items-center justify-center text-slate-800">
-        <FontAwesomeIcon icon={faChartLine} className="mr-4" />
-        Sales & Performance Analyzer
-      </h2>
-      {dateRangeLabel && (
-        <p className="text-center text-sm text-slate-500 mb-2">{dateRangeLabel}</p>
-      )}
-      <p className="text-center text-xs uppercase tracking-wide text-slate-400 mb-4">
-        {analysisType === 'selected' ? 'Selected range review' : analysisType === 'weekly' ? 'Weekly summary' : analysisType === 'monthly' ? 'Monthly summary' : 'Overall business review'}
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">Weekly review</h3>
-          {analysis.weekly.totalOrders > 0 ? (
-            <>
-              <p className="text-3xl font-bold text-slate-900">{formatCurrency(analysis.weekly.totalRevenue)}</p>
-              <p className="text-sm text-slate-600 mt-2">{analysis.weekly.totalOrders} orders · AOV {formatCurrency(analysis.weekly.averageOrderValue)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-slate-500">No orders found for this week.</p>
-          )}
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">Monthly review</h3>
-          {analysis.monthly.totalOrders > 0 ? (
-            <>
-              <p className="text-3xl font-bold text-slate-900">{formatCurrency(analysis.monthly.totalRevenue)}</p>
-              <p className="text-sm text-slate-600 mt-2">{analysis.monthly.totalOrders} orders · AOV {formatCurrency(analysis.monthly.averageOrderValue)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-slate-500">No orders found for this month.</p>
-          )}
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">Overall review</h3>
-          {analysis.totalOrders > 0 ? (
-            <>
-              <p className="text-3xl font-bold text-slate-900">{formatCurrency(analysis.totalRevenue)}</p>
-              <p className="text-sm text-slate-600 mt-2">{analysis.totalOrders} orders · AOV {formatCurrency(analysis.averageOrderValue)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-slate-500">No overall orders available yet.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Business Analytics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-500 uppercase tracking-wider">Total Revenue</h3>
-          <p className="text-4xl font-bold text-green-600 mt-2">{formatCurrency(analysis.totalRevenue)}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-500 uppercase tracking-wider">Total Orders</h3>
-          <p className="text-4xl font-bold text-blue-600 mt-2">{analysis.totalOrders}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-500 uppercase tracking-wider">Average Order Value</h3>
-          <p className="text-4xl font-bold text-purple-600 mt-2">{formatCurrency(analysis.averageOrderValue)}</p>
-        </div>
-      </div>
-
-      {/* Best & Least Sellers */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-2xl font-bold mb-4 flex items-center">
-            <FontAwesomeIcon icon={faStar} className="text-yellow-500 mr-3" />
-            Best Sellers
-          </h3>
-          <ul className="space-y-3">
-            {analysis.bestSellers.map((item, index) => (
-              <li key={index} className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
-                <span className="font-medium">{item.name}</span>
-                <span className="font-bold text-lg">{item.count} sold</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-2xl font-bold mb-4 flex items-center">
-            <FontAwesomeIcon icon={faThumbsDown} className="text-red-500 mr-3" />
-            Least Sold Items
-          </h3>
-          {analysis.leastSellers.length > 0 ? (
-            <ul className="space-y-3">
-              {analysis.leastSellers.map((item, index) => (
-                <li key={index} className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
-                  <span className="font-medium">{item.name}</span>
-                  <span className="font-bold text-lg">{item.count} sold</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">Not enough item diversity to determine least sellers.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Suggestions */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-2xl font-bold mb-4 flex items-center">
-          <FontAwesomeIcon icon={faLightbulb} className="text-yellow-400 mr-3" />
-          Growth Suggestions
-        </h3>
-        {analysis.suggestions.length > 0 ? (
-          <ul className="space-y-4">
-            {analysis.suggestions.map((suggestion, index) => (
-              <li key={index} className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-                <p className="text-slate-800">{suggestion}</p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-500">Not enough data to generate combo suggestions. Try lowering the threshold or wait for more orders.</p>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center mb-2">
+          <FontAwesomeIcon icon={faChartLine} className="mr-3 text-blue-600" />
+          {getPeriodLabel()}
+        </h2>
+        {dateRangeLabel && (
+          <p className="text-sm text-slate-600">{dateRangeLabel}</p>
         )}
       </div>
+
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total Revenue */}
+        <div className="group bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:border-green-300">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Revenue</h3>
+            <div className="bg-green-100 rounded-full p-2">
+              <FontAwesomeIcon icon={faDollarSign} className="text-green-600 text-sm" />
+            </div>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold text-green-600 mb-2">{formatCurrency(currentAnalysis.totalRevenue)}</p>
+          <p className="text-xs text-slate-500">from {currentAnalysis.totalOrders} orders</p>
+        </div>
+
+        {/* Total Orders */}
+        <div className="group bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-300">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Orders</h3>
+            <div className="bg-blue-100 rounded-full p-2">
+              <FontAwesomeIcon icon={faChartBar} className="text-blue-600 text-sm" />
+            </div>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold text-blue-600 mb-2">{currentAnalysis.totalOrders}</p>
+          <p className="text-xs text-slate-500">transactions completed</p>
+        </div>
+
+        {/* Average Order Value */}
+        <div className="group bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:border-purple-300">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Avg Order Value</h3>
+            <div className="bg-purple-100 rounded-full p-2">
+              <FontAwesomeIcon icon={faStar} className="text-purple-600 text-sm" />
+            </div>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold text-purple-600 mb-2">{formatCurrency(currentAnalysis.averageOrderValue)}</p>
+          <p className="text-xs text-slate-500">per transaction</p>
+        </div>
+      </div>
+
+      {/* Best Sellers */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <h3 className="text-xl font-bold mb-4 flex items-center text-slate-900">
+          <div className="bg-amber-100 rounded-full p-2 mr-3">
+            <FontAwesomeIcon icon={faStar} className="text-amber-600" />
+          </div>
+          Top Selling Items
+        </h3>
+        {currentAnalysis.bestSellers.length > 0 ? (
+          <div className="space-y-2">
+            {currentAnalysis.bestSellers.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-transparent p-4 rounded-xl border border-amber-100 transition-all duration-200 hover:border-amber-300"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-600 text-white text-sm font-bold">
+                    {index + 1}
+                  </span>
+                  <span className="font-medium text-slate-900">{item.name}</span>
+                </div>
+                <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-semibold">
+                  {item.count}
+                  <span className="text-xs font-normal">sold</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-slate-500 text-center py-6">No sales data available</p>
+        )}
+      </div>
+
+      {/* Least Sold Items */}
+      {currentAnalysis.leastSellers.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="text-xl font-bold mb-4 flex items-center text-slate-900">
+            <div className="bg-red-100 rounded-full p-2 mr-3">
+              <FontAwesomeIcon icon={faChartBar} className="text-red-600" />
+            </div>
+            Items to Promote
+          </h3>
+          <div className="space-y-2">
+            {currentAnalysis.leastSellers.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-gradient-to-r from-red-50 to-transparent p-4 rounded-xl border border-red-100 transition-all duration-200 hover:border-red-300"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white text-sm font-bold">
+                    {index + 1}
+                  </span>
+                  <span className="font-medium text-slate-900">{item.name}</span>
+                </div>
+                <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
+                  {item.count}
+                  <span className="text-xs font-normal">sold</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+            💡 These items have lower sales. Consider bundling them with top sellers or adjusting pricing/marketing.
+          </p>
+        </div>
+      )}
+
+      {/* Growth Suggestions */}
+      {currentAnalysis.suggestions.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="text-xl font-bold mb-4 flex items-center text-slate-900">
+            <div className="bg-blue-100 rounded-full p-2 mr-3">
+              <FontAwesomeIcon icon={faLightbulb} className="text-blue-600" />
+            </div>
+            Combo Recommendations
+          </h3>
+          <div className="space-y-3">
+            {currentAnalysis.suggestions.map((suggestion, index) => (
+              <div
+                key={index}
+                className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-1">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
+                      ✓
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-900 mb-1">
+                      Create a bundle: {suggestion.text}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      These items are frequently purchased together ({suggestion.count} times). Bundle them to increase AOV and customer satisfaction.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State for Suggestions */}
+      {currentAnalysis.suggestions.length === 0 && currentAnalysis.totalOrders > 0 && (
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-6 text-center">
+          <FontAwesomeIcon icon={faLightbulb} className="text-slate-400 text-2xl mb-2" />
+          <p className="text-slate-600 text-sm">
+            Not enough data to generate combo suggestions yet. More orders will help us identify patterns!
+          </p>
+        </div>
+      )}
     </div>
   );
 }

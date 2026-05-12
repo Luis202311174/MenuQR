@@ -23,6 +23,8 @@ export type CreateOrderParams = {
   totalGuests?: number;
   seniorPwdCount?: number;
   discountAmount?: number;
+  couponId?: string;
+  promoCode?: string;
 };
 
 export async function createOrder({
@@ -36,6 +38,8 @@ export async function createOrder({
   totalGuests,
   seniorPwdCount,
   discountAmount,
+  couponId,
+  promoCode,
 }: CreateOrderParams) {
   const qtyByMenuItemId = cartItems.reduce<Record<string, number>>((acc, item) => {
     const qty = Number(item.qty || 1);
@@ -128,6 +132,7 @@ export async function createOrder({
       senior_pwd_count: seniorPwdCount ?? 0,
       discount_amount: discountAmount ?? 0,
       ...(userId ? { user_id: userId } : {}),
+      ...(couponId ? { coupon_id: couponId } : {}),
     };
 
     const { data, error } = await supabase.from("orders").insert(orderData).select("*").single();
@@ -135,6 +140,19 @@ export async function createOrder({
       const errorMsg = getErrorMessage(error);
       console.error("Order insert error:", error);
       throw new Error(`Failed to create order: ${errorMsg}`);
+    }
+
+    // Mark coupon as used if coupon was applied
+    if (couponId) {
+      const { error: couponError } = await supabase.rpc('mark_coupon_used', {
+        coupon_id: couponId,
+        order_id: data.id
+      });
+
+      if (couponError) {
+        console.error("Failed to mark coupon as used:", couponError);
+        // Don't fail the order for this, but log it
+      }
     }
 
     return data;

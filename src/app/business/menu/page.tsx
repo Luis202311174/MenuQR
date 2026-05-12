@@ -59,8 +59,21 @@ export default function BusinessMenuPage() {
   const [menuTrackable, setMenuTrackable] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [menuImagePosition, setMenuImagePosition] = useState("center");
   const [menuOptionGroups, setMenuOptionGroups] = useState<NewOptionGroup[]>([]);
   const addonsSectionRef = useRef<HTMLDivElement | null>(null);
+
+  // Nutrition facts state
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const [fiber, setFiber] = useState("");
+  const [sugar, setSugar] = useState("");
+  const [sodium, setSodium] = useState("");
+  const [servingSize, setServingSize] = useState("");
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [newAllergen, setNewAllergen] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
@@ -205,10 +218,21 @@ export default function BusinessMenuPage() {
         price: Number(menuPrice),
         availability: true,
         image_url: imageUrl,
+        image_position: menuImagePosition,
         menu_desc: menuDescription || null,
         daily_limit: menuTrackable ? Number(menuDailyLimit || 0) : 0,
         current_stock: menuTrackable ? Number(menuDailyLimit || 0) : undefined,
         is_trackable: menuTrackable,
+        // Nutrition facts
+        calories: calories ? Number(calories) : undefined,
+        protein: protein ? Number(protein) : undefined,
+        carbs: carbs ? Number(carbs) : undefined,
+        fat: fat ? Number(fat) : undefined,
+        fiber: fiber ? Number(fiber) : undefined,
+        sugar: sugar ? Number(sugar) : undefined,
+        sodium: sodium ? Number(sodium) : undefined,
+        serving_size: servingSize || undefined,
+        allergens: allergens.length > 0 ? allergens : undefined,
       });
 
       if (!createdItem || !createdItem.id) {
@@ -241,7 +265,19 @@ export default function BusinessMenuPage() {
       setMenuTrackable(true);
       setImageFile(null);
       setImagePreview(null);
+      setMenuImagePosition("center");
       setMenuOptionGroups([]);
+      // Reset nutrition facts
+      setCalories("");
+      setProtein("");
+      setCarbs("");
+      setFat("");
+      setFiber("");
+      setSugar("");
+      setSodium("");
+      setServingSize("");
+      setAllergens([]);
+      setNewAllergen("");
     } catch (error) {
       console.error("Failed to save menu item:", error);
       alert("Failed to save");
@@ -469,6 +505,147 @@ export default function BusinessMenuPage() {
                       />
                     </label>
 
+                    <div className="rounded-3xl border border-gray-200 bg-slate-50 p-5">
+                      <h3 className="text-base font-semibold text-slate-900">Nutrition Facts</h3>
+                      <p className="text-sm text-gray-500 mt-1">Optional details for customers with dietary needs.</p>
+                      <div className="grid gap-4 sm:grid-cols-2 mt-4">
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Serving Size
+                          <input
+                            value={servingSize}
+                            onChange={(e) => setServingSize(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="1 serving, 100g, 1 cup"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Calories
+                          <input
+                            type="number"
+                            value={calories}
+                            onChange={(e) => setCalories(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 320"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Protein (g)
+                          <input
+                            type="number"
+                            value={protein}
+                            onChange={(e) => setProtein(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 12"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Carbs (g)
+                          <input
+                            type="number"
+                            value={carbs}
+                            onChange={(e) => setCarbs(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 34"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Fat (g)
+                          <input
+                            type="number"
+                            value={fat}
+                            onChange={(e) => setFat(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 14"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Fiber (g)
+                          <input
+                            type="number"
+                            value={fiber}
+                            onChange={(e) => setFiber(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 4"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Sugar (g)
+                          <input
+                            type="number"
+                            value={sugar}
+                            onChange={(e) => setSugar(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 8"
+                          />
+                        </label>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Sodium (mg)
+                          <input
+                            type="number"
+                            value={sodium}
+                            onChange={(e) => setSodium(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="e.g. 300"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Allergens
+                          <div className="mt-2 flex gap-2 items-center">
+                            <input
+                              value={newAllergen}
+                              onChange={(e) => setNewAllergen(e.target.value)}
+                              className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. nuts, dairy, gluten"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cleaned = newAllergen.trim();
+                                if (!cleaned) return;
+                                setAllergens((current) => Array.from(new Set([...current, cleaned])));
+                                setNewAllergen("");
+                              }}
+                              className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </label>
+
+                        {allergens.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {allergens.map((allergen) => (
+                              <span
+                                key={allergen}
+                                className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 flex items-center gap-2"
+                              >
+                                {allergen}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setAllergens((current) => current.filter((item) => item !== allergen))
+                                  }
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <label className="flex items-center gap-3 text-sm font-semibold text-gray-700">
                       <input
                         type="checkbox"
@@ -521,12 +698,27 @@ export default function BusinessMenuPage() {
                       onChange={handleImageUpload}
                       className="mt-4 w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
                     />
+
+                    <label className="block text-sm font-semibold text-gray-700 mt-4 text-left">
+                      Image Position
+                      <select
+                        value={menuImagePosition}
+                        onChange={(e) => setMenuImagePosition(e.target.value)}
+                        className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                      >
+                        <option value="center">Center</option>
+                        <option value="top">Top</option>
+                        <option value="bottom">Bottom</option>
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </label>
                   </div>
                 </div>
 
                 {imagePreview && (
                   <div className="rounded-3xl overflow-hidden border border-gray-200 bg-white shadow-sm">
-                    <img src={imagePreview} alt="Preview" className="h-52 w-full object-cover" />
+                    <img src={imagePreview} alt="Preview" className="h-52 w-full object-cover" style={{ objectPosition: menuImagePosition }} />
                   </div>
                 )}
 
@@ -768,6 +960,16 @@ export default function BusinessMenuPage() {
                       setMenuDescription("");
                       setImageFile(null);
                       setImagePreview(null);
+                      setCalories("");
+                      setProtein("");
+                      setCarbs("");
+                      setFat("");
+                      setFiber("");
+                      setSugar("");
+                      setSodium("");
+                      setServingSize("");
+                      setAllergens([]);
+                      setNewAllergen("");
                     }}
                     className="rounded-2xl border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                   >

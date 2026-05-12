@@ -575,6 +575,7 @@ export default function BusinessReportsPage() {
         .select(`
           id,
           total_amount,
+          coupon_id,
           created_at,
           status,
           user_id,
@@ -650,6 +651,7 @@ export default function BusinessReportsPage() {
         .select(`
           id,
           total_amount,
+          coupon_id,
           discount_amount,
           total_guests,
           senior_pwd_count,
@@ -688,21 +690,21 @@ export default function BusinessReportsPage() {
     icon: any;
     color: string;
   }) => (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-slate-600 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-slate-900">{value}</p>
-          <div className={`flex items-center mt-2 text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">{title}</p>
+          <p className="text-xl sm:text-2xl font-bold text-slate-900">{value}</p>
+          <div className={`flex items-center mt-2 text-xs sm:text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             <FontAwesomeIcon
               icon={change >= 0 ? faArrowUp : faArrowDown}
-              className="mr-1"
+              className="mr-1 text-[10px] sm:text-sm"
             />
             {formatPercentage(change)} from last period
           </div>
         </div>
-        <div className={`p-3 rounded-lg ${color}`}>
-          <FontAwesomeIcon icon={icon} className="text-white text-xl" />
+        <div className={`p-2 sm:p-3 rounded-lg ${color}`}>
+          <FontAwesomeIcon icon={icon} className="text-white text-lg sm:text-xl" />
         </div>
       </div>
     </div>
@@ -742,73 +744,77 @@ export default function BusinessReportsPage() {
               <div className="mb-8">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Sales Dashboard</h1>
-                    <p className="text-slate-600 mt-1">Track your business performance and insights</p>
+                      <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Sales Dashboard</h1>
+                      <p className="text-sm sm:text-base text-slate-600 mt-1">Track your business performance and insights</p>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {/* Time Range Selector */}
-                    <div className="flex bg-white rounded-lg border border-slate-200 p-1">
-                      {[
-                        { key: '7d', label: '7 Days' },
-                        { key: '30d', label: '30 Days' },
-                        { key: '90d', label: '90 Days' }
-                      ].map((range) => (
-                        <button
-                          key={range.key}
-                          onClick={() => applyQuickRange(range.key as any)}
-                          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                            timeRange === range.key
-                              ? 'bg-blue-600 text-white'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          {range.label}
-                        </button>
-                      ))}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      {/* Time Range Selector */}
+                      <div className="flex bg-white rounded-lg border border-slate-200 p-1">
+                        {[
+                          { key: '7d', label: '7 Days' },
+                          { key: '30d', label: '30 Days' },
+                          { key: '90d', label: '90 Days' }
+                        ].map((range) => (
+                          <button
+                            key={range.key}
+                            onClick={() => applyQuickRange(range.key as any)}
+                            className={`px-3 py-1.5 text-xs leading-none sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
+                              timeRange === range.key
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            {range.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Export Button */}
+                      <button className="flex h-10 min-h-[38px] items-center gap-2 px-3 py-2 text-xs leading-none sm:px-4 sm:py-2 sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <FontAwesomeIcon icon={faDownload} className="text-sm" />
+                        Export
+                      </button>
                     </div>
 
-                    {/* Analyzer Button */}
-                    <button
-                      onClick={() => {
-                        setShowAnalyzerSetup(true);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-                      disabled={analyzerLoading || (analyzerScope === 'overall' && loadingOverallOrders)}
-                    >
-                      {analyzerLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <FontAwesomeIcon icon={faLightbulb} />
-                          {showAnalyzer ? 'Hide AI Analyzer' : 'AI Analyzer'}
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      {/* Analyzer Button */}
+                      <button
+                        onClick={() => {
+                          setShowAnalyzerSetup(true);
+                        }}
+                        className="flex h-10 min-h-[38px] items-center gap-2 px-3 py-2 text-xs leading-none sm:px-4 sm:py-2 sm:text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                        disabled={analyzerLoading || (analyzerScope === 'overall' && loadingOverallOrders)}
+                      >
+                        {analyzerLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-current border-t-transparent"></div>
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faLightbulb} className="text-sm" />
+                            {showAnalyzer ? 'Hide AI Analyzer' : 'AI Analyzer'}
+                          </>
+                        )}
+                      </button>
 
-                    {/* Daily Report Button */}
-                    <button
-                      onClick={openDailyReportModal}
-                      className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-                    >
-                      <FontAwesomeIcon icon={faCalendarAlt} />
-                      Daily Report
-                    </button>
-
-                    {/* Export Button */}
-                    <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                      <FontAwesomeIcon icon={faDownload} />
-                      Export
-                    </button>
+                      {/* Daily Report Button */}
+                      <button
+                        onClick={openDailyReportModal}
+                        className="flex h-10 min-h-[38px] items-center gap-2 px-3 py-2 text-xs leading-none sm:px-4 sm:py-2 sm:text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                      >
+                        <FontAwesomeIcon icon={faCalendarAlt} className="text-sm" />
+                        Daily Report
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-5 grid gap-3 lg:grid-cols-[1.2fr_auto]">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="flex flex-col text-sm text-slate-600">
+                    <label className="flex flex-col text-xs sm:text-sm text-slate-600">
                       <span className="mb-1 font-semibold text-slate-700">Start date</span>
                       <input
                         type="date"
@@ -817,10 +823,10 @@ export default function BusinessReportsPage() {
                           setSelectedStartDate(e.target.value);
                           setTimeRange('custom');
                         }}
-                        className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       />
                     </label>
-                    <label className="flex flex-col text-sm text-slate-600">
+                    <label className="flex flex-col text-xs sm:text-sm text-slate-600">
                       <span className="mb-1 font-semibold text-slate-700">End date</span>
                       <input
                         type="date"
@@ -829,23 +835,23 @@ export default function BusinessReportsPage() {
                           setSelectedEndDate(e.target.value);
                           setTimeRange('custom');
                         }}
-                        className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       />
                     </label>
                   </div>
-                  <div className="flex items-end justify-end gap-3">
+                  <div className="flex flex-wrap items-end justify-end gap-2 sm:gap-3">
                     <button
                       type="button"
                       onClick={handleApplyDateFilter}
-                      className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                      className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-3 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm font-semibold text-white transition hover:bg-blue-700"
                     >
-                      <FontAwesomeIcon icon={faFilter} className="mr-2" />
+                      <FontAwesomeIcon icon={faFilter} className="mr-2 text-sm" />
                       Apply range
                     </button>
                     <button
                       type="button"
                       onClick={() => applyQuickRange('30d')}
-                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       Reset
                     </button>
@@ -863,7 +869,7 @@ export default function BusinessReportsPage() {
               ) : (
                 <>
                   {/* Metrics Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                     <MetricCard
                       title="Total Revenue"
                       value={formatCurrency(metrics.totalRevenue)}
@@ -902,20 +908,20 @@ export default function BusinessReportsPage() {
                   </div>
 
                   {/* Charts Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-8">
                     {/* Sales Trend Chart */}
-                    <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                      <div className="flex items-center justify-between mb-6">
+                    <div className="lg:col-span-2 bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
                         <div>
-                          <h3 className="text-lg font-semibold text-slate-900">Sales Trend</h3>
-                          <p className="text-sm text-slate-600">Daily revenue over time</p>
+                          <h3 className="text-base sm:text-lg font-semibold text-slate-900">Sales Trend</h3>
+                          <p className="text-xs sm:text-sm text-slate-600">Daily revenue over time</p>
                         </div>
-                        <div className="flex items-center text-sm text-slate-600">
-                          <FontAwesomeIcon icon={faCalendarAlt} className="mr-2" />
+                        <div className="flex items-center text-xs sm:text-sm text-slate-600">
+                          <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-sm" />
                           {timeRange === '7d' ? 'Last 7 days' : timeRange === '30d' ? 'Last 30 days' : 'Last 90 days'}
                         </div>
                       </div>
-                      <div className="h-80">
+                      <div className="h-56 sm:h-72">
                         <Line
                           data={salesChartData}
                           options={{
@@ -929,6 +935,8 @@ export default function BusinessReportsPage() {
                                 backgroundColor: 'rgba(0, 0, 0, 0.8)',
                                 titleColor: 'white',
                                 bodyColor: 'white',
+                                bodyFont: { size: 12 },
+                                titleFont: { size: 12 },
                                 callbacks: {
                                   label: (context) => formatCurrency(Number(context.parsed.y) || 0)
                                 }
@@ -938,8 +946,23 @@ export default function BusinessReportsPage() {
                               y: {
                                 beginAtZero: true,
                                 ticks: {
-                                  callback: (value) => formatCurrency(Number(value))
+                                  callback: (value) => formatCurrency(Number(value)),
+                                  font: { size: 10 }
                                 }
+                              },
+                              x: {
+                                ticks: {
+                                  font: { size: 10 }
+                                }
+                              }
+                            },
+                            elements: {
+                              point: {
+                                radius: 2,
+                                hoverRadius: 4
+                              },
+                              line: {
+                                borderWidth: 2
                               }
                             }
                           }}
@@ -948,12 +971,12 @@ export default function BusinessReportsPage() {
                     </div>
 
                     {/* Category Distribution */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                      <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-slate-900">Sales by Category</h3>
-                        <p className="text-sm text-slate-600">Revenue distribution</p>
+                    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                      <div className="mb-4 sm:mb-6">
+                        <h3 className="text-base sm:text-lg font-semibold text-slate-900">Sales by Category</h3>
+                        <p className="text-xs sm:text-sm text-slate-600">Revenue distribution</p>
                       </div>
-                      <div className="h-80 flex items-center justify-center">
+                      <div className="h-56 sm:h-72 flex items-center justify-center">
                         <Doughnut
                           data={categoryChartData}
                           options={{
@@ -963,11 +986,14 @@ export default function BusinessReportsPage() {
                               legend: {
                                 position: 'bottom' as const,
                                 labels: {
-                                  padding: 20,
+                                  padding: 10,
                                   usePointStyle: true,
+                                  font: { size: 10 }
                                 }
                               },
                               tooltip: {
+                                bodyFont: { size: 12 },
+                                titleFont: { size: 12 },
                                 callbacks: {
                                   label: (context) => {
                                     const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
@@ -984,18 +1010,18 @@ export default function BusinessReportsPage() {
                   </div>
 
                   {/* Orders Chart */}
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                    <div className="flex items-center justify-between mb-6">
+                  <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Order Volume</h3>
-                        <p className="text-sm text-slate-600">Daily order count over time</p>
+                        <h3 className="text-base sm:text-lg font-semibold text-slate-900">Order Volume</h3>
+                        <p className="text-xs sm:text-sm text-slate-600">Daily order count over time</p>
                       </div>
-                      <div className="flex items-center text-sm text-slate-600">
-                        <FontAwesomeIcon icon={faShoppingCart} className="mr-2" />
+                      <div className="flex items-center text-xs sm:text-sm text-slate-600">
+                        <FontAwesomeIcon icon={faShoppingCart} className="mr-2 text-sm" />
                         Order trends
                       </div>
                     </div>
-                    <div className="h-80">
+                    <div className="h-56 sm:h-72">
                       <Bar
                         data={ordersChartData}
                         options={{
@@ -1009,13 +1035,21 @@ export default function BusinessReportsPage() {
                               backgroundColor: 'rgba(0, 0, 0, 0.8)',
                               titleColor: 'white',
                               bodyColor: 'white',
+                              bodyFont: { size: 12 },
+                              titleFont: { size: 12 }
                             }
                           },
                           scales: {
                             y: {
                               beginAtZero: true,
                               ticks: {
-                                stepSize: 1
+                                stepSize: 1,
+                                font: { size: 10 }
+                              }
+                            },
+                            x: {
+                              ticks: {
+                                font: { size: 10 }
                               }
                             }
                           }
@@ -1029,26 +1063,26 @@ export default function BusinessReportsPage() {
             </div>
 
           {showAnalyzerSetup && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-4 sm:p-6" onClick={() => setShowAnalyzerSetup(false)}>
-              <div className="relative w-full max-w-3xl overflow-hidden rounded-[32px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
-                <div className="border-b border-slate-200 p-5 sm:p-6">
-                  <div className="flex items-start justify-between gap-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-3 sm:p-6" onClick={() => setShowAnalyzerSetup(false)}>
+              <div className="relative w-full max-w-full sm:max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
+                <div className="border-b border-slate-200 p-4 sm:p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h3 className="text-2xl font-semibold text-slate-900">AI Analyzer settings</h3>
-                      <p className="mt-1 text-sm text-slate-500">Choose which report to analyze before displaying the results.</p>
+                      <h3 className="text-xl sm:text-2xl font-semibold text-slate-900">AI Analyzer settings</h3>
+                      <p className="mt-1 text-xs sm:text-sm text-slate-500">Choose which report to analyze before displaying the results.</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowAnalyzerSetup(false)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                     >
-                      <span className="text-xl">×</span>
+                      <span className="text-lg">×</span>
                       <span className="sr-only">Close settings</span>
                     </button>
                   </div>
                 </div>
-                <div className="p-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="p-4 sm:p-6">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {[
                       { key: 'selected', label: 'Selected date range' },
                       { key: 'weekly', label: 'Weekly' },
@@ -1059,15 +1093,15 @@ export default function BusinessReportsPage() {
                         key={option.key}
                         type="button"
                         onClick={() => setAnalyzerScope(option.key as any)}
-                        className={`rounded-2xl border px-4 py-4 text-left transition ${analyzerScope === option.key ? 'border-blue-600 bg-blue-50 text-slate-900' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}
+                        className={`rounded-2xl border px-3 py-3 text-left transition ${analyzerScope === option.key ? 'border-blue-600 bg-blue-50 text-slate-900' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}
                       >
-                        <p className="font-semibold">{option.label}</p>
-                        <p className="text-sm text-slate-500 mt-1">{option.key === 'selected' ? 'Use a custom start/end date.' : option.key === 'weekly' ? 'Analyze the last 7 days.' : option.key === 'monthly' ? 'Analyze the selected month.' : 'Analyze all available orders.'}</p>
+                        <p className="font-semibold text-sm">{option.label}</p>
+                        <p className="text-xs sm:text-sm text-slate-500 mt-1">{option.key === 'selected' ? 'Use a custom start/end date.' : option.key === 'weekly' ? 'Analyze the last 7 days.' : option.key === 'monthly' ? 'Analyze the selected month.' : 'Analyze all available orders.'}</p>
                       </button>
                     ))}
                   </div>
 
-                  <div className="mt-6 space-y-4">
+                  <div className="mt-5 space-y-4">
                     {analyzerScope === 'selected' && (
                       <div className="grid gap-4 sm:grid-cols-2">
                         <label className="flex flex-col text-sm text-slate-600">
@@ -1135,7 +1169,7 @@ export default function BusinessReportsPage() {
                       setShowAnalyzerSetup(false);
                       setShowAnalyzer(true);
                       setAnalyzerLoading(true);
-                      setTimeout(() => setAnalyzerLoading(false), 700);
+                      setTimeout(() => setAnalyzerLoading(false), 3500);
                     }}
                     className="rounded-2xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
                   >
@@ -1147,29 +1181,72 @@ export default function BusinessReportsPage() {
           )}
 
           {showAnalyzer && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-4 sm:p-6" onClick={() => setShowAnalyzer(false)}>
-              <div className="relative w-full max-w-6xl overflow-hidden rounded-[32px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 p-5 sm:p-6">
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-3 sm:p-6" onClick={() => setShowAnalyzer(false)}>
+              <div className="relative w-full max-w-full sm:max-w-5xl lg:max-w-6xl overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 p-4 sm:p-6">
                   <div>
-                    <h3 className="text-2xl font-semibold text-slate-900">AI Analyzer</h3>
-                    <p className="text-sm text-slate-500 mt-1">{analyzerDateLabel}</p>
+                    <h3 className="text-xl sm:text-2xl font-semibold text-slate-900">AI Analyzer</h3>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1">{analyzerDateLabel}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowAnalyzer(false)}
-                    className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 sm:mt-0"
+                    className="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 sm:mt-0"
                   >
-                    <span className="text-xl">×</span>
+                    <span className="text-lg">×</span>
                     <span className="sr-only">Close analyzer</span>
                   </button>
                 </div>
-                <div className="max-h-[85vh] overflow-y-auto p-5 sm:p-6">
+                <div className="max-h-[85vh] overflow-y-auto p-4 sm:p-6">
                   {analyzerLoading ? (
-                    <div className="flex min-h-[320px] items-center justify-center py-20">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600 mx-auto mb-4"></div>
-                        <p className="text-slate-600 text-lg font-medium">Analyzing your sales data...</p>
-                        <p className="text-slate-500 text-sm mt-2">This may take a moment</p>
+                    <div className="flex min-h-[320px] items-center justify-center py-16">
+                      <div className="text-center w-full max-w-sm">
+                        {/* Enhanced Loading Animation */}
+                        <div className="relative mb-6 sm:mb-8 mx-auto" style={{ width: '70px', height: '70px' }}>
+                          {/* Outer rotating ring */}
+                          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 border-r-blue-500 animate-spin"></div>
+                          {/* Middle pulsing ring */}
+                          <div className="absolute inset-0 rounded-full border border-purple-300 animate-pulse"></div>
+                          {/* Inner centered element */}
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse opacity-20"></div>
+                            <div className="relative z-10 text-2xl">📊</div>
+                          </div>
+                        </div>
+
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Analyzing Your Sales</h3>
+                        <p className="text-sm text-slate-600 mb-5">Processing data and generating insights...</p>
+
+                        {/* Progress indicator */}
+                        <div className="space-y-2.5 mb-5 text-sm sm:text-base">
+                          <div className="flex items-start gap-2 text-left">
+                            <span className="inline-block w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
+                            <span className="text-sm text-slate-600">Calculating revenue metrics</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-left">
+                            <span className="inline-block w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></span>
+                            <span className="text-sm text-slate-600">Identifying top performers</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-left">
+                            <span className="inline-block w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></span>
+                            <span className="text-sm text-slate-600">Generating recommendations</span>
+                          </div>
+                        </div>
+
+                        {/* Animated dots */}
+                        <div className="flex justify-center gap-2">
+                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+
+                        <style jsx>{`
+                          @keyframes spin {
+                            to {
+                              transform: rotate(360deg);
+                            }
+                          }
+                        `}</style>
                       </div>
                     </div>
                   ) : (

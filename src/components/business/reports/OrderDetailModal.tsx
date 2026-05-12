@@ -98,7 +98,9 @@ export default function OrderDetailModal({
                   <p className="mt-1 text-sm font-semibold text-slate-900">
                     {order.discount_amount ? formatCurrency(order.discount_amount) : "None"}
                   </p>
-                  {(order.total_guests || order.senior_pwd_count) ? (
+                  {order.coupon_id ? (
+                    <p className="mt-1 text-xs text-slate-500">Coupon-backed discount</p>
+                  ) : order.senior_pwd_count ? (
                     <p className="mt-1 text-xs text-slate-500">
                       {order.senior_pwd_count || 0} Senior/PWD of {order.total_guests || 0} guests
                     </p>

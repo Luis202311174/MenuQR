@@ -19,6 +19,7 @@ export type Order = {
   } | null;
   total_guests?: number;
   senior_pwd_count?: number;
+  coupon_id?: string | null;
   discount_amount?: number;
   discount_approved?: boolean;
 };
@@ -162,8 +163,30 @@ export default function OrderTileModals({
     }
   };
 
+  const getDiscountType = (order?: Order | null) => {
+    if (!order) return "discount";
+    if (order.coupon_id) return "coupon";
+    if (order.senior_pwd_count && order.senior_pwd_count > 0) return "senior_pwd";
+    return "discount";
+  };
+
+  const getDiscountLabel = (type: string) => {
+    switch (type) {
+      case "coupon":
+        return "Coupon Discount";
+      case "senior_pwd":
+        return "Senior/PWD Discount";
+      default:
+        return "Discount";
+    }
+  };
+
   const handleApproveDiscount = async () => {
     if (!businessId || !discountVerificationModal) return;
+
+    const order = orders.find((o) => o.id === discountVerificationModal.orderId);
+    const discountType = getDiscountType(order);
+    const discountLabel = getDiscountLabel(discountType);
 
     try {
       const { error } = await supabase
@@ -174,11 +197,10 @@ export default function OrderTileModals({
 
       if (error) throw error;
 
-      const order = orders.find((o) => o.id === discountVerificationModal.orderId);
       const tableNumber = order?.table?.table_number || "Unknown";
 
       setNotification({
-        message: `Discount approved for Table ${tableNumber}`,
+        message: `${discountLabel} approved for Table ${tableNumber}`,
         type: "success",
       });
 
@@ -196,17 +218,25 @@ export default function OrderTileModals({
     const order = orders.find((o) => o.id === discountVerificationModal.orderId);
     if (!order) return;
 
+    const discountType = getDiscountType(order);
+    const discountLabel = discountType === "coupon" ? "Coupon discount" : "Senior/PWD discount";
+
     try {
       const discountAmount = Number(order.discount_amount || 0);
       const originalTotal = Number(order.total_amount || 0) + discountAmount;
+      const updatePayload: any = {
+        discount_amount: 0,
+        discount_approved: false,
+        total_amount: originalTotal,
+      };
+
+      if (discountType === "coupon") {
+        updatePayload.coupon_id = null;
+      }
 
       const { error } = await supabase
         .from("orders")
-        .update({
-          discount_amount: 0,
-          discount_approved: false,
-          total_amount: originalTotal,
-        })
+        .update(updatePayload)
         .eq("id", discountVerificationModal.orderId)
         .eq("business_id", businessId);
 
@@ -214,7 +244,7 @@ export default function OrderTileModals({
 
       const tableNumber = order.table?.table_number || "Unknown";
       setNotification({
-        message: `Senior/PWD discount rejected for Table ${tableNumber}`,
+        message: `${discountLabel} rejected for Table ${tableNumber}`,
         type: "success",
       });
 
@@ -225,6 +255,10 @@ export default function OrderTileModals({
       setNotification({ message: `Failed to reject discount: ${error.message}`, type: "error" });
     }
   };
+
+  const discountOrder = discountVerificationModal ? orders.find((o) => o.id === discountVerificationModal.orderId) : null;
+  const discountType = getDiscountType(discountOrder);
+  const discountLabel = getDiscountLabel(discountType);
 
   const cancelOrder = async (orderId: string) => {
     if (!businessId) return;
@@ -302,35 +336,37 @@ export default function OrderTileModals({
         <div className="fixed inset-0 z-[2000] bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-bold text-slate-900 mb-2">
-              Verify Senior/PWD Discount
+              Verify {discountLabel}
             </h3>
             <p className="text-sm text-slate-600 mb-4">
               Order #{discountVerificationModal.orderNumber}
             </p>
             <div className="space-y-4">
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
-                <p className="font-semibold">This order requested a Senior/PWD discount.</p>
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-800 shadow-sm">
+                <p className="font-semibold">This order requested a {discountLabel.toLowerCase()}.</p>
                 <p className="text-sm mt-2 text-slate-600">
                   Confirm whether the submitted discount is valid before proceeding.
                 </p>
               </div>
-              <button
-                onClick={handleApproveDiscount}
-                disabled={processingOrderId === discountVerificationModal.orderId}
-                className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition disabled:opacity-50"
-              >
-                Approve Discount
-              </button>
-              <button
-                onClick={handleRejectDiscount}
-                disabled={processingOrderId === discountVerificationModal.orderId}
-                className="w-full py-4 rounded-2xl bg-[#F59E0B] hover:bg-[#D97706] text-white font-semibold transition disabled:opacity-50"
-              >
-                Reject Discount
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleApproveDiscount}
+                  disabled={processingOrderId === discountVerificationModal.orderId}
+                  className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition disabled:opacity-50"
+                >
+                  Approve Discount
+                </button>
+                <button
+                  onClick={handleRejectDiscount}
+                  disabled={processingOrderId === discountVerificationModal.orderId}
+                  className="w-full py-4 rounded-2xl bg-[#F59E0B] hover:bg-[#D97706] text-white font-semibold transition disabled:opacity-50"
+                >
+                  Reject Discount
+                </button>
+              </div>
               <button
                 onClick={() => setDiscountVerificationModal(null)}
-                className="w-full py-3 rounded-2xl border border-slate-200 bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
+                className="w-full py-4 rounded-2xl border border-slate-200 bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
               >
                 Cancel
               </button>

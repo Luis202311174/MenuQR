@@ -9,6 +9,7 @@ export interface DailySalesOrderRow {
   items?: any;
   table?: { table_number?: string | number | null };
   table_id?: string;
+  coupon_id?: string | null;
   discount_amount?: number | null;
   total_guests?: number | null;
   senior_pwd_count?: number | null;

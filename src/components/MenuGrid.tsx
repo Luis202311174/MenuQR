@@ -10,11 +10,22 @@ type MenuItem = {
   price: number;
   category?: string;
   image_url?: string;
+  image_position?: string;
   availability?: boolean;
   description?: string;
   menu_desc?: string;
   is_trackable?: boolean;
   current_stock?: number | null;
+  // Nutrition facts
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  serving_size?: string;
+  allergens?: string[];
 };
 
 type CartItemWithOptions = MenuItem & {
@@ -98,7 +109,11 @@ function MenuItemWithInventory({
     <div className="border border-gray-200 rounded-[28px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-white transform hover:-translate-y-0.5">
       <div className="h-28 w-full bg-gray-100 overflow-hidden sm:h-32">
         {item.image_url ? (
-          <img src={item.image_url} className="w-full h-full object-cover" />
+          <img
+            src={item.image_url}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: item.image_position || "center" }}
+          />
         ) : (
           <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">
             No image available
@@ -119,6 +134,11 @@ function MenuItemWithInventory({
         <div className="flex items-center justify-between border-t border-gray-100 pt-3">
           <div>
             <p className="text-base sm:text-xl font-black text-blue-600">₱{item.price}</p>
+            {item.calories != null && (
+              <p className="text-[11px] text-gray-500 mt-1">
+                ~{item.calories} cal
+              </p>
+            )}
             {isTrackable && (
               <p className="text-[11px] text-gray-500 mt-1">
                 Stock: {loading ? "..." : currentStock}

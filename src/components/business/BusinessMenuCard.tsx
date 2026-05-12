@@ -17,10 +17,20 @@ export type BusinessMenuCardItem = {
   menu_desc?: string | null;
   price?: number | string | null;
   image_url?: string | null;
+  image_position?: string;
   availability: boolean;
   is_trackable?: boolean;
   daily_limit?: number;
   current_stock?: number;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  serving_size?: string;
+  allergens?: string[];
 };
 
 type OptionGroup = {
@@ -54,8 +64,19 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   const [editDescription, setEditDescription] = useState(item.menu_desc || "");
   const [editCategory, setEditCategory] = useState(item.category || "Meals");
   const [editAvailability, setEditAvailability] = useState<boolean>(item.availability);
+  const [editCalories, setEditCalories] = useState(item.calories != null ? String(item.calories) : "");
+  const [editProtein, setEditProtein] = useState(item.protein != null ? String(item.protein) : "");
+  const [editCarbs, setEditCarbs] = useState(item.carbs != null ? String(item.carbs) : "");
+  const [editFat, setEditFat] = useState(item.fat != null ? String(item.fat) : "");
+  const [editFiber, setEditFiber] = useState(item.fiber != null ? String(item.fiber) : "");
+  const [editSugar, setEditSugar] = useState(item.sugar != null ? String(item.sugar) : "");
+  const [editSodium, setEditSodium] = useState(item.sodium != null ? String(item.sodium) : "");
+  const [editServingSize, setEditServingSize] = useState(item.serving_size || "");
+  const [editAllergens, setEditAllergens] = useState<string[]>(item.allergens || []);
+  const [newEditAllergen, setNewEditAllergen] = useState("");
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(item.image_url || null);
+  const [editImagePosition, setEditImagePosition] = useState<string>(item.image_position || "center");
   const [loading, setLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -104,8 +125,19 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
     setEditDescription(item.menu_desc || "");
     setEditCategory(item.category || "Meals");
     setEditAvailability(item.availability);
+    setEditCalories(item.calories != null ? String(item.calories) : "");
+    setEditProtein(item.protein != null ? String(item.protein) : "");
+    setEditCarbs(item.carbs != null ? String(item.carbs) : "");
+    setEditFat(item.fat != null ? String(item.fat) : "");
+    setEditFiber(item.fiber != null ? String(item.fiber) : "");
+    setEditSugar(item.sugar != null ? String(item.sugar) : "");
+    setEditSodium(item.sodium != null ? String(item.sodium) : "");
+    setEditServingSize(item.serving_size || "");
+    setEditAllergens(item.allergens || []);
+    setNewEditAllergen("");
     setEditImageFile(null);
     setEditImagePreview(item.image_url || null);
+    setEditImagePosition(item.image_position || "center");
     setShowEditModal(true);
     setShowAddonsTab(false);
   };
@@ -140,14 +172,25 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
         price: priceValue,
         availability: editAvailability,
         image_url: imageUrl,
+        image_position: editImagePosition,
         menu_desc: editDescription || null,
+        calories: editCalories ? Number(editCalories) : undefined,
+        protein: editProtein ? Number(editProtein) : undefined,
+        carbs: editCarbs ? Number(editCarbs) : undefined,
+        fat: editFat ? Number(editFat) : undefined,
+        fiber: editFiber ? Number(editFiber) : undefined,
+        sugar: editSugar ? Number(editSugar) : undefined,
+        sodium: editSodium ? Number(editSodium) : undefined,
+        serving_size: editServingSize || undefined,
+        allergens: editAllergens.length > 0 ? editAllergens : undefined,
       });
 
       await onUpdated();
       setShowEditModal(false);
     } catch (error) {
       console.error("Failed to update menu item:", error);
-      alert("Failed to update");
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
+      alert("Failed to update menu item: " + (message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -284,6 +327,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
             src={item.image_url}
             alt={item.name}
             className="w-full h-full object-cover"
+            style={{ objectPosition: item.image_position || "center" }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
@@ -315,6 +359,11 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
           <p className="text-blue-600 font-bold text-base">
             ₱{item.price ?? "0.00"}
           </p>
+          {item.calories != null && (
+            <p className="text-xs text-gray-500 mt-1">
+              ~{item.calories} cal
+            </p>
+          )}
         </div>
         <div className="flex gap-2 pt-2">
           <button
@@ -426,6 +475,146 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                         />
                       </label>
 
+                      <div className="rounded-3xl border border-gray-200 bg-slate-50 p-4">
+                        <h3 className="text-sm font-semibold text-slate-900">Nutrition Facts</h3>
+                        <div className="grid gap-4 sm:grid-cols-2 mt-3">
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Serving Size
+                            <input
+                              value={editServingSize}
+                              onChange={(e) => setEditServingSize(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="1 serving, 100g, 1 cup"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Calories
+                            <input
+                              type="number"
+                              value={editCalories}
+                              onChange={(e) => setEditCalories(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 320"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Protein (g)
+                            <input
+                              type="number"
+                              value={editProtein}
+                              onChange={(e) => setEditProtein(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 12"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Carbs (g)
+                            <input
+                              type="number"
+                              value={editCarbs}
+                              onChange={(e) => setEditCarbs(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 34"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Fat (g)
+                            <input
+                              type="number"
+                              value={editFat}
+                              onChange={(e) => setEditFat(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 14"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Fiber (g)
+                            <input
+                              type="number"
+                              value={editFiber}
+                              onChange={(e) => setEditFiber(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 4"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Sugar (g)
+                            <input
+                              type="number"
+                              value={editSugar}
+                              onChange={(e) => setEditSugar(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 8"
+                            />
+                          </label>
+
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Sodium (mg)
+                            <input
+                              type="number"
+                              value={editSodium}
+                              onChange={(e) => setEditSodium(e.target.value)}
+                              className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                              placeholder="e.g. 300"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="mt-4">
+                          <label className="block text-sm font-semibold text-gray-700">
+                            Allergens
+                            <div className="mt-2 flex gap-2 items-center">
+                              <input
+                                value={newEditAllergen}
+                                onChange={(e) => setNewEditAllergen(e.target.value)}
+                                className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                placeholder="e.g. nuts, dairy, gluten"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const cleaned = newEditAllergen.trim();
+                                  if (!cleaned) return;
+                                  setEditAllergens((current) => Array.from(new Set([...current, cleaned])));
+                                  setNewEditAllergen("");
+                                }}
+                                className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </label>
+
+                          {editAllergens.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {editAllergens.map((allergen) => (
+                                <span
+                                  key={allergen}
+                                  className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 flex items-center gap-2"
+                                >
+                                  {allergen}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditAllergens((current) => current.filter((item) => item !== allergen))
+                                    }
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       <label className="block text-sm font-semibold text-gray-700">
                         Status
                         <select
@@ -467,6 +656,21 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                           onChange={handleEditImageUpload}
                           className="mt-4 w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
                         />
+
+                        <label className="block text-sm font-semibold text-gray-700 mt-4 text-left">
+                          Image Position
+                          <select
+                            value={editImagePosition}
+                            onChange={(e) => setEditImagePosition(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                          >
+                            <option value="center">Center</option>
+                            <option value="top">Top</option>
+                            <option value="bottom">Bottom</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                          </select>
+                        </label>
                       </div>
 
                       {editImagePreview ? (
@@ -475,6 +679,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                             src={editImagePreview}
                             alt="Preview"
                             className="h-52 w-full object-cover"
+                            style={{ objectPosition: editImagePosition }}
                           />
                         </div>
                       ) : (

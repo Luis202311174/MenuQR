@@ -43,13 +43,15 @@
   };
 
 type SubmittedCheckoutData = {
-  discountType: "none" | "senior" | "pwd";
+  discountType: "none" | "senior" | "pwd" | "promo";
   totalGuests: number;
   seniorCount: number;
   discountAmount: number;
   paymentMethod: "cash" | "gcash";
   cartTotal: number;
   finalAmount: number;
+  promoCode?: string;
+  couponId?: string;
 };
 
 export default function BusinessPage() {
@@ -427,11 +429,13 @@ export default function BusinessPage() {
     };
 
     const handleCheckoutSubmit = async (orderData: {
-      discountType: "none" | "senior" | "pwd";
+      discountType: "none" | "senior" | "pwd" | "promo";
       totalGuests: number;
       seniorCount: number;
       discountAmount: number;
       paymentMethod: "cash" | "gcash";
+      promoCode?: string;
+      couponId?: string;
     }) => {
       if (!cartItems.length) return alert("Cart is empty");
       if (!business || !tableId || !sessionId) {
@@ -452,7 +456,7 @@ export default function BusinessPage() {
         const order = await createOrder({
           businessId: business.id,
           cartItems,
-          totalAmount: cartTotal - orderData.discountAmount,
+          totalAmount: cartTotal,
           tableId,
           sessionId,
           userId: userId ?? undefined,
@@ -460,6 +464,8 @@ export default function BusinessPage() {
           totalGuests: orderData.totalGuests,
           seniorPwdCount: orderData.seniorCount,
           discountAmount: orderData.discountAmount,
+          couponId: orderData.couponId,
+          promoCode: orderData.promoCode,
         });
 
         // 🔥 Immediately decrement stock in local state for ordered items
@@ -492,6 +498,8 @@ export default function BusinessPage() {
           paymentMethod: orderData.paymentMethod,
           cartTotal,
           finalAmount: cartTotal - orderData.discountAmount,
+          promoCode: orderData.promoCode,
+          couponId: orderData.couponId,
         });
         setCheckoutSubmitted(true);
         setCheckoutStatusMessage("Waiting for payment confirmation and discounts.");
@@ -840,14 +848,17 @@ export default function BusinessPage() {
         {isDineIn && (
           <>
             <button
-              onClick={() => {
-                if (orderInProgress || submittingOrder) return;
-                setShowCheckoutModal(true);
-              }}
-              disabled={orderInProgress || submittingOrder}
-              title={orderInProgress ? "Order in Progress" : "Open checkout"}
-              className={`fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full text-white shadow-lg transition ${
-                orderInProgress || submittingOrder
+              onClick={handleSubmitOrder}
+              disabled={orderInProgress || submittingOrder || cartItems.length === 0}
+              title={
+                orderInProgress
+                  ? "Order in Progress"
+                  : cartItems.length === 0
+                  ? "Add items to your cart"
+                  : "Open checkout"
+              }
+              className={`fixed bottom-24 md:bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full text-white shadow-lg transition ${
+                orderInProgress || submittingOrder || cartItems.length === 0
                   ? "bg-slate-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] hover:shadow-xl"
               }`}
@@ -862,7 +873,7 @@ export default function BusinessPage() {
               </div>
             </button>
             {orderInProgress && (
-              <div className="fixed bottom-24 right-5 z-40 w-[220px] rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 shadow-lg">
+              <div className="fixed bottom-36 md:bottom-24 right-5 z-40 w-[220px] rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 shadow-lg">
                 <p className="font-semibold">Order in Progress</p>
                 <p className="mt-1 text-xs text-yellow-800">A current order is still active. New orders can be placed once your existing order is served.</p>
               </div>

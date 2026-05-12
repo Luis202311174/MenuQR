@@ -19,6 +19,7 @@ export type ReceiptData = {
   }[];
   subtotal: number;
   discount: number;
+  discountLabel: string;
   total: number;
   paymentMethod?: string;
   isPaid?: boolean;
@@ -186,7 +187,7 @@ export function generateReceiptPDF(data: ReceiptData): void {
 
   // Discount
   if (data.discount > 0) {
-    doc.text("Senior/PWD Discount:", leftMargin, yPosition);
+    doc.text(`${data.discountLabel}:`, leftMargin, yPosition);
     addRightAlignedText(`-${formatPeso(data.discount)}`, pageWidth - rightMargin, yPosition);
     yPosition += 4;
   }

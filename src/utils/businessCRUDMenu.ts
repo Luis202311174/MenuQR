@@ -7,10 +7,21 @@ export type MenuItemPayload = {
   price: number;
   availability?: boolean;
   image_url?: string | null;
+  image_position?: string;
   menu_desc?: string | null;
   daily_limit?: number;
   current_stock?: number;
   is_trackable?: boolean;
+  // Nutrition facts
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  serving_size?: string;
+  allergens?: string[];
 };
 
 export type MenuItemUpdatePayload = {
@@ -19,10 +30,21 @@ export type MenuItemUpdatePayload = {
   category: string;
   availability: boolean;
   image_url?: string | null;
+  image_position?: string;
   menu_desc?: string | null;
   daily_limit?: number;
   current_stock?: number;
   is_trackable?: boolean;
+  // Nutrition facts
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  serving_size?: string;
+  allergens?: string[];
 };
 
 export async function fetchMenuItems(businessId: string) {
@@ -75,6 +97,16 @@ export async function createMenuItem(payload: MenuItemPayload) {
       current_stock: currentStock,
       is_trackable: payload.is_trackable ?? false,
       last_inventory_reset: payload.is_trackable ? createdAt : null,
+      calories: payload.calories,
+      protein: payload.protein,
+      carbs: payload.carbs,
+      fat: payload.fat,
+      fiber: payload.fiber,
+      sugar: payload.sugar,
+      sodium: payload.sodium,
+      serving_size: payload.serving_size,
+      allergens: payload.allergens,
+      image_position: payload.image_position ?? 'center',
     })
     .select()
     .single();
@@ -108,7 +140,38 @@ export async function updateMenuItem(itemId: string, payload: MenuItemUpdatePayl
     payloadToUpdate.is_trackable = payload.is_trackable;
   }
 
-  const { error } = await supabase
+  if (typeof payload.calories === "number") {
+    payloadToUpdate.calories = payload.calories;
+  }
+  if (typeof payload.protein === "number") {
+    payloadToUpdate.protein = payload.protein;
+  }
+  if (typeof payload.carbs === "number") {
+    payloadToUpdate.carbs = payload.carbs;
+  }
+  if (typeof payload.fat === "number") {
+    payloadToUpdate.fat = payload.fat;
+  }
+  if (typeof payload.fiber === "number") {
+    payloadToUpdate.fiber = payload.fiber;
+  }
+  if (typeof payload.sugar === "number") {
+    payloadToUpdate.sugar = payload.sugar;
+  }
+  if (typeof payload.sodium === "number") {
+    payloadToUpdate.sodium = payload.sodium;
+  }
+  if (payload.serving_size !== undefined) {
+    payloadToUpdate.serving_size = payload.serving_size;
+  }
+  if (typeof payload.image_position === "string") {
+    payloadToUpdate.image_position = payload.image_position;
+  }
+  if (Array.isArray(payload.allergens)) {
+    payloadToUpdate.allergens = payload.allergens;
+  }
+
+  const { data, error } = await supabase
     .from("menu_items")
     .update(payloadToUpdate)
     .eq("id", itemId);
@@ -117,7 +180,7 @@ export async function updateMenuItem(itemId: string, payload: MenuItemUpdatePayl
     throw error;
   }
 
-  return true;
+  return data;
 }
 
 export async function resetInventoryForBusiness(businessId: string) {
