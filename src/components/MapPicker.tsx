@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+} from "react-leaflet";
 import L from "leaflet";
+import type { Map as LeafletMap } from "leaflet";
+
 import "leaflet/dist/leaflet.css";
 
-// FIX: proper marker icon
+// marker icon
 const pinIcon = new L.Icon({
   iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
   iconSize: [32, 32],
@@ -40,26 +47,28 @@ type Props = {
   setCoordinates: (coords: LatLngType) => void;
 };
 
-export default function MapPicker({ coordinates, setCoordinates }: Props) {
+export default function MapPicker({
+  coordinates,
+  setCoordinates,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [temp, setTemp] = useState<LatLngType | null>(coordinates);
   const [isMounted, setIsMounted] = useState(false);
-  const previewMapRef = useRef<any>(null);
-  const modalMapRef = useRef<any>(null);
 
+  const previewMapRef = useRef<LeafletMap | null>(null);
+  const modalMapRef = useRef<LeafletMap | null>(null);
+
+  // cleanup maps on unmount
   useEffect(() => {
     return () => {
       try {
-        if (previewMapRef.current) {
-          previewMapRef.current.remove();
-          previewMapRef.current = null;
-        }
+        previewMapRef.current?.remove();
+        previewMapRef.current = null;
       } catch (e) {}
+
       try {
-        if (modalMapRef.current) {
-          modalMapRef.current.remove();
-          modalMapRef.current = null;
-        }
+        modalMapRef.current?.remove();
+        modalMapRef.current = null;
       } catch (e) {}
     };
   }, []);
@@ -72,7 +81,9 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
     ? `preview-${coordinates.lat}-${coordinates.lng}`
     : "preview-default";
 
-  const modalKey = temp ? `modal-${temp.lat}-${temp.lng}` : "modal-default";
+  const modalKey = temp
+    ? `modal-${temp.lat}-${temp.lng}`
+    : "modal-default";
 
   const handleOpen = () => {
     setOpen(true);
@@ -113,9 +124,13 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
             scrollWheelZoom={false}
             zoomControl={false}
             className="pointer-events-none"
-            whenCreated={(map) => {
-              previewMapRef.current = map;
-              try { map.invalidateSize(); } catch (e) {}
+            ref={previewMapRef}
+            whenReady={() => {
+              setTimeout(() => {
+                try {
+                  previewMapRef.current?.invalidateSize();
+                } catch (e) {}
+              }, 0);
             }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -136,7 +151,6 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
       {open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-xl w-full max-w-2xl p-4 relative">
-            
             {/* close */}
             <button
               onClick={() => setOpen(false)}
@@ -160,14 +174,14 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
                 }
                 zoom={13}
                 style={{ height: "400px", width: "100%" }}
-                whenCreated={(map) => {
-                  modalMapRef.current = map;
-                  try { map.invalidateSize(); } catch (e) {}
-                }}
+                ref={modalMapRef}
                 whenReady={() => {
                   setTimeout(() => {
                     window.dispatchEvent(new Event("resize"));
-                    try { modalMapRef.current?.invalidateSize(); } catch (e) {}
+
+                    try {
+                      modalMapRef.current?.invalidateSize();
+                    } catch (e) {}
                   }, 0);
                 }}
               >
@@ -209,11 +223,3 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
     </>
   );
 }
-
-// cleanup maps on unmount to avoid container reuse errors
-// (react-leaflet creates Leaflet map instances that must be removed)
-MapPicker.cleanup = () => {
-  try {
-    // noop - kept for potential external use
-  } catch (e) {}
-};
