@@ -105,12 +105,21 @@ export default function Header() {
                   Log out
                 </button>
               ) : (
-                <Link
-                  href="/login"
-                  className="transition hover:text-slate-900"
-                >
-                  Login
-                </Link>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="transition hover:text-slate-900"
+                  >
+                    Sign Up
+                  </button>
+
+                  <Link
+                    href="/login"
+                    className="transition hover:text-slate-900"
+                  >
+                    Login
+                  </Link>
+                </div>
               )}
             </div>
           </nav>
@@ -165,13 +174,35 @@ export default function Header() {
                 Log out
               </button>
             )}
-            <Link
-              href={user ? dashboardHref : "/login"}
-              onClick={() => setMobileMenuOpen(false)}
-              className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
-            >
-              {user ? "Dashboard" : "Login"}
-            </Link>
+            {user ? (
+              <Link
+                href={dashboardHref}
+                onClick={() => setMobileMenuOpen(false)}
+                className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <div className="flex flex-col gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setShowModal(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl border border-[#102A43] px-5 py-3 text-sm font-semibold text-[#102A43] transition hover:bg-slate-100"
+                >
+                  Sign Up
+                </button>
+
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
+                >
+                  Login
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </header>
