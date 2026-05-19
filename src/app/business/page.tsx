@@ -59,13 +59,7 @@ export default function BusinessLanding() {
         <title>MenuQR Business Account</title>
       </Head>
 
-      <div
-        className="flex flex-col min-h-screen bg-cover bg-center bg-fixed"
-        style={{ backgroundImage: "url('/hpbg.png')" }}
-      >
-        {/* Subtle overlay to darken background slightly */}
-        <div className="fixed inset-0 bg-black/20 pointer-events-none" />
-
+      <div className="flex flex-col min-h-screen bg-[#eef4ff]">
         <style jsx>{`
           @keyframes fadeInUp {
             from {
@@ -113,48 +107,37 @@ export default function BusinessLanding() {
 
         <main className="flex-1 relative z-10 overflow-y-auto">
           {/* HERO SECTION */}
-          <section className="min-h-screen flex items-center justify-center px-4 py-20">
-            <div className="max-w-4xl w-full flex justify-center">
-              {/* Main Card - Centered */}
-              <div
-                className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-6 sm:p-8 lg:p-20 shadow-2xl transition-all duration-700 flex flex-col lg:flex-row items-center gap-6 lg:gap-10 w-full"
-                data-scroll-id="hero-main-card"
-                data-scroll-animate="fadeInUp"
-              >
-                {/* Logo */}
-                <div
-                  className="w-24 h-24 sm:w-32 sm:h-32 lg:w-48 lg:h-48 relative opacity-90 hover:opacity-100 transition-all duration-500 transform hover:scale-105 flex-shrink-0"
-                  data-scroll-id="hero-logo"
-                  data-scroll-animate="fadeIn"
-                >
-                  <Image
-                    src={businessLogoUrl || "/hero-icon.png"}
-                    alt={`${businessName} Logo`}
-                    fill
-                    className="object-contain drop-shadow-lg rounded-lg border border-white/20"
-                  />
+          <section className="min-h-screen flex items-center justify-center px-4 py-20 bg-[#eef4ff] relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#eef4ff] via-[#f8fbff] to-[#ffffff]" />
+            <div className="relative z-10 max-w-7xl w-full">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+                <div className="lg:col-span-6 flex items-center justify-center">
+                  <div className="rounded-full overflow-hidden w-80 h-80 sm:w-[420px] sm:h-[420px] bg-white shadow-[0_40px_90px_rgba(79,101,255,0.14)]">
+                    <img
+                      src={businessLogoUrl || "/hero-icon.png"}
+                      alt={`${businessName || "Business"} Profile`}
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
                 </div>
 
-                {/* Welcome Text */}
-                <div
-                  className="transition-all duration-700 text-center lg:text-left flex-1"
-                  data-scroll-id="hero-welcome"
-                  data-scroll-animate="fadeInUp"
-                >
-                  <p className="text-xs sm:text-sm uppercase tracking-[0.3em] font-semibold text-white/80 mb-2 sm:mb-3">Welcome to MenuQR</p>
-                  <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white leading-tight mb-2 sm:mb-3 drop-shadow-lg">
-                    {businessName || "Business Account"}
-                  </h1>
-                  <p className="text-xs sm:text-base lg:text-lg text-white/90 leading-relaxed mb-6 sm:mb-8">
-                    Modernizing Menus, Streamlining Service. Intelligent menu management for a smarter, faster dining experience. The simplest way for customers to browse, save, and stay connected to the food they love.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
-                    <Link
-                      href="/business/dashboard"
-                      className="inline-flex justify-center items-center px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold text-sm sm:text-base rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
-                    >
-                      Create your menu →
-                    </Link>
+                <div className="lg:col-span-6">
+                  <div className="bg-white/95 p-8 sm:p-12 rounded-[2rem] shadow-[0_35px_90px_rgba(16,42,67,0.1)] ring-1 ring-[#d8e3f7]">
+                    <p className="text-xs uppercase tracking-[0.45em] font-semibold text-[#4f65ff] mb-4">Welcome to MenuQR</p>
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#0b2136] leading-tight mb-6">
+                      {businessName || "LNA Cafe"}
+                    </h1>
+                    <p className="text-base sm:text-lg text-[#42596b] leading-relaxed mb-8">
+                      Modernizing Menus, Streamlining Service. Intelligent menu management for a smarter, faster dining experience. The simplest way for customers to browse, save, and stay connected to the food they love.
+                    </p>
+                    <div className="flex">
+                      <Link
+                        href="/business/dashboard"
+                        className="inline-flex items-center justify-center px-7 py-4 rounded-full bg-[#4f65ff] text-white font-semibold shadow-lg hover:bg-[#3550d9] transition"
+                      >
+                        Create your menu →
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -162,54 +145,47 @@ export default function BusinessLanding() {
           </section>
 
           {/* FEATURES SECTION */}
-          <section className="py-20 px-4">
+          <section className="py-20 px-4 bg-[#f7fbff]">
             <div className="max-w-6xl mx-auto">
-              <div
-                className="text-center mb-16 transition-all duration-700"
-                data-scroll-id="features-header"
-                data-scroll-animate="fadeInUp"
-              >
-                <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 drop-shadow-lg">Why Use MenuQR?</h2>
-                <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto">
+              <div className="text-center mb-16" data-scroll-id="features-header" data-scroll-animate="fadeInUp">
+                <p className="text-xs uppercase tracking-[0.45em] font-semibold text-[#4f65ff] mb-4">Why Use MenuQR?</p>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0b2136] mb-4">
                   Transform your business with intelligent menu management
+                </h2>
+                <p className="text-base sm:text-lg text-[#556d82] max-w-3xl mx-auto">
+                  Smart tools that help you update menus instantly, attract customers, and keep your restaurant connected.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Feature 1 */}
-                <div
-                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
-                    data-scroll-id="feature-1"
-                    data-scroll-animate="fadeInUp"
-                  >
-                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Update Instantly, Save Money</h3>
-                    <p className="text-sm sm:text-base text-white/80 mb-6 leading-relaxed">
-                      No more reprinting menus. Use your Control Center to change prices, add new dishes, or mark items as "Sold Out" in real-time.
-                    </p>
+                <div className="bg-white rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(79,101,255,0.12)] border border-[#d8e3f7]" data-scroll-id="feature-1" data-scroll-animate="fadeInUp">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#eef4ff] text-[#4f65ff] mb-5">
+                    <span className="text-lg">⚡</span>
+                  </div>
+                  <h3 className="text-2xl font-semibold text-[#102A43] mb-4">Update Instantly, Save Money</h3>
+                  <p className="text-[#556d82] leading-relaxed">
+                    No more reprinting menus. Use your Control Center to change prices, add new dishes, or mark items as "Sold Out" in real-time.
+                  </p>
                 </div>
 
-                {/* Feature 2 */}
-                <div
-                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
-                    data-scroll-id="feature-2"
-                    data-scroll-animate="fadeInUp"
-                  >
-                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Get Discovered by Foodies</h3>
-                    <p className="text-sm sm:text-base text-white/80 mb-6 leading-relaxed">
-                      Your business gets featured in Smart Suggestions and trending local lists. Cloud-native intelligence recommends your dishes to hungry customers.
-                    </p>
+                <div className="bg-white rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(79,101,255,0.12)] border border-[#d8e3f7]" data-scroll-id="feature-2" data-scroll-animate="fadeInUp">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#eef4ff] text-[#4f65ff] mb-5">
+                    <span className="text-lg">🔥</span>
+                  </div>
+                  <h3 className="text-2xl font-semibold text-[#102A43] mb-4">Get Discovered by Foodies</h3>
+                  <p className="text-[#556d82] leading-relaxed">
+                    Your business gets featured in Smart Suggestions and trending local lists. Cloud-native intelligence recommends your dishes to hungry customers.
+                  </p>
                 </div>
 
-                {/* Feature 3 */}
-                <div
-                    className="backdrop-blur-md bg-black/40 border border-white/20 rounded-2xl p-5 sm:p-8 hover:bg-black/50 hover:border-white/40 transition duration-300 group transform hover:-translate-y-2 transition-all duration-700"
-                    data-scroll-id="feature-3"
-                    data-scroll-animate="fadeInUp"
-                  >
-                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Stay Connected to Customers</h3>
-                    <p className="text-sm sm:text-base text-white/80 mb-6 leading-relaxed">
-                      Allow customers to save your menu to their favorites. Keep your business one tap away from their smartphone.
-                    </p>
+                <div className="bg-white rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(79,101,255,0.12)] border border-[#d8e3f7]" data-scroll-id="feature-3" data-scroll-animate="fadeInUp">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#eef4ff] text-[#4f65ff] mb-5">
+                    <span className="text-lg">🤝</span>
+                  </div>
+                  <h3 className="text-2xl font-semibold text-[#102A43] mb-4">Stay Connected to Customers</h3>
+                  <p className="text-[#556d82] leading-relaxed">
+                    Allow customers to save your menu to their favorites. Keep your business one tap away from their smartphone.
+                  </p>
                 </div>
               </div>
             </div>
@@ -218,30 +194,20 @@ export default function BusinessLanding() {
           {/* CTA SECTION */}
           <section className="py-20 px-4">
             <div className="max-w-4xl mx-auto">
-              <div
-                className="relative backdrop-blur-md bg-black/60 border border-white/20 rounded-3xl p-6 sm:p-10 lg:p-16 shadow-2xl transition-all duration-700"
-                data-scroll-id="cta"
-                data-scroll-animate="fadeInUp"
-              >
-                <div className="text-center space-y-8">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.3em] font-semibold text-white/80 mb-4">Learn More</p>
-                    <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
-                      Stop Reprinting. Start Connecting.
-                    </h2>
-                  </div>
-                  <p className="text-base sm:text-lg text-white/90 leading-relaxed max-w-2xl mx-auto">
-                    MenuQR is an intelligent engagement platform designed to help local eateries transition from static paper menus to a dynamic, cloud-native digital experience. By digitizing your menu, you gain a powerful Control Center and help customers discover you.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Link
-                      href="/business/dashboard"
-                      className="inline-flex justify-center items-center px-6 py-3 sm:px-8 sm:py-4 bg-white/20 hover:bg-white/30 border border-white/40 hover:border-white/60 text-white font-semibold rounded-full transition duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 backdrop-blur-sm"
-                    >
-                      Get started now →
-                    </Link>
-                  </div>
-                </div>
+              <div className="bg-white rounded-[2rem] p-10 sm:p-14 shadow-[0_28px_80px_rgba(79,101,255,0.12)] border border-[#d8e3f7] text-center" data-scroll-id="cta" data-scroll-animate="fadeInUp">
+                <p className="text-xs uppercase tracking-[0.4em] text-[#4f65ff] font-semibold mb-4">Learn More</p>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0b2136] mb-6">
+                  Stop Reprinting. Start Connecting.
+                </h2>
+                <p className="text-base text-[#556d82] mb-10 leading-relaxed">
+                  MenuQR is an intelligent engagement platform designed to help local eateries transition from static paper menus to a dynamic, cloud-native digital experience. By digitizing your menu, you gain a powerful Control Center and help customers discover you.
+                </p>
+                <Link
+                  href="/business/dashboard"
+                  className="inline-flex items-center justify-center px-10 py-4 bg-[#4f65ff] hover:bg-[#3550d9] text-white font-semibold rounded-full shadow-lg transition"
+                >
+                  Get started now →
+                </Link>
               </div>
             </div>
           </section>

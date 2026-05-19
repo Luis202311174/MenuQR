@@ -33,6 +33,47 @@ export default function SignupBusinessPage() {
   const [loading, setLoading] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [step, setStep] = useState(1);
+  const [errors, setErrors] = useState({});
+
+  const validateEmail = (email) => {
+    if (!email || !email.trim()) return 'Email is required';
+    // simple RFC-ish check
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email) ? null : 'Enter a valid email address';
+  };
+
+  const validatePhone = (phone) => {
+    if (!phone || !phone.trim()) return 'Contact number is required';
+    const re = /^\+639\d{9}$/;
+    return re.test(phone) ? null : 'Phone must be in +639XXXXXXXXX format';
+  };
+
+  const validateStep = (s) => {
+    const nextErrors = {};
+    if (s === 1) {
+      if (!businessName || !businessName.trim()) nextErrors.businessName = 'Business name is required';
+      if (!storeCategory) nextErrors.storeCategory = 'Select a category';
+      if (storeCategory === 'other' && (!otherCtgry || !otherCtgry.trim())) nextErrors.otherCtgry = 'Please specify category';
+      if (businessName && businessName.trim().length < 3) nextErrors.businessName = 'Business name must be at least 3 characters';
+    }
+    if (s === 2) {
+      if ((!address || !address.trim()) && !coordinates) nextErrors.location = 'Please provide an address or pick a location on the map';
+    }
+    if (s === 3) {
+      const phoneErr = validatePhone(contactNumber);
+      if (phoneErr) nextErrors.contactNumber = phoneErr;
+      const emailErr = validateEmail(storeEmail);
+      if (emailErr) nextErrors.storeEmail = emailErr;
+      if (!storeHours?.open || !storeHours?.close) nextErrors.storeHours = 'Please select opening and closing hours';
+    }
+    if (s === 4) {
+      if (!agreePrivacy) nextErrors.agreePrivacy = 'You must agree to the privacy policy';
+      if (logoFile && logoFile.size > 2 * 1024 * 1024) nextErrors.logoFile = 'Logo must be smaller than 2MB';
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const formatPHNumber = (value) => {
     // remove everything except digits
@@ -267,173 +308,184 @@ export default function SignupBusinessPage() {
         </div>
 
         {/* right side: form */}
-        <div className="bg-[#E23838] p-12 flex flex-col justify-center">
+        <div className="bg-[#4f65ff] p-12 flex flex-col justify-center">
           <h1 className="text-2xl font-bold text-center mb-6 text-white">
             Register your business
           </h1>
 
           <form className="space-y-6 mb-6 bg-white rounded-2xl p-6 shadow-lg" onSubmit={handleSubmit}>
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Business details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Business Name</label>
+            <div className="mb-4">
+              <div className="flex items-center gap-4 justify-center">
+                <div className={`px-3 py-1 rounded-full ${step===1? 'bg-[#4f65ff] text-white': 'bg-slate-100 text-slate-700'}`}>1</div>
+                <div className={`px-3 py-1 rounded-full ${step===2? 'bg-[#4f65ff] text-white': 'bg-slate-100 text-slate-700'}`}>2</div>
+                <div className={`px-3 py-1 rounded-full ${step===3? 'bg-[#4f65ff] text-white': 'bg-slate-100 text-slate-700'}`}>3</div>
+                <div className={`px-3 py-1 rounded-full ${step===4? 'bg-[#4f65ff] text-white': 'bg-slate-100 text-slate-700'}`}>4</div>
+              </div>
+            </div>
+
+            {/* Step 1 - Business details */}
+            {step === 1 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Business details</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Business Name</label>
+                    <input
+                      type="text"
+                      placeholder="Business Name"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
+                    />
+                    {errors.businessName && <p className="text-sm text-red-600 mt-2">{errors.businessName}</p>}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Category</label>
+                    <select
+                      value={storeCategory}
+                      onChange={(e) => setStoreCategory(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
+                    >
+                      <option value="">Store Category</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                      ))}
+                    </select>
+                    {errors.storeCategory && <p className="text-sm text-red-600 mt-2">{errors.storeCategory}</p>}
+                  </div>
+                </div>
+                {storeCategory === "other" && (
+                  <>
                   <input
                     type="text"
-                    placeholder="Business Name"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-3"
-                    required
+                    placeholder="Other category"
+                    value={otherCtgry}
+                    onChange={(e) => setOtherCtgry(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
+                  />
+                  {errors.otherCtgry && <p className="text-sm text-red-600 mt-2">{errors.otherCtgry}</p>}
+                  </>
+                )}
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    placeholder="Description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
+                    rows={3}
                   />
                 </div>
+              </section>
+            )}
+
+            {/* Step 2 - Location */}
+            {step === 2 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Location Picker</h2>
+                <MapPicker coordinates={coordinates} setCoordinates={setCoordinates} />
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Category</label>
-                  <select
-                    value={storeCategory}
-                    onChange={(e) => setStoreCategory(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-3"
-                    required
-                  >
-                    <option value="">Store Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {storeCategory === "other" && (
-                <input
-                  type="text"
-                  placeholder="Other category"
-                  value={otherCtgry}
-                  onChange={(e) => setOtherCtgry(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-3"
-                  required
-                />
-              )}
-              <div>
-                <label className="text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                  placeholder="Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-3"
-                  rows={3}
-                />
-              </div>
-            </section>
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                Location Picker
-              </h2>
-
-              <MapPicker
-                coordinates={coordinates}
-                setCoordinates={setCoordinates}
-              />
-
-              <div>
-                <label className="text-sm font-medium text-gray-700">Address</label>
-                <input
-                  type="text"
-                  placeholder="Address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-3"
-                  required
-                />
-              </div>
-            </section>
-
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Contact details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Contact Number</label>
+                  <label className="text-sm font-medium text-gray-700">Address</label>
                   <input
-                    type="tel"
-                    placeholder="Contact Number (e.g. 9171234567)"
-                    value={contactNumber}
-                    onChange={(e) => {
-                      const formatted = formatPHNumber(e.target.value);
-                      setContactNumber(formatted);
-                    }}
-                    className="w-full border border-gray-300 rounded-md p-3"
-                    pattern="^\+639\d{9}$"
-                    required
+                    type="text"
+                    placeholder="Address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
                   />
+                  {errors.location && <p className="text-sm text-red-600 mt-2">{errors.location}</p>}
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    type="email"
-                    placeholder="business@example.com"
-                    value={storeEmail}
-                    onChange={(e) => setStoreEmail(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-3"
-                    required
-                  />
+              </section>
+            )}
+
+            {/* Step 3 - Contact & Hours */}
+            {step === 3 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Contact details & Hours</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Contact Number</label>
+                    <input
+                      type="tel"
+                      placeholder="Contact Number (e.g. 9171234567)"
+                      value={contactNumber}
+                      onChange={(e) => {
+                        const formatted = formatPHNumber(e.target.value);
+                        setContactNumber(formatted);
+                      }}
+                      className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
+                    />
+                    {errors.contactNumber && <p className="text-sm text-red-600 mt-2">{errors.contactNumber}</p>}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Email</label>
+                    <input
+                      type="email"
+                      placeholder="business@example.com"
+                      value={storeEmail}
+                      onChange={(e) => setStoreEmail(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#4f65ff] focus:ring-0"
+                    />
+                    {errors.storeEmail && <p className="text-sm text-red-600 mt-2">{errors.storeEmail}</p>}
+                  </div>
                 </div>
+                <StoreHoursPicker value={storeHours} onChange={setStoreHours} />
+                {errors.storeHours && <p className="text-sm text-red-600 mt-2">{errors.storeHours}</p>}
+              </section>
+            )}
+
+            {/* Step 4 - Logo & Privacy */}
+            {step === 4 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Logo upload & Privacy</h2>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    setLogoFile(file);
+                  }}
+                  className="file:rounded file:border-0 file:bg-[#4f65ff] file:text-white file:px-3 file:py-1"
+                />
+                {logoFile && (
+                  <div className="w-28 h-28 overflow-hidden rounded-md border border-slate-300 mt-1">
+                    <img src={URL.createObjectURL(logoFile)} alt="Logo preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                {errors.logoFile && <p className="text-sm text-red-600 mt-2">{errors.logoFile}</p>}
+
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[#4f65ff] focus:ring-[#4f65ff]" />
+                  <span className="text-sm text-gray-700">I agree to the <button type="button" onClick={() => setShowPrivacy(true)} className="font-semibold text-[#4f65ff] underline">business privacy policy</button>.</span>
+                </label>
+                {errors.agreePrivacy && <p className="text-sm text-red-600 mt-2">{errors.agreePrivacy}</p>}
+                {!agreePrivacy && !errors.agreePrivacy && (
+                  <p className="text-xs text-red-600">You must agree to the privacy policy to create an account.</p>
+                )}
+              </section>
+            )}
+
+            {/* Navigation buttons */}
+            <div className="flex items-center justify-between">
+              <div>
+                {step > 1 && (
+                  <button type="button" onClick={() => setStep(step - 1)} className="bg-slate-100 text-slate-700 py-2 px-4 rounded-md">Back</button>
+                )}
               </div>
-            </section>
+              <div>
+                {step < 4 && (
+                  <button type="button" onClick={() => {
+                    const ok = validateStep(step);
+                    if (!ok) return; setStep(step + 1);
+                  }} className="bg-[#4f65ff] text-white py-2 px-4 rounded-md">Next</button>
+                )}
 
-            <section className="space-y-3">
-              <StoreHoursPicker value={storeHours} onChange={setStoreHours} />
-            </section>
-
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Logo upload</h2>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  setLogoFile(file);
-                }}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
-              {logoFile && (
-                <div className="w-28 h-28 overflow-hidden rounded-md border border-gray-300 mt-1">
-                  <img
-                    src={URL.createObjectURL(logoFile)}
-                    alt="Logo preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-            </section>
-
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={agreePrivacy}
-                onChange={(e) => setAgreePrivacy(e.target.checked)}
-                className="form-checkbox"
-              />
-              <span className="text-sm text-gray-700">
-                I agree to the <button
-                  type="button"
-                  onClick={() => setShowPrivacy(true)}
-                  className="underline text-blue-600"
-                >business privacy policy</button>.
-              </span>
-            </label>
-          {!agreePrivacy && (
-            <p className="text-xs text-red-600">
-              You must agree to the privacy policy to create an account.
-            </p>
-          )}
-          <div className="flex justify-center">
-            <button
-              type="submit"
-              disabled={loading || !agreePrivacy}
-              className="bg-[#E23838] hover:bg-red-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              {loading ? "Saving..." : "Create Business"}
-            </button>
-          </div>
-        </form>
+                {step === 4 && (
+                  <button type="submit" onClick={(e)=>{ if(!validateStep(4)){ e.preventDefault(); return; } }} disabled={loading || !agreePrivacy} className="bg-[#4f65ff] hover:bg-[#102A43] text-white font-bold py-2 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">{loading ? 'Saving...' : 'Create Business'}</button>
+                )}
+              </div>
+            </div>
+          </form>
       </div>
     </div>
   </div>
@@ -455,14 +507,14 @@ export default function SignupBusinessPage() {
             </button>
           </div>
 
-          <div className="space-y-6 overflow-y-auto p-8" style={{ maxHeight: 'calc(90vh - 96px)' }}>
+                <div className="space-y-6 overflow-y-auto p-8" style={{ maxHeight: 'calc(90vh - 96px)' }}>
             <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
               <p className="text-slate-700">
                 MenuQR is committed to protecting your business information and maintaining your trust. This policy explains how we collect, use, store, and share the business data provided while managing your restaurant or menu listing.
               </p>
             </div>
 
-            <section className="rounded-[28px] border border-slate-200 p-6 shadow-sm">
+                <section className="rounded-[28px] border border-slate-200 p-6 shadow-sm">
               <h3 className="text-xl font-semibold text-slate-900 mb-3">Information We Collect</h3>
               <ul className="space-y-3 text-slate-700">
                 <li className="rounded-2xl bg-slate-50 p-4">
@@ -480,7 +532,7 @@ export default function SignupBusinessPage() {
               </ul>
             </section>
 
-            <section className="rounded-[28px] border border-slate-200 p-6 shadow-sm">
+                <section className="rounded-[28px] border border-slate-200 p-6 shadow-sm">
               <h3 className="text-xl font-semibold text-slate-900 mb-3">How We Use Your Data</h3>
               <p className="text-slate-700 leading-7">
                 We use business data to build your menu profile, power the MenuQR management experience, and help customers discover and contact your business.
@@ -521,7 +573,7 @@ export default function SignupBusinessPage() {
               <h3 className="text-xl font-semibold text-slate-900 mb-3">Contact</h3>
               <p className="text-slate-700 leading-7">
                 For privacy questions or requests, contact the MenuQR team at
-                <a href="mailto:projectmenuqr@gmail.com" className="font-semibold text-[#E23838] underline">projectmenuqr@gmail.com</a>.
+                <a href="mailto:projectmenuqr@gmail.com" className="font-semibold text-[#4f65ff] underline">projectmenuqr@gmail.com</a>.
               </p>
             </section>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -44,6 +44,25 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
   const [open, setOpen] = useState(false);
   const [temp, setTemp] = useState<LatLngType | null>(coordinates);
   const [isMounted, setIsMounted] = useState(false);
+  const previewMapRef = useRef<any>(null);
+  const modalMapRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (previewMapRef.current) {
+          previewMapRef.current.remove();
+          previewMapRef.current = null;
+        }
+      } catch (e) {}
+      try {
+        if (modalMapRef.current) {
+          modalMapRef.current.remove();
+          modalMapRef.current = null;
+        }
+      } catch (e) {}
+    };
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -81,6 +100,7 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
       >
         {isMounted ? (
           <MapContainer
+            id={`map-preview-${previewKey}`}
             key={previewKey}
             center={
               coordinates
@@ -93,6 +113,10 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
             scrollWheelZoom={false}
             zoomControl={false}
             className="pointer-events-none"
+            whenCreated={(map) => {
+              previewMapRef.current = map;
+              try { map.invalidateSize(); } catch (e) {}
+            }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -127,6 +151,7 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
 
             {isMounted ? (
               <MapContainer
+                id={`map-modal-${modalKey}`}
                 key={modalKey}
                 center={
                   temp
@@ -135,9 +160,14 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
                 }
                 zoom={13}
                 style={{ height: "400px", width: "100%" }}
+                whenCreated={(map) => {
+                  modalMapRef.current = map;
+                  try { map.invalidateSize(); } catch (e) {}
+                }}
                 whenReady={() => {
                   setTimeout(() => {
                     window.dispatchEvent(new Event("resize"));
+                    try { modalMapRef.current?.invalidateSize(); } catch (e) {}
                   }, 0);
                 }}
               >
@@ -179,3 +209,11 @@ export default function MapPicker({ coordinates, setCoordinates }: Props) {
     </>
   );
 }
+
+// cleanup maps on unmount to avoid container reuse errors
+// (react-leaflet creates Leaflet map instances that must be removed)
+MapPicker.cleanup = () => {
+  try {
+    // noop - kept for potential external use
+  } catch (e) {}
+};
