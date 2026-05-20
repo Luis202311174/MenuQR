@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useStaffSession } from "@/hooks/useStaffSession";
 
 type BusinessOrdersNotifierProps = {
   businessId?: string | null;
@@ -90,9 +91,15 @@ export default function BusinessOrdersNotifier({
     }
   }, [businessId]);
 
+  const { staffSession } = useStaffSession();
+
   useEffect(() => {
     const resolveBusinessId = async () => {
       if (resolvedBusinessId) return;
+      if (staffSession?.businessId) {
+        setResolvedBusinessId(staffSession.businessId);
+        return;
+      }
 
       const { data } = await supabase.auth.getSession();
       const userId = data?.session?.user?.id;
@@ -110,7 +117,7 @@ export default function BusinessOrdersNotifier({
     };
 
     resolveBusinessId();
-  }, [resolvedBusinessId]);
+  }, [resolvedBusinessId, staffSession]);
 
   useEffect(() => {
     if (!resolvedBusinessId) return;

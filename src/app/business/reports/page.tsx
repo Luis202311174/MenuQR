@@ -3,6 +3,7 @@
 import { Fragment, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import PageShell from "@/components/PageShell";
 import {
   Chart as ChartJS,
@@ -77,6 +78,7 @@ interface ChartData {
 
 export default function BusinessReportsPage() {
   const router = useRouter();
+  const auth = useBusinessAuth("reports", "view");
 
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -191,87 +193,58 @@ export default function BusinessReportsPage() {
      AUTH + BUSINESS INIT
   ========================= */
   useEffect(() => {
-    let retryHandle: NodeJS.Timeout | null = null;
-    let retryCount = 0;
+    if (!auth.checked) return;
 
     const init = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        const sess = data.session;
+        if (auth.owner) {
+          const { data } = await supabase.auth.getSession();
+          const sess = data.session;
+          if (!sess?.user) return;
 
-        setAuthChecked(true);
+          setSession(sess);
 
-        if (!sess?.user) {
-          if (retryCount < 2) {
-            retryCount += 1;
-            retryHandle = setTimeout(init, 500);
+          const { data: bizData, error: bizError } = await supabase
+            .from("businesses")
+            .select("id, name, address, contact_info, slug")
+            .eq("owner_id", sess.user.id)
+            .single();
+
+          if (bizError || !bizData) {
+            console.error("Error loading business:", bizError);
             return;
           }
 
-          router.push("/login");
+          setBusinessId(bizData.id);
+          setBusinessData(bizData);
+          setBusinessName(bizData.name || "");
           return;
         }
 
-        const { data: user, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", sess.user.id)
-          .single();
+        if (auth.staffSession) {
+          const bizId = auth.staffSession.businessId;
+          const { data: bizData, error: bizError } = await supabase
+            .from("businesses")
+            .select("id, name, address, contact_info, slug")
+            .eq("id", bizId)
+            .single();
 
-        if (userError) {
-          console.error("Error loading user role:", userError);
-          return;
+          if (bizError || !bizData) {
+            console.error("Error loading business:", bizError);
+            return;
+          }
+
+          setBusinessId(bizData.id);
+          setBusinessData(bizData);
+          setBusinessName(bizData.name || "");
         }
-
-        if (user?.role !== "owner") {
-          router.push("/");
-          return;
-        }
-
-        setSession(sess);
-
-        const { data: bizData, error: bizError } = await supabase
-          .from("businesses")
-          .select("id, name, address, contact_info, slug")
-          .eq("owner_id", sess.user.id)
-          .single();
-
-        if (bizError || !bizData) {
-          console.error("Error loading business:", bizError);
-          return;
-        }
-
-        setBusinessId(bizData.id);
-        setBusinessData(bizData);
-        setBusinessName(bizData.name || "");
       } catch (error) {
         console.error("Error checking supabase session:", error);
-        setAuthChecked(true);
-
-        if (retryCount < 2) {
-          retryCount += 1;
-          retryHandle = setTimeout(init, 500);
-          return;
-        }
-
-        router.push("/login");
       }
     };
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_OUT") router.push("/");
-        if (event === "SIGNED_IN" && session?.user) init();
-      }
-    );
 
     init();
-
-    return () => {
-      listener.subscription.unsubscribe();
-      if (retryHandle) clearTimeout(retryHandle);
-    };
-  }, [router]);
+  }, [auth]);
 
   /* =========================
      DASHBOARD DATA FETCHING
@@ -949,7 +922,7 @@ export default function BusinessReportsPage() {
     </div>
   );
 
-  if (!authChecked) {
+  if (!auth.checked) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -960,17 +933,15 @@ export default function BusinessReportsPage() {
     );
   }
 
-  if (!session) {
+  if (!businessId) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Not Authenticated</h2>
-          <p className="text-slate-600 mb-6">You need to be logged in as a business owner to access the sales dashboard.</p>
-          <a href="/login" className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Go to Login
-          </a>
+      <PageShell>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <p className="text-slate-600">Loading business data…</p>
+          </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import { useInventory } from "@/hooks/useInventory";
@@ -49,6 +50,7 @@ type MenuItem = {
 
 export default function BusinessInventoryPage() {
   const router = useRouter();
+  const auth = useBusinessAuth("inventory", "view");
   const [business, setBusiness] = useState<Business | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,43 +59,47 @@ export default function BusinessInventoryPage() {
   const { inventory } = useInventory({ businessId: business?.id, enabled: Boolean(business?.id) });
 
   useEffect(() => {
+    if (!auth.checked) return;
+
     const loadData = async () => {
+      let resolvedBusiness: Business | null = business;
+
       try {
-        // Check authentication
-        const { data: sessionData } = await supabase.auth.getSession();
-        const session = sessionData.session;
+        if (!resolvedBusiness) {
+          if (auth.owner) {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const session = sessionData.session;
+            if (!session?.user) return;
 
-        if (!session?.user) {
-          router.push("/login");
+            const ownerBusiness = await getBusinessByOwner(session.user.id);
+            if (ownerBusiness) {
+              resolvedBusiness = ownerBusiness;
+              setBusiness(ownerBusiness);
+            }
+          }
+
+          if (!resolvedBusiness && auth.staffSession) {
+            const { data: businessData, error } = await supabase
+              .from("businesses")
+              .select("*")
+              .eq("id", auth.staffSession.businessId)
+              .single();
+
+            if (!error && businessData) {
+              resolvedBusiness = businessData as Business;
+              setBusiness(resolvedBusiness);
+            }
+          }
+        }
+
+        if (!resolvedBusiness) {
           return;
         }
 
-        // Check if user is an owner
-        const { data: user } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", session.user.id)
-          .single();
-
-        if (user?.role !== "owner") {
-          router.push("/");
-          return;
-        }
-
-        // Load business data
-        const businessData = await getBusinessByOwner(session.user.id);
-        if (!businessData) {
-          router.push("/login");
-          return;
-        }
-
-        setBusiness(businessData);
-
-        // Load menu items with inventory data
         const { data: items, error } = await supabase
           .from("menu_items")
           .select("*")
-          .eq("business_id", businessData.id)
+          .eq("business_id", resolvedBusiness.id)
           .order("name");
 
         if (error) throw error;
@@ -106,7 +112,7 @@ export default function BusinessInventoryPage() {
     };
 
     loadData();
-  }, [router]);
+  }, [auth, business]);
 
   const handleRefetch = async () => {
     if (!business) return;

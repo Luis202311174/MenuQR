@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import PageShell from "@/components/PageShell";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -33,6 +34,7 @@ interface Coupon {
 
 export default function BusinessPromotionsPage() {
   const router = useRouter();
+  const auth = useBusinessAuth("promotions", "view");
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -73,41 +75,49 @@ export default function BusinessPromotionsPage() {
   const [numberOfCodes, setNumberOfCodes] = useState('1');
 
   useEffect(() => {
+    if (!auth.checked) return;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
+      const loadBusinessForOwner = async (userId: string) => {
+        const { data: biz } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("owner_id", userId)
+          .single();
 
-      setAuthChecked(true);
+        return biz;
+      };
 
-      if (!sess?.user) {
-        router.push("/");
-        return;
+      const loadBusinessForStaff = async (businessId: string) => {
+        const { data: biz } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("id", businessId)
+          .single();
+
+        return biz;
+      };
+
+      let biz: any = null;
+
+      if (auth.owner) {
+        const { data } = await supabase.auth.getSession();
+        const sess = data.session;
+        if (!sess?.user) return;
+        setSession(sess);
+
+        biz = await loadBusinessForOwner(sess.user.id);
       }
 
-      const { data: user } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", sess.user.id)
-        .single();
-
-      if (user?.role !== "owner") {
-        router.push("/");
-        return;
+      if (auth.staffSession) {
+        biz = await loadBusinessForStaff(auth.staffSession.businessId);
       }
-
-      setSession(sess);
-
-      // Get business
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("owner_id", sess.user.id)
-        .single();
 
       if (!biz) return;
 
       setBusinessId(biz.id);
       setBusinessName(biz.name || "");
+
       const hasMilestoneFields = (
         biz.milestone_promo_enabled !== undefined ||
         biz.milestone_coupon_discount_type !== undefined ||
@@ -118,6 +128,7 @@ export default function BusinessPromotionsPage() {
         biz.milestone_coupon_redemption_minimum !== undefined ||
         biz.milestone_custom_code !== undefined
       );
+
       const hasRewardFields = (
         biz.reward_promo_enabled !== undefined ||
         biz.reward_coupon_discount_type !== undefined ||
@@ -128,6 +139,7 @@ export default function BusinessPromotionsPage() {
         biz.reward_coupon_redemption_minimum !== undefined ||
         biz.reward_custom_code !== undefined
       );
+
       const schemaType = hasMilestoneFields ? 'milestone' : hasRewardFields ? 'reward' : 'none';
       setBusinessSchema(schemaType);
       setBusinessRewardSettings({
@@ -142,12 +154,11 @@ export default function BusinessPromotionsPage() {
         description: biz.milestone_coupon_description ?? biz.reward_coupon_description ?? 'Reward coupon for your next order',
       });
 
-      // Load coupons
       await loadCoupons(biz.id);
     };
 
     init();
-  }, [router]);
+  }, [auth]);
 
   const loadCoupons = async (bizId: string) => {
     setLoading(true);
@@ -367,7 +378,7 @@ export default function BusinessPromotionsPage() {
   };
 
 
-  if (!authChecked) {
+  if (!auth.checked) {
     return (
       <PageShell>
         <div className="flex min-h-screen items-center justify-center">

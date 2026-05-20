@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
@@ -57,9 +58,7 @@ export default function BusinessMenuPage() {
 
   const orderedCategories = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
 
-  const [session, setSession] = useState<any>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-
+  const auth = useBusinessAuth("menu", "view");
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<BusinessMenuCardItem[]>([]);
   const [ordersCount, setOrdersCount] = useState(0);
@@ -100,50 +99,39 @@ export default function BusinessMenuPage() {
   const [showInventoryModal, setShowInventoryModal] = useState(false);
 
   useEffect(() => {
+    if (!auth.checked) return;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
+      if (auth.owner) {
+        const { data } = await supabase.auth.getSession();
+        const userId = data?.session?.user?.id;
+        if (!userId) return;
 
-      setAuthChecked(true);
-
-      if (!sess?.user) {
-        router.push("/");
-        return;
-      }
-
-      const { data: user } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", sess.user.id)
-        .single();
-
-      if (user?.role !== "owner") {
-        router.push("/");
-        return;
-      }
-
-      setSession(sess);
-
-      try {
-        const bizData = await getBusinessByOwner(sess.user.id);
-        if (bizData) {
-          setBusinessId(bizData.id);
-          try {
-            const resetPerformed = await lazyResetInventoryForBusiness(bizData.id);
-            if (resetPerformed) {
-              await fetchMenuItems();
+        try {
+          const bizData = await getBusinessByOwner(userId);
+          if (bizData) {
+            setBusinessId(bizData.id);
+            try {
+              const resetPerformed = await lazyResetInventoryForBusiness(bizData.id);
+              if (resetPerformed) {
+                await fetchMenuItems();
+              }
+            } catch (resetError) {
+              console.error("Failed to perform lazy inventory reset:", resetError);
             }
-          } catch (resetError) {
-            console.error("Failed to perform lazy inventory reset:", resetError);
           }
+        } catch (error) {
+          console.error("Failed to load business:", error);
         }
-      } catch (error) {
-        console.error("Failed to load business:", error);
+      }
+
+      if (auth.staffSession) {
+        setBusinessId(auth.staffSession.businessId);
       }
     };
 
     init();
-  }, [router]);
+  }, [auth]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -305,7 +293,7 @@ export default function BusinessMenuPage() {
     }
   };
 
-  if (!authChecked || !session) {
+  if (!auth.checked) {
     return <div className="p-10">Loading...</div>;
   }
 

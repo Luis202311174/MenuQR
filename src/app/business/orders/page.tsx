@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrderTile from "@/components/business/BusinessOrderTile";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGear } from "@fortawesome/free-solid-svg-icons";
@@ -43,9 +44,8 @@ type Order = {
 
 export default function BusinessOrdersPage() {
   const router = useRouter();
+  const auth = useBusinessAuth("orders", "view");
 
-  const [session, setSession] = useState<any>(null);
-  const [authChecked, setAuthChecked] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("Restaurant");
   const [businessAddress, setBusinessAddress] = useState<string>("");
@@ -147,38 +147,44 @@ export default function BusinessOrdersPage() {
 
   // 🔐 Auth + business
   useEffect(() => {
+    if (!auth.checked) return;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
+      if (auth.owner) {
+        const { data } = await supabase.auth.getSession();
+        const sess = data.session;
+        if (!sess?.user) return;
 
-      setAuthChecked(true);
-      if (!sess?.user) return router.push("/");
+        const { data: bizData } = await supabase
+          .from("businesses")
+          .select("id, name, address")
+          .eq("owner_id", sess.user.id)
+          .single();
 
-      const { data: user } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", sess.user.id)
-        .single();
+        if (bizData) {
+          setBusinessId(bizData.id);
+          setBusinessName(bizData.name || "Restaurant");
+          setBusinessAddress(bizData.address || "");
+        }
+      }
 
-      if (user?.role !== "owner") return router.push("/");
+      if (auth.staffSession) {
+        setBusinessId(auth.staffSession.businessId);
+        const { data: bizData, error } = await supabase
+          .from("businesses")
+          .select("name, address")
+          .eq("id", auth.staffSession.businessId)
+          .single();
 
-      setSession(sess);
-
-      const { data: bizData } = await supabase
-        .from("businesses")
-        .select("id, name, address")
-        .eq("owner_id", sess.user.id)
-        .single();
-
-      if (bizData) {
-        setBusinessId(bizData.id);
-        setBusinessName(bizData.name || "Restaurant");
-        setBusinessAddress(bizData.address || "");
+        if (!error && bizData) {
+          setBusinessName(bizData.name || "Restaurant");
+          setBusinessAddress(bizData.address || "");
+        }
       }
     };
 
     init();
-  }, [router]);
+  }, [auth]);
 
   // 📦 Fetch orders
   const displayStatusLabel = (status: string, isPaid?: boolean) => {
@@ -441,7 +447,7 @@ export default function BusinessOrdersPage() {
         </button>
       }
     >
-      {!authChecked || !session ? (
+      {!auth.checked ? (
         <div className="flex items-center justify-center h-screen">
           <p className="text-lg text-gray-600">Loading orders…</p>
         </div>

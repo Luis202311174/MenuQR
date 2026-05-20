@@ -4,13 +4,11 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import PageShell from "@/components/PageShell";
 
 export default function BusinessDashboardPage() {
-  const router = useRouter();
-
-  const [session, setSession] = useState<any>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const auth = useBusinessAuth("dashboard", "view");
 
   const [businessData, setBusinessData] = useState<any>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -24,86 +22,33 @@ export default function BusinessDashboardPage() {
      AUTH + BUSINESS INIT
   ========================= */
   useEffect(() => {
-    let retryHandle: NodeJS.Timeout | null = null;
-    let retryCount = 0;
+    if (!auth.checked) return;
 
     const init = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const sess = data.session;
-
-        setAuthChecked(true);
-
-        if (!sess?.user) {
-          if (retryCount < 2) {
-            retryCount += 1;
-            retryHandle = setTimeout(init, 500);
-            return;
-          }
-
-          router.push("/login");
-          return;
-        }
-
-        const { data: user, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", sess.user.id)
-          .single();
-
-        if (userError) {
-          console.error("Error loading user role:", userError);
-          return;
-        }
-
-        if (user?.role !== "owner") {
-          router.push("/");
-          return;
-        }
-
-        setSession(sess);
+      if (auth.owner) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+        if (!userId) return;
 
         const { data: bizData, error: bizError } = await supabase
           .from("businesses")
           .select("id, name, address, contact_info, slug")
-          .eq("owner_id", sess.user.id)
+          .eq("owner_id", userId)
           .single();
 
-        if (bizError || !bizData) {
-          console.error("Error loading business:", bizError);
-          return;
+        if (!bizError && bizData) {
+          setBusinessId(bizData.id);
+          setBusinessData(bizData);
         }
+      }
 
-        setBusinessId(bizData.id);
-        setBusinessData(bizData);
-      } catch (error) {
-        console.error("Error checking supabase session:", error);
-        setAuthChecked(true);
-
-        if (retryCount < 2) {
-          retryCount += 1;
-          retryHandle = setTimeout(init, 500);
-          return;
-        }
-
-        router.push("/login");
+      if (auth.staffSession) {
+        setBusinessId(auth.staffSession.businessId);
       }
     };
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_OUT") router.push("/");
-        if (event === "SIGNED_IN" && session?.user) init();
-      }
-    );
 
     init();
-
-    return () => {
-      listener.subscription.unsubscribe();
-      if (retryHandle) clearTimeout(retryHandle);
-    };
-  }, [router]);
+  }, [auth]);
 
   /* =========================
      FETCH DASHBOARD STATS
@@ -167,7 +112,7 @@ export default function BusinessDashboardPage() {
         title="Business Dashboard"
         subtitle="Track your business performance and insights"
       >
-        {!authChecked || !session ? (
+        {!auth.checked || !businessData ? (
           <div className="flex items-center justify-center h-screen">
             <p className="text-lg text-gray-600">Loading dashboard…</p>
           </div>

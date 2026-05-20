@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 import jsPDF from "jspdf";
@@ -19,6 +20,7 @@ interface ITable {
 
 export default function TableQRPage() {
   const router = useRouter();
+  const auth = useBusinessAuth("tableqr", "view");
 
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -93,66 +95,55 @@ export default function TableQRPage() {
   };
 
   useEffect(() => {
+    if (!auth.checked) return;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
-      setAuthChecked(true);
-
-      if (!sess?.user) return router.push("/");
-
-      setSession(sess);
-
       try {
-        // Owner
-        const { data: ownerBiz, error: ownerError } = await supabase
-          .from("businesses")
-          .select("id, slug, name")
-          .eq("owner_id", sess.user.id)
-          .single();
+        if (auth.owner) {
+          const { data } = await supabase.auth.getSession();
+          const sess = data.session;
+          if (!sess?.user) return;
 
-        if (ownerError && ownerError.code !== "PGRST116") throw ownerError;
+          setSession(sess);
 
-        if (ownerBiz) {
-          setBusinessId(ownerBiz.id);
-          setBusinessSlug(ownerBiz.slug);
-          setBusinessName(ownerBiz.name);
-          return;
+          const { data: ownerBiz, error: ownerError } = await supabase
+            .from("businesses")
+            .select("id, slug, name")
+            .eq("owner_id", sess.user.id)
+            .single();
+
+          if (ownerError && ownerError.code !== "PGRST116") throw ownerError;
+
+          if (ownerBiz) {
+            setBusinessId(ownerBiz.id);
+            setBusinessSlug(ownerBiz.slug);
+            setBusinessName(ownerBiz.name);
+            return;
+          }
         }
 
-        // Staff
-        const { data: staffBiz, error: staffError } = await supabase
-          .from("business_staff")
-          .select("business_id")
-          .eq("user_id", sess.user.id)
-          .single();
+        if (auth.staffSession) {
+          setBusinessId(auth.staffSession.businessId);
 
-        if (staffError && staffError.code !== "PGRST116") throw staffError;
-
-        if (staffBiz) {
-          setBusinessId(staffBiz.business_id);
-
-          // fetch slug and name separately
           const { data: biz } = await supabase
             .from("businesses")
             .select("slug, name")
-            .eq("id", staffBiz.business_id)
+            .eq("id", auth.staffSession.businessId)
             .single();
 
           if (biz) {
             setBusinessSlug(biz.slug);
             setBusinessName(biz.name);
           }
-        } else {
-          router.push("/");
+          return;
         }
       } catch (err: any) {
         console.error(err);
-        router.push("/");
       }
     };
 
     init();
-  }, [router]);
+  }, [auth, router]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -331,7 +322,7 @@ export default function TableQRPage() {
   };
 
   // UI
-  if (!authChecked || !session) return <div className="p-10">Loading...</div>;
+  if (!auth.checked) return <div className="p-10">Loading...</div>;
 
   return (
     <>

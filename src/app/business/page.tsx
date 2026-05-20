@@ -6,53 +6,58 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import CraveBotV2 from "@/components/CraveBotV2";
 
 export default function BusinessLanding() {
   const router = useRouter();
+  const auth = useBusinessAuth("dashboard", "view");
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!auth.checked) return;
+
     const loadBusiness = async () => {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const sessionUser = sessionData?.session?.user;
+        if (auth.owner) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const sessionUser = sessionData?.session?.user;
 
-        if (!sessionUser) {
-          router.push("/");
+          if (!sessionUser) return;
+
+          const { data: businessRecord } = await supabase
+            .from("businesses")
+            .select("name, logo_url")
+            .eq("owner_id", sessionUser.id)
+            .single();
+
+          if (businessRecord) {
+            setBusinessName(businessRecord.name);
+            setBusinessLogoUrl(businessRecord.logo_url);
+          }
           return;
         }
 
-        const { data: userRecord, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", sessionUser.id)
-          .single();
+        if (auth.staffSession) {
+          const { data: businessRecord } = await supabase
+            .from("businesses")
+            .select("name, logo_url")
+            .eq("id", auth.staffSession.businessId)
+            .single();
 
-        if (userError || !userRecord || userRecord.role !== "owner") {
-          router.push("/");
-          return;
-        }
-
-        const { data: businessRecord, error: businessError } = await supabase
-          .from("businesses")
-          .select("name, logo_url")
-          .eq("owner_id", sessionUser.id)
-          .single();
-
-        if (!businessError && businessRecord) {
-          setBusinessName(businessRecord.name);
-          setBusinessLogoUrl(businessRecord.logo_url);
+          if (businessRecord) {
+            setBusinessName(businessRecord.name);
+            setBusinessLogoUrl(businessRecord.logo_url);
+          }
         }
       } catch (err) {
         console.error("Error loading business landing:", err);
-        router.push("/");
       }
     };
 
     loadBusiness();
-  }, [router]);
+  }, [auth, router]);
 
   return (
     <>

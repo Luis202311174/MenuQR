@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 
@@ -13,6 +14,7 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
 
 export default function BusinessSettingsPage() {
   const router = useRouter();
+  const auth = useBusinessAuth("settings", "view");
 
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -35,70 +37,97 @@ export default function BusinessSettingsPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!auth.checked) return;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sess = data.session;
+      try {
+        if (auth.owner) {
+          const { data } = await supabase.auth.getSession();
+          const sess = data.session;
 
-      setAuthChecked(true);
+          if (!sess?.user) return;
+          setSession(sess);
 
-      if (!sess?.user) {
-        router.push("/");
-        return;
-      }
+          const { data: biz } = await supabase
+            .from("businesses")
+            .select("*")
+            .eq("owner_id", sess.user.id)
+            .single();
 
-      const { data: user } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", sess.user.id)
-        .single();
+          if (!biz) return;
 
-      if (user?.role !== "owner") {
-        router.push("/");
-        return;
-      }
+          setLogoUrl(biz.logo_url || null);
+          setBusinessId(biz.id);
+          setName(biz.name || "");
+          setAddress(biz.address || "");
+          setContact(biz.contact_info || "");
+          setBussEmail(biz.buss_email || "");
 
-      setSession(sess);
+          if (biz.latitude && biz.longitude) {
+            setCoordinates({
+              lat: biz.latitude,
+              lng: biz.longitude,
+            });
+          }
 
-      // get business
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("owner_id", sess.user.id)
-        .single();
+          const { data: socials } = await supabase
+            .from("business_socials")
+            .select("*")
+            .eq("business_id", biz.id)
+            .maybeSingle();
 
-      if (!biz) return;
+          if (socials) {
+            setFb(socials.fb || "");
+            setIg(socials.ig || "");
+            setFp(socials.fp || "");
+            setGr(socials.gr || "");
+          }
+          return;
+        }
 
-      setLogoUrl(biz.logo_url || null);
-      setBusinessId(biz.id);
-      setName(biz.name || "");
-      setAddress(biz.address || "");
-      setContact(biz.contact_info || "");
-      setBussEmail(biz.buss_email || "");
+        if (auth.staffSession) {
+          const { data: biz } = await supabase
+            .from("businesses")
+            .select("*")
+            .eq("id", auth.staffSession.businessId)
+            .single();
 
-      if (biz.latitude && biz.longitude) {
-        setCoordinates({
-          lat: biz.latitude,
-          lng: biz.longitude,
-        });
-      }
+          if (!biz) return;
 
-      // get socials
-      const { data: socials } = await supabase
-        .from("business_socials")
-        .select("*")
-        .eq("business_id", biz.id)
-        .maybeSingle();
+          setLogoUrl(biz.logo_url || null);
+          setBusinessId(biz.id);
+          setName(biz.name || "");
+          setAddress(biz.address || "");
+          setContact(biz.contact_info || "");
+          setBussEmail(biz.buss_email || "");
 
-      if (socials) {
-        setFb(socials.fb || "");
-        setIg(socials.ig || "");
-        setFp(socials.fp || "");
-        setGr(socials.gr || "");
+          if (biz.latitude && biz.longitude) {
+            setCoordinates({
+              lat: biz.latitude,
+              lng: biz.longitude,
+            });
+          }
+
+          const { data: socials } = await supabase
+            .from("business_socials")
+            .select("*")
+            .eq("business_id", biz.id)
+            .maybeSingle();
+
+          if (socials) {
+            setFb(socials.fb || "");
+            setIg(socials.ig || "");
+            setFp(socials.fp || "");
+            setGr(socials.gr || "");
+          }
+        }
+      } catch (error) {
+        console.error("Error loading business settings:", error);
       }
     };
 
     init();
-  }, [router]);
+  }, [auth, router]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -231,7 +260,7 @@ export default function BusinessSettingsPage() {
     }
   };
 
-  if (!authChecked || !session) {
+  if (!auth.checked) {
     return <div className="p-10">Loading...</div>;
   }
 
