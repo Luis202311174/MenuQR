@@ -80,7 +80,14 @@ export default function StaffManagementPage() {
         const errorBody = contentType.includes("application/json")
           ? await response.json()
           : { error: await response.text() };
-        const errorMessage = errorBody?.error || errorBody?.message || "Unable to load staff accounts";
+        // Easier debugging: log full response body for copy/paste
+        console.error("/api/staff/accounts errorBody:", errorBody);
+
+        const errorMessage =
+          errorBody?.error ||
+          errorBody?.message ||
+          errorBody?.details ||
+          "Unable to load staff accounts";
         throw new Error(errorMessage);
       }
       const data = (await response.json()) as StaffAccount[];

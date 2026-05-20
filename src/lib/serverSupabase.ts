@@ -1,8 +1,9 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { NextRequest } from "next/server";
 import { hashSessionToken } from "@/lib/staffAuth";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
@@ -13,18 +14,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export function createServerSupabaseClient(
   authToken?: string
 ): SupabaseClient {
-  const client = createClient(supabaseUrl, supabaseAnonKey, {
+  return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: authToken
+      ? {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      : undefined,
   });
-
-  if (authToken) {
-    client.auth.setAuth(authToken);
-  }
-
-  return client;
 }
 
 export function createServerSupabaseAdminClient(): SupabaseClient {
@@ -53,7 +55,7 @@ interface StaffSessionResult {
   permissions: StaffPermissionRow[];
 }
 
-export async function getOwnerUserFromRequest(req: Request) {
+export async function getOwnerUserFromRequest(req: NextRequest) {
   const authHeader = req.headers.get("authorization") || "";
   const supabaseToken = authHeader.startsWith("Bearer ")
     ? authHeader.replace("Bearer ", "")
@@ -91,7 +93,7 @@ export async function getOwnerUserFromRequest(req: Request) {
   return emailRecord || null;
 }
 
-export async function getStaffSessionFromRequest(req: Request): Promise<StaffSessionResult | null> {
+export async function getStaffSessionFromRequest(req: NextRequest): Promise<StaffSessionResult | null> {
   const token = req.cookies.get("staff_session")?.value;
   if (!token) {
     return null;

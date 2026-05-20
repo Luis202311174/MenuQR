@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseAdminClient } from "@/lib/serverSupabase";
 import { hashSessionToken } from "@/lib/staffAuth";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const token = req.cookies.get("staff_session")?.value;
   if (!token) {
     return new NextResponse("Unauthorized", { status: 401 });
