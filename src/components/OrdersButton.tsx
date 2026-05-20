@@ -43,6 +43,7 @@ interface OrdersButtonProps {
   };
   sessionId: string;
   businessId: string;
+  businessName?: string;
   tableId?: string;
   orderCompleteModal?: boolean;
   onPaymentComplete?: (method: "cash" | "gcash") => void;
@@ -66,8 +67,16 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
     if (orderCompleteModal && completedOrder) {
       setRatedOrder(completedOrder);
       setShowRatingModal(true);
+    } else if (!orderCompleteModal) {
+      setShowRatingModal(false);
+      setRatedOrder(null);
     }
   }, [orderCompleteModal, completedOrder]);
+
+  const handleRatingModalClose = () => {
+    setShowRatingModal(false);
+    setRatedOrder(null);
+  };
 
   return (
     <>
@@ -79,33 +88,20 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
             </div>
 
             <div className="p-6 space-y-6">
-              <p className="text-gray-700 text-lg font-semibold">
-                Thank you for ordering!
-              </p>
-              <p className="text-gray-600">
-                Your order has been completed.
-              </p>
+              <p className="text-gray-700 text-lg font-semibold">Thank you for ordering!</p>
+              <p className="text-gray-600">Your order has been completed.</p>
 
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm uppercase tracking-wider text-gray-500">
-                    Order ID
-                  </p>
-                  <p className="font-semibold text-gray-800">
-                    {completedOrder.id.slice(0, 8)}...
-                  </p>
+                  <p className="text-sm uppercase tracking-wider text-gray-500">Order ID</p>
+                  <p className="font-semibold text-gray-800">{completedOrder.id.slice(0, 8)}...</p>
                 </div>
 
                 <div className="space-y-2">
                   {completedOrder.items.map((item: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex justify-between text-sm text-gray-700"
-                    >
+                    <div key={index} className="flex justify-between text-sm text-gray-700">
                       <span>{item.name}</span>
-                      <span className="font-semibold text-blue-600">
-                        ₱{item.price}
-                      </span>
+                      <span className="font-semibold text-blue-600">₱{item.price}</span>
                     </div>
                   ))}
                 </div>
@@ -151,7 +147,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
         open={showRatingModal}
         orderId={ratedOrder?.id || ""}
         businessId={businessId}
-        onClose={() => setShowRatingModal(false)}
+        onClose={handleRatingModalClose}
         onRated={() => console.log("Thanks for rating!")}
       />
     </>

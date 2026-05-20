@@ -118,7 +118,8 @@ export default function BusinessPromotionsPage() {
         return;
       }
 
-      setCoupons(data || []);
+      const couponsList = data || [];
+      setCoupons(couponsList);
     } catch (error: any) {
       const message = error?.message || JSON.stringify(error, null, 2);
       setLoadError(message);
@@ -191,23 +192,36 @@ export default function BusinessPromotionsPage() {
     }
   };
 
+  
+
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm("Are you sure you want to delete this coupon? This action cannot be undone.")) {
       return;
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("coupons")
         .delete()
-        .eq("id", couponId);
+        .select("*")
+        .eq("id", couponId)
+        .eq("business_id", businessId!);
 
-      if (error) throw error;
+      if (error) {
+        const message = error.message || error.details || error.hint || JSON.stringify(error);
+        console.error("Error deleting coupon:", error);
+        throw new Error(message || "Unknown error deleting coupon");
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("Unable to delete coupon. It may no longer exist or you may not have permission.");
+      }
 
       await loadCoupons(businessId!);
     } catch (error: any) {
-      console.error("Error deleting coupon:", error);
-      alert("Error deleting coupon: " + error.message);
+      const message = error?.message || String(error) || "Unknown error";
+      console.error("Error deleting coupon:", message, error);
+      alert("Error deleting coupon: " + message);
     }
   };
 
@@ -235,6 +249,7 @@ export default function BusinessPromotionsPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
   };
+
 
   if (!authChecked) {
     return (
@@ -668,6 +683,7 @@ export default function BusinessPromotionsPage() {
           </div>
         </div>
       )}
+
     </PageShell>
   );
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import CraveBotV2 from "@/components/CraveBotV2";
 
 export default function BusinessLanding() {
   const router = useRouter();
@@ -213,6 +214,9 @@ export default function BusinessLanding() {
           </section>
         </main>
       </div>
+      <CraveBotV2
+        businessName={businessName ?? undefined}
+      />
     </>
   );
 }

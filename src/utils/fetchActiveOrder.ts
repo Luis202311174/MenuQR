@@ -14,6 +14,10 @@ export type OrderData = {
   senior_pwd_count?: number;
   discount_amount?: number;
   discount_approved?: boolean;
+  milestone_coupon_awarded?: boolean;
+  milestone_coupon_awarded_at?: string;
+  milestone_coupon_code?: string;
+  milestone_coupon_claim_id?: string;
   created_at: string;
   updated_at?: string;
 };

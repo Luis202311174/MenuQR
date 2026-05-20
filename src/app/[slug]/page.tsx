@@ -16,6 +16,7 @@
   import { supabase } from "@/lib/supabaseClient";
   import { trackBusinessViewOnce } from "@/utils/trackBusinessView";
   import CheckoutModal from "@/components/CheckoutModal";
+  import CraveBotV2 from "@/components/CraveBotV2";
 
   type Business = {
     id: string;
@@ -899,6 +900,7 @@ export default function BusinessPage() {
           }}
           sessionId={sessionId!}
           businessId={business!.id}
+          businessName={business?.name}
           tableId={tableId!}
           onPayBill={handlePayBill}
           showOrderMoreModal={false}
@@ -907,6 +909,13 @@ export default function BusinessPage() {
           completedOrder={completedOrder}
           onCloseOrderCompleteModal={closeOrderCompleteModal}
           onCloseOrderMoreModal={() => {}}
+        />
+
+        <CraveBotV2
+          businessSlug={slug ?? undefined}
+          businessName={business?.name ?? undefined}
+          businessAddress={business?.address ?? undefined}
+          menuData={displayedMenuItems}
         />
 
         {categoryKeys.length > 0 && (

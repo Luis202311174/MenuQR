@@ -44,7 +44,7 @@ const formatCurrency = (amount: number) => {
 
 export default function SalesReportAnalyzer({ 
   orders, 
-  suggestionThreshold = 5,
+  suggestionThreshold = 1,
   analysisType = 'selected',
   selectedMonth,
   dateRangeLabel,
@@ -105,11 +105,23 @@ export default function SalesReportAnalyzer({
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
-      const suggestions = frequentPairs.map(pair => ({
+      let suggestions = frequentPairs.map(pair => ({
         items: pair.items,
         count: pair.count,
         text: `"${pair.items[0]}" + "${pair.items[1]}"`,
       }));
+
+      if (suggestions.length === 0 && Object.values(itemPairCounts).length > 0) {
+        const fallbackPairs = Object.values(itemPairCounts)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        suggestions = fallbackPairs.map(pair => ({
+          items: pair.items,
+          count: pair.count,
+          text: `"${pair.items[0]}" + "${pair.items[1]}"`,
+        }));
+      }
 
       return {
         totalRevenue,
@@ -155,6 +167,8 @@ export default function SalesReportAnalyzer({
   // Get the data to display based on analysisType
   const currentAnalysis = useMemo(() => {
     switch (analysisType) {
+      case 'selected':
+        return analysis.overall;
       case 'weekly':
         return analysis.weekly;
       case 'monthly':
@@ -194,6 +208,8 @@ export default function SalesReportAnalyzer({
         return 'Monthly Analysis';
       case 'overall':
         return 'Overall Analysis';
+      case 'selected':
+        return 'Selected Range Analysis';
       default:
         return 'Analysis';
     }
@@ -359,7 +375,7 @@ export default function SalesReportAnalyzer({
         <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-6 text-center">
           <FontAwesomeIcon icon={faLightbulb} className="text-slate-400 text-2xl mb-2" />
           <p className="text-slate-600 text-sm">
-            Not enough data to generate combo suggestions yet. More orders will help us identify patterns!
+            No strong combo patterns found in this period. If your selected range contains mostly single-item sales, bundle recommendations will appear when multi-item orders are present.
           </p>
         </div>
       )}

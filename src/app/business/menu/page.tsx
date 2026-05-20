@@ -20,6 +20,23 @@ import {
   lazyResetInventoryForBusiness,
 } from "@/utils/businessCRUDMenu";
 
+const COMMON_ALLERGENS = [
+  "Peanuts",
+  "Tree Nuts",
+  "Dairy",
+  "Eggs",
+  "Shellfish",
+  "Fish",
+  "Wheat",
+  "Soy",
+  "Sesame",
+  "Gluten",
+  "Sulfites",
+  "Mustard",
+  "Celery",
+  "Lupin",
+];
+
 type NewMenuOption = {
   id: string;
   name: string;
@@ -74,6 +91,8 @@ export default function BusinessMenuPage() {
   const [servingSize, setServingSize] = useState("");
   const [allergens, setAllergens] = useState<string[]>([]);
   const [newAllergen, setNewAllergen] = useState("");
+  const [selectedAllergenOption, setSelectedAllergenOption] = useState("");
+  const [allergenOptions, setAllergenOptions] = useState<string[]>(COMMON_ALLERGENS);
 
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
@@ -598,29 +617,51 @@ export default function BusinessMenuPage() {
                       </div>
 
                       <div className="mt-4">
-                        <label className="block text-sm font-semibold text-gray-700">
-                          Allergens
-                          <div className="mt-2 flex gap-2 items-center">
-                            <input
-                              value={newAllergen}
-                              onChange={(e) => setNewAllergen(e.target.value)}
-                              className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                              placeholder="e.g. nuts, dairy, gluten"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const cleaned = newAllergen.trim();
-                                if (!cleaned) return;
-                                setAllergens((current) => Array.from(new Set([...current, cleaned])));
-                                setNewAllergen("");
-                              }}
-                              className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
-                            >
-                              Add
-                            </button>
-                          </div>
-                        </label>
+                        <label className="block text-sm font-semibold text-gray-700">Allergens</label>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-[1.5fr_auto] items-center">
+                          <select
+                            value={selectedAllergenOption}
+                            onChange={(e) => {
+                              setSelectedAllergenOption(e.target.value);
+                              setNewAllergen(e.target.value);
+                            }}
+                            className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                          >
+                            <option value="">Select common allergen</option>
+                            {allergenOptions.map((allergen) => (
+                              <option key={allergen} value={allergen}>
+                                {allergen}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cleaned = newAllergen.trim();
+                              if (!cleaned) return;
+                              setAllergens((current) => Array.from(new Set([...current, cleaned])));
+                              setAllergenOptions((current) =>
+                                current.some((item) => item.toLowerCase() === cleaned.toLowerCase())
+                                  ? current
+                                  : [...current, cleaned]
+                              );
+                              setNewAllergen("");
+                              setSelectedAllergenOption("");
+                            }}
+                            className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <input
+                          value={newAllergen}
+                          onChange={(e) => {
+                            setNewAllergen(e.target.value);
+                            setSelectedAllergenOption("");
+                          }}
+                          className="mt-3 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                          placeholder="Or type custom allergen"
+                        />
 
                         {allergens.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-2">
