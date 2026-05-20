@@ -216,8 +216,13 @@ export default function SlugSidebar({
                 Total Amount
               </p>
               <p className="text-2xl font-black text-blue-600">
-                ₱{currentOrder.total_amount?.toFixed(2)}
+                ₱{((currentOrder.total_amount || 0) - (currentOrder.discount_amount || 0)).toFixed(2)}
               </p>
+              {(currentOrder.discount_amount || 0) > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  (₱{currentOrder.total_amount?.toFixed(2)} - ₱{Number(currentOrder.discount_amount).toFixed(2)})
+                </p>
+              )}
             </div>
           </div>
         ) : cartItems.length > 0 ? (

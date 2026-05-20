@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { OrderData } from "@/utils/fetchActiveOrder";
+import { supabase } from "@/lib/supabaseClient";
 import OrderRatingModal from "./OrderRatingModal";
 
 interface CartItem {
@@ -62,6 +63,13 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
 }) => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratedOrder, setRatedOrder] = useState<OrderData | null>(null);
+  const [rewardCouponInfo, setRewardCouponInfo] = useState<{
+    code: string;
+    discount_type: string;
+    discount_value: number;
+    expires_at: string | null;
+    description?: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (orderCompleteModal && completedOrder) {
@@ -77,6 +85,40 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
     setShowRatingModal(false);
     setRatedOrder(null);
   };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRewardCoupon = async () => {
+      const couponCode = completedOrder?.milestone_coupon_code ?? completedOrder?.reward_coupon_code;
+      if (!couponCode || !businessId) {
+        setRewardCouponInfo(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("code, discount_type, discount_value, expires_at, description")
+        .eq("business_id", businessId)
+        .eq("code", couponCode)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (error) {
+        console.error("Error loading reward coupon details:", error);
+        setRewardCouponInfo(null);
+        return;
+      }
+
+      setRewardCouponInfo(data || null);
+    };
+
+    fetchRewardCoupon();
+
+    return () => {
+      mounted = false;
+    };
+  }, [completedOrder?.milestone_coupon_code, completedOrder?.reward_coupon_code, businessId]);
 
   return (
     <>
@@ -130,6 +172,47 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
                 </div>
               </div>
 
+              {rewardCouponInfo && (
+                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 mt-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+                        🎉 Reward Coupon Earned
+                      </div>
+                      <p className="text-sm text-slate-700">You earned a coupon for your next order.</p>
+                    </div>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(rewardCouponInfo.code)}
+                      className="rounded-2xl bg-emerald-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
+                    >
+                      Copy Code
+                    </button>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <p className="text-xs uppercase tracking-wider text-slate-500">Coupon Code</p>
+                      <p className="mt-2 font-semibold text-slate-900">{rewardCouponInfo.code}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <p className="text-xs uppercase tracking-wider text-slate-500">Reward</p>
+                      <p className="mt-2 font-semibold text-slate-900">
+                        {rewardCouponInfo.discount_type === 'percentage'
+                          ? `${rewardCouponInfo.discount_value}% OFF`
+                          : `₱${rewardCouponInfo.discount_value.toFixed(2)} OFF`}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <p className="text-xs uppercase tracking-wider text-slate-500">Valid Until</p>
+                      <p className="mt-2 font-semibold text-slate-900">
+                        {rewardCouponInfo.expires_at
+                          ? new Date(rewardCouponInfo.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'No expiry'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end">
                 <button
                   onClick={onCloseOrderCompleteModal}
@@ -147,6 +230,7 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
         open={showRatingModal}
         orderId={ratedOrder?.id || ""}
         businessId={businessId}
+        rewardCouponInfo={rewardCouponInfo}
         onClose={handleRatingModalClose}
         onRated={() => console.log("Thanks for rating!")}
       />

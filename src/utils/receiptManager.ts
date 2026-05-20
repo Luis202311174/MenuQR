@@ -8,6 +8,7 @@ export interface SessionReceipt {
     created_at: string;
     items: any[];
     total_amount: number;
+    discount_amount?: number;
     status: string;
     is_paid: boolean;
   }[];
@@ -27,7 +28,10 @@ export async function storeSessionReceipt(sessionId: string, businessId: string)
 
   if (ordersError) throw ordersError;
 
-  const totalAmount = (orders || []).reduce((sum, order) => sum + Number(order.total_amount), 0);
+  const totalAmount = (orders || []).reduce(
+    (sum, order) => sum + Number(order.total_amount) - Number(order.discount_amount || 0),
+    0
+  );
 
   const receipt: SessionReceipt = {
     id: `receipt-${Date.now()}`,
@@ -109,22 +113,26 @@ export function formatReceiptForDisplay(receipt: SessionReceipt): string {
   lines.push("");
 
   receipt.orders.forEach((order, index) => {
-    lines.push(`Order #${index + 1} (ID: ${order.id.slice(-6)})`);
-    lines.push(`Status: ${order.status}`);
-    lines.push(`Payment: ${order.is_paid ? "PAID" : "UNPAID"}`);
-    lines.push("-".repeat(40));
+      const subtotal = Number(order.total_amount) - Number(order.discount_amount || 0);
 
-    order.items.forEach((item) => {
-      const itemTotal = (Number(item.price) * item.quantity).toFixed(2);
-      lines.push(`${item.name} x${item.quantity}`);
-      lines.push(`  ₱${itemTotal}`);
+      lines.push(`Order #${index + 1} (ID: ${order.id.slice(-6)})`);
+      lines.push(`Status: ${order.status}`);
+      lines.push(`Payment: ${order.is_paid ? "PAID" : "UNPAID"}`);
+      lines.push("-".repeat(40));
+
+      order.items.forEach((item) => {
+        const itemTotal = (Number(item.price) * item.quantity).toFixed(2);
+        lines.push(`${item.name} x${item.quantity}`);
+        lines.push(`  ₱${itemTotal}`);
+      });
+
+      lines.push("-".repeat(40));
+      if (order.discount_amount && Number(order.discount_amount) > 0) {
+        lines.push(`Discount: -₱${Number(order.discount_amount).toFixed(2)}`);
+      }
+      lines.push(`Subtotal: ₱${subtotal.toFixed(2)}`);
+      lines.push("");
     });
-
-    lines.push("-".repeat(40));
-    lines.push(`Subtotal: ₱${Number(order.total_amount).toFixed(2)}`);
-    lines.push("");
-  });
-
   lines.push("=".repeat(40));
   lines.push(`TOTAL: ₱${receipt.total_amount.toFixed(2)}`);
   lines.push("=".repeat(40));
@@ -155,6 +163,8 @@ export function generateReceiptHTML(receipt: SessionReceipt): string {
   `;
 
   receipt.orders.forEach((order, index) => {
+    const subtotal = Number(order.total_amount) - Number(order.discount_amount || 0);
+
     html += `
       <div class="order-item">
         <strong>Order #${index + 1}</strong>
@@ -180,9 +190,15 @@ export function generateReceiptHTML(receipt: SessionReceipt): string {
 
     html += `
         <div class="line"></div>
+        ${order.discount_amount && Number(order.discount_amount) > 0 ? `
+          <div class="item-line">
+            <span>Discount:</span>
+            <span>-₱${Number(order.discount_amount).toFixed(2)}</span>
+          </div>
+        ` : ""}
         <div class="item-line" style="font-weight: bold;">
           <span>Subtotal:</span>
-          <span>₱${Number(order.total_amount).toFixed(2)}</span>
+          <span>₱${subtotal.toFixed(2)}</span>
         </div>
       </div>
     `;

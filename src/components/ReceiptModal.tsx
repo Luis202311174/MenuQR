@@ -11,6 +11,7 @@ export type OrderReceipt = {
   id: string;
   items: any[];
   total_amount: number;
+  discount_amount?: number;
   created_at: string;
   table?: {
     table_number: string;
@@ -111,8 +112,15 @@ export default function ReceiptModal({
                         Table {order.table?.table_number || "N/A"}
                       </div>
                       <div className="text-lg font-bold text-[#E23838]">
-                        {formatCurrency(Number(order.total_amount))}
+                        {formatCurrency(
+                          Number(order.total_amount) - Number(order.discount_amount || 0)
+                        )}
                       </div>
+                      {(order.discount_amount || 0) > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          (Discount: -{formatCurrency(Number(order.discount_amount))})
+                        </p>
+                      )}
                     </div>
                   </div>
 

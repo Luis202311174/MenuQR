@@ -41,6 +41,23 @@
     };
     cash_enabled?: boolean;
     gcash_enabled?: boolean;
+    milestone_promo_enabled?: boolean;
+    reward_promo_enabled?: boolean;
+    target_min_spend?: number;
+    milestone_custom_code?: string;
+    reward_custom_code?: string;
+    milestone_coupon_discount_type?: 'percentage' | 'fixed';
+    reward_coupon_discount_type?: 'percentage' | 'fixed';
+    milestone_coupon_discount_value?: number;
+    reward_coupon_discount_value?: number;
+    milestone_coupon_usage_limit?: number;
+    reward_coupon_usage_limit?: number;
+    milestone_coupon_expires_at?: string;
+    reward_coupon_expires_at?: string;
+    milestone_coupon_description?: string;
+    reward_coupon_description?: string;
+    milestone_coupon_redemption_minimum?: number;
+    reward_coupon_redemption_minimum?: number;
   };
 
 type SubmittedCheckoutData = {
@@ -53,13 +70,17 @@ type SubmittedCheckoutData = {
   finalAmount: number;
   promoCode?: string;
   couponId?: string;
+  rewardEligible?: boolean;
 };
 
 export default function BusinessPage() {
-  const { slug } = useParams();
+  const routeParams = useParams();
+    const rawSlug = routeParams?.slug;
+    const slug = typeof rawSlug === "string" ? rawSlug : undefined;
     const router = useRouter();
     const searchParams = useSearchParams();
-    const tableId = searchParams.get("table");
+    const rawTableId = searchParams.get("table");
+    const tableId = typeof rawTableId === "string" ? rawTableId : undefined;
 
     const [business, setBusiness] = useState<Business | null>(null);
     const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -109,6 +130,127 @@ export default function BusinessPage() {
       // clear stored order session
       if (tableId) {
         sessionStorage.removeItem(`order_${tableId}_${sessionId}`);
+      }
+    };
+
+    const generateRewardCouponCode = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = '';
+      for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+
+    const generateUniqueRewardCouponCode = async () => {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const code = generateRewardCouponCode();
+        const { data, error } = await supabase
+          .from('coupons')
+          .select('id')
+          .eq('code', code)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Coupon code uniqueness check failed:', error);
+          continue;
+        }
+
+        if (!data) {
+          return code;
+        }
+      }
+      throw new Error('Unable to generate a unique reward coupon code.');
+    };
+
+    const awardRewardCouponForOrder = async (order: OrderData) => {
+      if (!business || !business.id) return null;
+      const orderAlreadyAwarded = order.milestone_coupon_awarded ?? order.reward_coupon_awarded;
+      if (!order || orderAlreadyAwarded) return null;
+      const promoEnabled = business.milestone_promo_enabled ?? business.reward_promo_enabled;
+      if (!promoEnabled) return null;
+      const minimumSpend = Number(
+        business.target_min_spend ??
+        business.reward_coupon_redemption_minimum ??
+        business.milestone_coupon_redemption_minimum ??
+        0
+      );
+      if (Number(order.total_amount) < minimumSpend) return null;
+
+      const discountType = business.milestone_coupon_discount_type ?? business.reward_coupon_discount_type ?? 'percentage';
+      const discountValue = Number(business.milestone_coupon_discount_value ?? business.reward_coupon_discount_value ?? 0);
+      if (discountValue <= 0) return null;
+
+      const couponCode = (business.milestone_custom_code ?? business.reward_custom_code)?.trim()?.toUpperCase() || await generateUniqueRewardCouponCode();
+      const expiresAt = business.milestone_coupon_expires_at ?? business.reward_coupon_expires_at
+        ? new Date((business.milestone_coupon_expires_at ?? business.reward_coupon_expires_at) as string).toISOString()
+        : null;
+      const usageLimit = Number(business.milestone_coupon_usage_limit ?? business.reward_coupon_usage_limit ?? 1) || 1;
+      const description = business.milestone_coupon_description ?? business.reward_coupon_description ?? 'Reward coupon for your next order';
+
+      try {
+        const { data: coupon, error: couponError } = await supabase
+          .from('coupons')
+          .insert({
+            business_id: business.id,
+            code: couponCode,
+            discount_type: discountType,
+            discount_value: discountValue,
+            description,
+            is_active: true,
+            usage_limit: usageLimit,
+            expires_at: expiresAt,
+          })
+          .select('*')
+          .single();
+
+        if (couponError) {
+          console.error('Failed to create reward coupon:', couponError);
+          return null;
+        }
+
+        const useMilestoneOrderFields = business && (
+          'milestone_coupon_awarded' in business ||
+          'milestone_coupon_code' in business ||
+          'milestone_coupon_description' in business
+        );
+
+        const orderUpdatePayload: any = useMilestoneOrderFields
+          ? {
+              milestone_coupon_awarded: true,
+              milestone_coupon_awarded_at: new Date().toISOString(),
+              milestone_coupon_code: coupon.code,
+            }
+          : {
+              reward_coupon_awarded: true,
+              reward_coupon_awarded_at: new Date().toISOString(),
+              reward_coupon_code: coupon.code,
+            };
+
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update(orderUpdatePayload)
+          .eq('id', order.id);
+
+        if (orderError) {
+          console.error('Failed to update order with reward coupon info:', orderError);
+          return null;
+        }
+
+        return useMilestoneOrderFields
+          ? {
+              milestone_coupon_awarded: true,
+              milestone_coupon_awarded_at: new Date().toISOString(),
+              milestone_coupon_code: coupon.code,
+            }
+          : {
+              reward_coupon_awarded: true,
+              reward_coupon_awarded_at: new Date().toISOString(),
+              reward_coupon_code: coupon.code,
+            };
+      } catch (err) {
+        console.error('Unexpected reward coupon error:', err);
+        return null;
       }
     };
 
@@ -489,6 +631,16 @@ export default function BusinessPage() {
 
         await refreshMenuItems();
 
+        const rewardEligible = Boolean(
+          (business?.milestone_promo_enabled ?? business?.reward_promo_enabled) &&
+          Number(cartTotal) >= Number(
+            business?.target_min_spend ??
+            business?.reward_coupon_redemption_minimum ??
+            business?.milestone_coupon_redemption_minimum ??
+            0
+          )
+        );
+
         setCurrentOrder(order as OrderData);
         setCurrentOrderId(order.id);
         setSubmittedOrderDetails({
@@ -501,9 +653,14 @@ export default function BusinessPage() {
           finalAmount: cartTotal - orderData.discountAmount,
           promoCode: orderData.promoCode,
           couponId: orderData.couponId,
+          rewardEligible,
         });
         setCheckoutSubmitted(true);
-        setCheckoutStatusMessage("Waiting for payment confirmation and discounts.");
+        setCheckoutStatusMessage(
+          rewardEligible
+            ? "Order submitted successfully! This order qualifies for a reward coupon once completed."
+            : "Order submitted successfully! Your order is now with the restaurant."
+        );
         setShowOrderMoreModal(false);
         setNotification({ message: "Order submitted successfully! Waiting for payment confirmation and discounts.", type: "success" });
 
@@ -671,14 +828,12 @@ export default function BusinessPage() {
               currentOrderIdRef.current = newOrder.id;
             }
 
-            if (newOrder.status === "served" && newOrder.id === currentOrderIdRef.current) {
-              handleOrderCompleted(newOrder);
+            if ((newOrder.status === "served" || newOrder.status === "completed") && newOrder.id === currentOrderIdRef.current) {
+              const rewardUpdate = await awardRewardCouponForOrder(newOrder);
+              const completedOrderWithReward = rewardUpdate ? { ...newOrder, ...rewardUpdate } : newOrder;
+              await handleOrderCompleted(completedOrderWithReward);
             }
 
-            // Reload session orders on any change
-            fetchAllOrdersBySession(sessionId).then(setSessionOrders);
-            fetchUnpaidOrdersBySession(sessionId).then(setUnpaidOrders);
-            await refreshMenuItems();
           }
         )
         .subscribe((status) => {
@@ -836,7 +991,7 @@ export default function BusinessPage() {
 
           <div className="lg:order-1">
             <SlugSidebar
-              tableId={tableId}
+              tableId={tableId ?? null}
               currentOrder={currentOrder}
               orderStatus={orderStatus}
               cartItems={cartItems}
@@ -967,6 +1122,7 @@ export default function BusinessPage() {
           isSubmitting={submittingOrder}
           statusMessage={checkoutStatusMessage}
           submissionComplete={checkoutSubmitted}
+          submittedOrderDetails={submittedOrderDetails}
           orderInProgress={orderInProgress}
           orderInProgressMessage={orderInProgressMessage}
         />

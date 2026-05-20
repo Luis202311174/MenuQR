@@ -3,10 +3,19 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+interface RewardCouponInfo {
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  expires_at: string | null;
+  description?: string | null;
+}
+
 interface Props {
   open: boolean;
   orderId: string;
   businessId: string;
+  rewardCouponInfo?: RewardCouponInfo | null;
   onClose: () => void;
   onRated?: () => void;
 }
@@ -17,6 +26,7 @@ export default function OrderRatingModal({
   open,
   orderId,
   businessId,
+  rewardCouponInfo,
   onClose,
   onRated,
 }: Props) {
@@ -55,9 +65,24 @@ export default function OrderRatingModal({
           How was your order?
         </h2>
 
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-gray-500 mb-4">
           Tap an emoji to rate your experience
         </p>
+
+        {rewardCouponInfo && (
+          <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 mb-6 text-left">
+            <p className="text-xs uppercase tracking-wider text-emerald-600">Reward Coupon</p>
+            <p className="mt-2 font-semibold text-slate-900">{rewardCouponInfo.code}</p>
+            <p className="text-sm text-slate-700 mt-1">
+              {rewardCouponInfo.discount_type === 'percentage'
+                ? `${rewardCouponInfo.discount_value}% OFF`
+                : `₱${rewardCouponInfo.discount_value.toFixed(2)} OFF`}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Valid until {rewardCouponInfo.expires_at ? new Date(rewardCouponInfo.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No expiry'}
+            </p>
+          </div>
+        )}
 
         <div className="flex justify-between text-3xl mb-6">
           {emojis.map((emoji, idx) => {

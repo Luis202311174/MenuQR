@@ -31,6 +31,7 @@ type SubmittedOrderDetails = {
   cartTotal: number;
   finalAmount: number;
   promoCode?: string;
+  rewardEligible?: boolean;
 };
 
 interface CheckoutModalProps {
@@ -42,6 +43,19 @@ interface CheckoutModalProps {
     id?: string;
     cash_enabled?: boolean;
     gcash_enabled?: boolean;
+    milestone_promo_enabled?: boolean;
+    reward_promo_enabled?: boolean;
+    target_min_spend?: number;
+    milestone_coupon_discount_type?: "percentage" | "fixed";
+    reward_coupon_discount_type?: "percentage" | "fixed";
+    milestone_coupon_discount_value?: number;
+    reward_coupon_discount_value?: number;
+    milestone_coupon_expires_at?: string;
+    reward_coupon_expires_at?: string;
+    milestone_coupon_description?: string;
+    reward_coupon_description?: string;
+    milestone_coupon_redemption_minimum?: number;
+    reward_coupon_redemption_minimum?: number;
   };
   onClose: () => void;
   onSubmitOrder: (orderData: {
@@ -162,12 +176,32 @@ export default function CheckoutModal({
   const effectiveSeniorCount = Math.min(Math.max(0, seniorCount), totalGuests);
   const perGuestShare = cartTotal / Math.max(1, totalGuests);
   const hasCartItems = cartItems.length > 0;
-  
+  const rewardThreshold =
+    business?.target_min_spend ??
+    business?.reward_coupon_redemption_minimum ??
+    business?.milestone_coupon_redemption_minimum ??
+    0;
+  const rewardPromoEnabled = business?.milestone_promo_enabled ?? business?.reward_promo_enabled;
+  const rewardCouponType = business?.milestone_coupon_discount_type ?? business?.reward_coupon_discount_type ?? "percentage";
+  const rewardCouponValue = Number(business?.milestone_coupon_discount_value ?? business?.reward_coupon_discount_value ?? 0);
+  const rewardQualifierLabel = rewardCouponType === "fixed"
+    ? `₱${rewardCouponValue.toFixed(2)} OFF`
+    : `${rewardCouponValue}% OFF`;
+  const rewardEligible = Boolean(rewardPromoEnabled && cartTotal >= rewardThreshold);
+  const autoRewardDiscount = rewardEligible
+    ? rewardCouponType === "fixed"
+      ? rewardCouponValue
+      : Math.round(cartTotal * (rewardCouponValue / 100) * 100) / 100
+    : 0;
+  const effectiveDiscountType = rewardEligible && discountType === "none" ? "promo" : discountType;
+
   let discountAmount = 0;
   if (discountType === "senior" || discountType === "pwd") {
     discountAmount = effectiveSeniorCount === 0 ? 0 : Math.round(perGuestShare * effectiveSeniorCount * SENIOR_DISCOUNT_PERCENT * 100) / 100;
   } else if (discountType === "promo" && appliedPromo) {
     discountAmount = appliedPromo.discount;
+  } else if (rewardEligible && discountType === "none") {
+    discountAmount = autoRewardDiscount;
   }
   
   const finalTotal = Math.max(0, cartTotal - discountAmount);
@@ -226,7 +260,7 @@ export default function CheckoutModal({
     setLocalSubmitting(true);
     try {
       await onSubmitOrder({
-        discountType,
+        discountType: effectiveDiscountType,
         totalGuests,
         seniorCount: effectiveSeniorCount,
         discountAmount,
@@ -301,6 +335,17 @@ export default function CheckoutModal({
           </div>
         ) : null}
 
+        {rewardPromoEnabled ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 mx-4 lg:mx-6 mt-3 lg:mt-4">
+            <p className="font-semibold">Reward coupon available</p>
+            <p className="mt-1 text-slate-700">
+              {rewardEligible
+                ? `Great news! This order qualifies for a reward discount of ${rewardQualifierLabel}. It will be applied automatically when you check out.`
+                : `Spend ₱${Math.max(0, rewardThreshold - cartTotal).toFixed(2)} more to qualify for a reward coupon. ${rewardQualifierLabel}.`}
+            </p>
+          </div>
+        ) : null}
+
         {submissionComplete && submittedOrderDetails ? (
           <div className="rounded-xl lg:rounded-2xl border border-slate-200 bg-slate-50 px-3 lg:px-4 py-2 lg:py-3 mx-4 lg:mx-6 mt-2 lg:mt-3 text-xs lg:text-sm text-slate-700">
             <div className="flex justify-between">
@@ -315,7 +360,9 @@ export default function CheckoutModal({
                   ? "Senior Discount"
                   : submittedOrderDetails.discountType === "pwd"
                   ? "PWD Discount"
-                  : `Promo (${submittedOrderDetails.promoCode})`}
+                  : submittedOrderDetails.promoCode
+                  ? `Promo (${submittedOrderDetails.promoCode})`
+                  : "Reward Discount"}
               </span>
               <span className="font-semibold text-slate-900">-₱{submittedOrderDetails.discountAmount.toFixed(2)}</span>
             </div>
@@ -323,6 +370,14 @@ export default function CheckoutModal({
               <span>Total</span>
               <span>₱{submittedOrderDetails.finalAmount.toFixed(2)}</span>
             </div>
+            {submittedOrderDetails.rewardEligible ? (
+              <div className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-900">
+                <p className="text-xs font-semibold">Reward coupon pending</p>
+                <p className="text-xs text-emerald-700">
+                  This order qualifies for a reward coupon once the restaurant completes it.
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -596,10 +651,16 @@ export default function CheckoutModal({
                   <span className="text-slate-600">Items Subtotal</span>
                   <span className="font-semibold text-slate-900">₱{cartTotal.toFixed(2)}</span>
                 </div>
-                {discountType !== "none" && (
+                {(discountAmount > 0) && (
                   <div className="flex justify-between text-xs lg:text-sm">
                     <span className="text-slate-600">
-                      {discountType === "senior" ? "Senior Discount (20%)" : discountType === "pwd" ? "PWD Discount (20%)" : `Promo (${appliedPromo?.code})`}
+                      {discountType === "senior"
+                        ? "Senior Discount (20%)"
+                        : discountType === "pwd"
+                        ? "PWD Discount (20%)"
+                        : discountType === "promo"
+                        ? `Promo (${appliedPromo?.code})`
+                        : "Reward Discount"}
                     </span>
                     <span className="font-semibold text-emerald-600">−₱{discountAmount.toFixed(2)}</span>
                   </div>
@@ -608,6 +669,20 @@ export default function CheckoutModal({
                   <span className="font-bold text-slate-900 text-sm lg:text-base">Total Amount</span>
                   <span className="text-lg lg:text-2xl font-bold text-slate-900">₱{finalTotal.toFixed(2)}</span>
                 </div>
+                {rewardPromoEnabled ? (
+                  <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900">
+                    {rewardEligible ? (
+                      <p className="font-semibold">This order is reward eligible.</p>
+                    ) : (
+                      <p className="font-semibold">Not reward eligible yet.</p>
+                    )}
+                    <p className="mt-1 text-slate-700">
+                      {rewardEligible
+                        ? `A reward coupon will be issued when the order is completed.`
+                        : `Spend ₱${Math.max(0, rewardThreshold - cartTotal).toFixed(2)} more to qualify for a reward coupon.`}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-lg lg:rounded-2xl bg-slate-50 p-3 lg:p-4 space-y-1.5 lg:space-y-2">
@@ -624,7 +699,17 @@ export default function CheckoutModal({
                 <div className="flex justify-between text-xs lg:text-sm">
                   <span className="text-slate-600">Discount</span>
                   <span className="font-semibold text-slate-900">
-                    {discountType === "none" ? "None" : discountType === "senior" ? "Senior (20%)" : discountType === "pwd" ? "PWD (20%)" : "Promo Applied"}
+                    {effectiveDiscountType === "none"
+                      ? "None"
+                      : effectiveDiscountType === "senior"
+                      ? "Senior (20%)"
+                      : effectiveDiscountType === "pwd"
+                      ? "PWD (20%)"
+                      : effectiveDiscountType === "promo"
+                      ? appliedPromo?.code
+                        ? `Promo (${appliedPromo.code})`
+                        : "Reward Discount"
+                      : "Reward Discount"}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs lg:text-sm">

@@ -1,52 +1,68 @@
--- Coupon/Promo Code System - Database Setup
-
--- 1. Create coupons table
+-- Add coupons table for a business-level reward system
 CREATE TABLE IF NOT EXISTS public.coupons (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    business_id uuid NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-    code varchar(50) NOT NULL,
-    discount_type varchar(20) NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
-    discount_value decimal(10,2) NOT NULL CHECK (discount_value > 0),
-    description text,
-    is_active boolean DEFAULT true,
-    usage_limit integer DEFAULT 1 CHECK (usage_limit > 0),
-    usage_count integer DEFAULT 0,
-    expires_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-
-    -- Ensure unique codes per business
-    UNIQUE(business_id, code)
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  business_id uuid NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  code varchar(50) NOT NULL,
+  discount_type varchar(20) NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
+  discount_value decimal(10,2) NOT NULL CHECK (discount_value > 0),
+  description text,
+  is_active boolean DEFAULT true,
+  usage_limit integer DEFAULT 1 CHECK (usage_limit > 0),
+  usage_count integer DEFAULT 0,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  UNIQUE(business_id, code)
 );
 
--- 2. Create coupon usage tracking table
+-- Add coupon usage tracking table that tracks actual coupon redemptions
 CREATE TABLE IF NOT EXISTS public.coupon_usage (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    coupon_id uuid NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
-    order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    user_id uuid REFERENCES auth.users(id),
-    used_at timestamp with time zone DEFAULT now(),
-
-    -- Ensure one coupon per order
-    UNIQUE(coupon_id, order_id)
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  coupon_id uuid NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id),
+  used_at timestamp with time zone DEFAULT now(),
+  UNIQUE(coupon_id, order_id)
 );
 
--- 3. Add indexes for performance
-CREATE INDEX IF NOT EXISTS idx_coupons_business_active
-ON coupons(business_id, is_active, expires_at);
+-- Add coupon claims table for reward issuance tracking
+CREATE TABLE IF NOT EXISTS public.coupon_claims (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  business_id uuid NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id),
+  coupon_id uuid NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+  order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
+  claimed_at timestamp with time zone DEFAULT now(),
+  redeemed_at timestamp with time zone,
+  status varchar(20) NOT NULL DEFAULT 'claimed' CHECK (status IN ('claimed', 'redeemed', 'expired')),
+  UNIQUE(coupon_id, order_id)
+);
 
-CREATE INDEX IF NOT EXISTS idx_coupons_code
-ON coupons(code) WHERE is_active = true;
+-- Add milestone coupon settings to businesses table
+ALTER TABLE businesses
+  ADD COLUMN IF NOT EXISTS milestone_promo_enabled boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS target_min_spend decimal(10,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS milestone_custom_code varchar(50),
+  ADD COLUMN IF NOT EXISTS milestone_coupon_discount_type varchar(20) CHECK (milestone_coupon_discount_type IN ('percentage', 'fixed')) DEFAULT 'percentage',
+  ADD COLUMN IF NOT EXISTS milestone_coupon_discount_value decimal(10,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS milestone_coupon_usage_limit integer DEFAULT 1 CHECK (milestone_coupon_usage_limit > 0),
+  ADD COLUMN IF NOT EXISTS milestone_coupon_expires_at timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS milestone_coupon_description text,
+  ADD COLUMN IF NOT EXISTS milestone_coupon_redemption_minimum decimal(10,2);
 
-CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon
-ON coupon_usage(coupon_id);
-
--- 4. Add coupon fields to orders table
+-- Add milestone coupon tracking fields to orders table
 ALTER TABLE orders
-ADD COLUMN IF NOT EXISTS coupon_id uuid REFERENCES coupons(id),
-ADD COLUMN IF NOT EXISTS coupon_discount decimal(10,2) DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS milestone_coupon_awarded boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS milestone_coupon_awarded_at timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS milestone_coupon_code varchar(50),
+  ADD COLUMN IF NOT EXISTS milestone_coupon_claim_id uuid REFERENCES coupon_claims(id);
 
--- 5. Create function to validate and apply coupon
+-- Enable RLS for all coupon-related tables
+ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon_claims ENABLE ROW LEVEL SECURITY;
+
+-- Create a reward coupon validation function
 CREATE OR REPLACE FUNCTION public.validate_and_apply_coupon(
   p_coupon_code text,
   p_business_id uuid,
@@ -59,12 +75,10 @@ AS $$
 DECLARE
   coupon_record record;
   discount_amount decimal(10,2) := 0;
-  result json;
 BEGIN
-  -- Find active coupon
   SELECT * INTO coupon_record
   FROM coupons
-  WHERE code = upper(trim(p_coupon_code))
+  WHERE upper(trim(code)) = upper(trim(p_coupon_code))
     AND business_id = p_business_id
     AND is_active = true
     AND (expires_at IS NULL OR expires_at > now())
@@ -77,14 +91,12 @@ BEGIN
     );
   END IF;
 
-  -- Calculate discount
   IF coupon_record.discount_type = 'percentage' THEN
     discount_amount := p_order_total * (coupon_record.discount_value / 100);
   ELSE
     discount_amount := coupon_record.discount_value;
   END IF;
 
-  -- Ensure discount doesn't exceed order total
   discount_amount := least(discount_amount, p_order_total);
 
   RETURN json_build_object(
@@ -98,7 +110,7 @@ BEGIN
 END;
 $$;
 
--- 6. Create function to mark coupon as used
+-- Create a helper to mark a coupon as used
 CREATE OR REPLACE FUNCTION public.mark_coupon_used(
   coupon_id uuid,
   order_id uuid
@@ -108,11 +120,9 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Insert usage record
   INSERT INTO coupon_usage (coupon_id, order_id, user_id)
   VALUES (coupon_id, order_id, auth.uid());
 
-  -- Increment usage count
   UPDATE coupons
   SET usage_count = usage_count + 1,
       updated_at = now()
@@ -125,11 +135,7 @@ EXCEPTION
 END;
 $$;
 
--- 7. Enable RLS
-ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
-ALTER TABLE coupon_usage ENABLE ROW LEVEL SECURITY;
-
--- 8. Create RLS policies
+-- Create RLS policies for coupons and coupon usage
 CREATE POLICY "Business owners can manage their coupons"
 ON coupons FOR ALL USING (business_id IN (
   SELECT id FROM businesses WHERE owner_id = auth.uid()
@@ -143,3 +149,13 @@ ON coupon_usage FOR SELECT USING (user_id = auth.uid());
 
 CREATE POLICY "System can insert coupon usage"
 ON coupon_usage FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can manage their coupon claims"
+ON coupon_claims FOR ALL USING (
+  business_id IN (
+    SELECT id FROM businesses WHERE owner_id = auth.uid()
+  ) OR user_id = auth.uid()
+);
+
+CREATE POLICY "System can insert coupon claims"
+ON coupon_claims FOR INSERT WITH CHECK (true);
