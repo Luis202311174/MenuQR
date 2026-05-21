@@ -133,36 +133,6 @@ export default function BusinessPage() {
       }
     };
 
-    const generateRewardCouponCode = () => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let result = '';
-      for (let i = 0; i < 8; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
-    };
-
-    const generateUniqueRewardCouponCode = async () => {
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const code = generateRewardCouponCode();
-        const { data, error } = await supabase
-          .from('coupons')
-          .select('id')
-          .eq('code', code)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Coupon code uniqueness check failed:', error);
-          continue;
-        }
-
-        if (!data) {
-          return code;
-        }
-      }
-      throw new Error('Unable to generate a unique reward coupon code.');
-    };
-
     const awardRewardCouponForOrder = async (order: OrderData) => {
       if (!business || !business.id) return null;
       const orderAlreadyAwarded = order.milestone_coupon_awarded ?? order.reward_coupon_awarded;
@@ -181,77 +151,84 @@ export default function BusinessPage() {
       const discountValue = Number(business.milestone_coupon_discount_value ?? business.reward_coupon_discount_value ?? 0);
       if (discountValue <= 0) return null;
 
-      const couponCode = (business.milestone_custom_code ?? business.reward_custom_code)?.trim()?.toUpperCase() || await generateUniqueRewardCouponCode();
-      const expiresAt = business.milestone_coupon_expires_at ?? business.reward_coupon_expires_at
-        ? new Date((business.milestone_coupon_expires_at ?? business.reward_coupon_expires_at) as string).toISOString()
-        : null;
+      const customCode = (business.milestone_custom_code ?? business.reward_custom_code)?.trim()?.toUpperCase() || undefined;
+      const expiresAt = business.milestone_coupon_expires_at ?? business.reward_coupon_expires_at ?? null;
       const usageLimit = Number(business.milestone_coupon_usage_limit ?? business.reward_coupon_usage_limit ?? 1) || 1;
       const description = business.milestone_coupon_description ?? business.reward_coupon_description ?? 'Reward coupon for your next order';
 
+      let coupon = null;
       try {
-        const { data: coupon, error: couponError } = await supabase
-          .from('coupons')
-          .insert({
-            business_id: business.id,
-            code: couponCode,
-            discount_type: discountType,
-            discount_value: discountValue,
+        const response = await fetch("/api/reward-coupons", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            businessId: business.id,
+            discountType,
+            discountValue,
             description,
-            is_active: true,
-            usage_limit: usageLimit,
-            expires_at: expiresAt,
-          })
-          .select('*')
-          .single();
+            usageLimit,
+            expiresAt,
+            customCode,
+          }),
+        });
 
-        if (couponError) {
-          console.error('Failed to create reward coupon:', couponError);
+        if (!response.ok) {
+          const text = await response.text();
+          console.error('Failed to create reward coupon:', response.status, text);
           return null;
         }
 
-        const useMilestoneOrderFields = business && (
-          'milestone_coupon_awarded' in business ||
-          'milestone_coupon_code' in business ||
-          'milestone_coupon_description' in business
-        );
-
-        const orderUpdatePayload: any = useMilestoneOrderFields
-          ? {
-              milestone_coupon_awarded: true,
-              milestone_coupon_awarded_at: new Date().toISOString(),
-              milestone_coupon_code: coupon.code,
-            }
-          : {
-              reward_coupon_awarded: true,
-              reward_coupon_awarded_at: new Date().toISOString(),
-              reward_coupon_code: coupon.code,
-            };
-
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update(orderUpdatePayload)
-          .eq('id', order.id);
-
-        if (orderError) {
-          console.error('Failed to update order with reward coupon info:', orderError);
-          return null;
-        }
-
-        return useMilestoneOrderFields
-          ? {
-              milestone_coupon_awarded: true,
-              milestone_coupon_awarded_at: new Date().toISOString(),
-              milestone_coupon_code: coupon.code,
-            }
-          : {
-              reward_coupon_awarded: true,
-              reward_coupon_awarded_at: new Date().toISOString(),
-              reward_coupon_code: coupon.code,
-            };
-      } catch (err) {
-        console.error('Unexpected reward coupon error:', err);
+        coupon = await response.json();
+      } catch (fetchError) {
+        console.error('Reward coupon API request failed:', fetchError);
         return null;
       }
+
+      if (!coupon) {
+        return null;
+      }
+
+      const useMilestoneOrderFields = business && (
+        'milestone_coupon_awarded' in business ||
+        'milestone_coupon_code' in business ||
+        'milestone_coupon_description' in business
+      );
+
+      const orderUpdatePayload: any = useMilestoneOrderFields
+        ? {
+            milestone_coupon_awarded: true,
+            milestone_coupon_awarded_at: new Date().toISOString(),
+            milestone_coupon_code: coupon.code,
+          }
+        : {
+            reward_coupon_awarded: true,
+            reward_coupon_awarded_at: new Date().toISOString(),
+            reward_coupon_code: coupon.code,
+          };
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update(orderUpdatePayload)
+        .eq('id', order.id);
+
+      if (orderError) {
+        console.error('Failed to update order with reward coupon info:', orderError);
+        return null;
+      }
+
+      return useMilestoneOrderFields
+        ? {
+            milestone_coupon_awarded: true,
+            milestone_coupon_awarded_at: new Date().toISOString(),
+            milestone_coupon_code: coupon.code,
+          }
+        : {
+            reward_coupon_awarded: true,
+            reward_coupon_awarded_at: new Date().toISOString(),
+            reward_coupon_code: coupon.code,
+          };
     };
 
     const finalizePayment = async (method: "cash" | "gcash") => {

@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseAdminClient, getStaffSessionFromRequest } from "@/lib/serverSupabase";
 
-export async function POST(req: NextRequest, context: any) {
-  const orderId = context?.params?.orderId;
-  if (!orderId) return new NextResponse("Order ID required", { status: 400 });
+export async function POST(req: NextRequest, { params }: { params: { orderId?: string } }) {
+  let orderId = params?.orderId;
 
   let body: any;
   try {
     body = await req.json();
   } catch {
-    return new NextResponse("Invalid JSON", { status: 400 });
+    body = null;
   }
+
+  if (!orderId && body?.orderId) {
+    orderId = body.orderId?.toString();
+  }
+
+  if (!orderId) return new NextResponse("Order ID required", { status: 400 });
 
   const action = (body.action || "").toString().trim().toLowerCase();
   if (!action || !["approve", "reject"].includes(action)) {

@@ -56,6 +56,10 @@ interface CheckoutModalProps {
     reward_coupon_description?: string;
     milestone_coupon_redemption_minimum?: number;
     reward_coupon_redemption_minimum?: number;
+    milestone_coupon_usage_limit?: number;
+    reward_coupon_usage_limit?: number;
+    milestone_custom_code?: string;
+    reward_custom_code?: string;
   };
   onClose: () => void;
   onSubmitOrder: (orderData: {
@@ -103,6 +107,44 @@ export default function CheckoutModal({
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; couponId?: string } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  const getOrCreateRewardCoupon = async () => {
+    if (!rewardEligible || rewardCouponValue <= 0 || !business?.id) return null;
+
+    const customCode = (business?.milestone_custom_code ?? business?.reward_custom_code ?? '').trim().toUpperCase() || undefined;
+    const expiresAt = business?.milestone_coupon_expires_at ?? business?.reward_coupon_expires_at ?? null;
+    const description = business?.milestone_coupon_description ?? business?.reward_coupon_description ?? 'Reward coupon for your next order';
+    const usageLimit = Number(business?.milestone_coupon_usage_limit ?? business?.reward_coupon_usage_limit ?? 1) || 1;
+
+    try {
+      const response = await fetch("/api/reward-coupons", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          businessId: business.id,
+          discountType: rewardCouponType,
+          discountValue: rewardCouponValue,
+          description,
+          usageLimit,
+          expiresAt,
+          customCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const bodyText = await response.text();
+        console.error("Reward coupon API error:", response.status, bodyText);
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Reward coupon API request failed:", error);
+      return null;
+    }
+  };
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -193,6 +235,7 @@ export default function CheckoutModal({
       ? rewardCouponValue
       : Math.round(cartTotal * (rewardCouponValue / 100) * 100) / 100
     : 0;
+  const rewardBannerClass = "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900";
   const effectiveDiscountType = rewardEligible && discountType === "none" ? "promo" : discountType;
 
   let discountAmount = 0;
@@ -259,14 +302,30 @@ export default function CheckoutModal({
 
     setLocalSubmitting(true);
     try {
+      let couponId = appliedPromo?.couponId;
+      let promoCodeValue = appliedPromo?.code;
+
+      if (rewardEligible && discountType === "none") {
+        const rewardCoupon = await getOrCreateRewardCoupon();
+        if (!rewardCoupon) {
+          setPromoError(
+            "Reward coupon is not available right now. Please try again later or choose another discount option."
+          );
+          setLocalSubmitting(false);
+          return;
+        }
+        couponId = rewardCoupon.id;
+        promoCodeValue = rewardCoupon.code;
+      }
+
       await onSubmitOrder({
         discountType: effectiveDiscountType,
         totalGuests,
         seniorCount: effectiveSeniorCount,
         discountAmount,
         paymentMethod,
-        promoCode: appliedPromo?.code,
-        couponId: appliedPromo?.couponId,
+        promoCode: promoCodeValue,
+        couponId,
       });
       // Only close on success
       onClose();
@@ -336,9 +395,9 @@ export default function CheckoutModal({
         ) : null}
 
         {rewardPromoEnabled ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 mx-4 lg:mx-6 mt-3 lg:mt-4">
-            <p className="font-semibold">Reward coupon available</p>
-            <p className="mt-1 text-slate-700">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900 mx-4 lg:mx-6 mt-3 lg:mt-4">
+            <p className="font-semibold text-sm">Reward coupon available</p>
+            <p className="mt-1 text-slate-700 text-xs leading-5">
               {rewardEligible
                 ? `Great news! This order qualifies for a reward discount of ${rewardQualifierLabel}. It will be applied automatically when you check out.`
                 : `Spend ₱${Math.max(0, rewardThreshold - cartTotal).toFixed(2)} more to qualify for a reward coupon. ${rewardQualifierLabel}.`}

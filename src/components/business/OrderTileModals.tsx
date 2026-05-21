@@ -228,11 +228,11 @@ export default function OrderTileModals({
 
     try {
       if (staffSession) {
-        const res = await fetch(`/api/staff/orders/${discountVerificationModal.orderId}/discount`, {
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(discountVerificationModal.orderId)}/discount`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "approve" }),
+          body: JSON.stringify({ action: "approve", orderId: discountVerificationModal.orderId }),
         });
 
         if (!res.ok) {
@@ -275,11 +275,11 @@ export default function OrderTileModals({
 
     try {
       if (staffSession) {
-        const res = await fetch(`/api/staff/orders/${discountVerificationModal.orderId}/discount`, {
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(discountVerificationModal.orderId)}/discount`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject" }),
+          body: JSON.stringify({ action: "reject", orderId: discountVerificationModal.orderId }),
         });
 
         if (!res.ok) {
