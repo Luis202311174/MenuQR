@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { StaffPermissionAction } from "@/lib/staffPermissions";
 import { hasStaffPermission, type StaffModuleKey, type StaffSessionData } from "@/lib/staffPermissions";
 
 interface BusinessAuthState {
@@ -13,7 +14,7 @@ interface BusinessAuthState {
 
 export function useBusinessAuth(
   requiredModule?: StaffModuleKey,
-  requiredAction: "view" | "access" = "view"
+  requiredAction: StaffPermissionAction = "view"
 ) {
   const router = useRouter();
   const [authState, setAuthState] = useState<BusinessAuthState>({

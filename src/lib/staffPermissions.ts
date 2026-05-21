@@ -245,6 +245,7 @@ export function hasStaffPermission(
 
   switch (action) {
     case "view":
+      return row.can_view;
     case "access":
       return row.can_view;
     case "create":
@@ -304,7 +305,8 @@ export function getSidebarVisibility(
     case "tableqr":
       return hasStaffPermission(staffSession, module, "view");
     case "settings":
-      return hasStaffPermission(staffSession, module, "access");
+      // Settings section should be visible if the staff member can manage staff accounts.
+      return hasStaffPermission(staffSession, module, "manageStaff");
     default:
       return false;
   }

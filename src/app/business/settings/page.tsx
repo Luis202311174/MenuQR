@@ -14,7 +14,7 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
 
 export default function BusinessSettingsPage() {
   const router = useRouter();
-  const auth = useBusinessAuth("settings", "view");
+  const auth = useBusinessAuth("settings", "manageStaff");
 
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
