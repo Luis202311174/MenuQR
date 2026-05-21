@@ -2,7 +2,16 @@
 
 import Head from "next/head";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faUtensils,
+  faReceipt,
+  faCircleCheck,
+  faBoxOpen,
+  faEye,
+  faClipboardList,
+  faChartLine,
+} from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "../../../lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import PageShell from "@/components/PageShell";
@@ -43,8 +52,29 @@ export default function BusinessDashboardPage() {
       }
 
       if (auth.staffSession) {
-        setBusinessId(auth.staffSession.businessId);
+        const staff = auth.staffSession;
+        setBusinessId(staff.businessId);
+
+        // Fetch full business info for staff (staff isn't linked via owner_id).
+        const { data: bizData, error: bizError } = await supabase
+          .from("businesses")
+          .select("id, name, address, contact_info, slug")
+          .eq("id", staff.businessId)
+          .single();
+
+        if (!bizError && bizData) {
+          setBusinessData(bizData);
+        } else {
+          // Fallback so UI doesn't hang.
+          setBusinessData((prev: any) =>
+            prev ?? {
+              id: staff.businessId,
+              name: prev?.name ?? "Business",
+            }
+          );
+        }
       }
+
     };
 
     init();
@@ -148,95 +178,218 @@ export default function BusinessDashboardPage() {
                 </div>
               </div>
 
-              {/* STATS SECTION */}
-              <section className="space-y-6">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] font-semibold text-slate-500">Overview</p>
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-2">
-                    Dashboard Metrics
-                  </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* TOTAL MENU */}
+                <div className="rounded-[24px] border-2 border-blue-500 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md min-h-[140px]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Total Menu Items
+                      </p>
+
+                      <p className="mt-4 text-3xl font-black text-slate-900">
+                        {menuCount}
+                      </p>
+                    </div>
+
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                      <FontAwesomeIcon icon={faUtensils} className="text-lg" />
+                    </div>
+                  </div>
+
+                  <p className="mt-5 text-[10px] font-medium text-slate-500">
+                    Items currently listed
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
-                    <p className="text-[10px] sm:text-[11px] font-medium text-white/80">
-                      Total Menu Items
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black mt-3">
-                      {menuCount}
-                    </p>
-                    <p className="text-[8px] sm:text-[9px] text-white/60 mt-2 font-medium">Items in your menu</p>
+                {/* ACTIVE ORDERS */}
+                <div className="rounded-[24px] border-2 border-amber-500 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md min-h-[140px]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Active Orders
+                      </p>
+
+                      <p className="mt-4 text-3xl font-black text-slate-900">
+                        {activeOrdersCount}
+                      </p>
+                    </div>
+
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                      <FontAwesomeIcon icon={faReceipt} className="text-lg" />
+                    </div>
                   </div>
 
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-200 to-blue-400 text-slate-900 p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
-                    <p className="text-[10px] sm:text-[11px] font-medium text-slate-700">
-                      Active Orders
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black mt-3">
-                      {activeOrdersCount}
-                    </p>
-                    <p className="text-[8px] sm:text-[9px] text-slate-600 mt-2 font-medium">Waiting for you</p>
-                  </div>
-
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
-                    <p className="text-[10px] sm:text-[11px] font-medium text-white/80">
-                      Completed Orders
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black mt-3">
-                      {completedOrdersCount}
-                    </p>
-                    <p className="text-[8px] sm:text-[9px] text-white/60 mt-2 font-medium">This month</p>
-                  </div>
-
-                  <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-blue-700 text-white p-3 sm:p-4 shadow-sm hover:shadow-md transition min-h-[140px]">
-                    <p className="text-[10px] sm:text-[11px] font-medium text-white/80">
-                      Today's Orders
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black mt-3">
-                      {dailyOrdersCount}
-                    </p>
-                    <p className="text-[8px] sm:text-[9px] text-white/60 mt-2 font-medium">Received today</p>
-                  </div>
+                  <p className="mt-5 text-[10px] font-medium text-slate-500">
+                    Orders awaiting action
+                  </p>
                 </div>
-              </section>
+
+                {/* COMPLETED */}
+                <div className="rounded-[24px] border-2 border-emerald-500 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md min-h-[140px]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Completed Orders
+                      </p>
+
+                      <p className="mt-4 text-3xl font-black text-slate-900">
+                        {completedOrdersCount}
+                      </p>
+                    </div>
+
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                      <FontAwesomeIcon icon={faCircleCheck} className="text-lg" />
+                    </div>
+                  </div>
+
+                  <p className="mt-5 text-[10px] font-medium text-slate-500">
+                    Successfully fulfilled
+                  </p>
+                </div>
+
+                {/* TODAY */}
+                <div className="rounded-[24px] border-2 border-rose-500 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md min-h-[140px]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Today's Orders
+                      </p>
+
+                      <p className="mt-4 text-3xl font-black text-slate-900">
+                        {dailyOrdersCount}
+                      </p>
+                    </div>
+
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+                      <FontAwesomeIcon icon={faBoxOpen} className="text-lg" />
+                    </div>
+                  </div>
+
+                  <p className="mt-5 text-[10px] font-medium text-slate-500">
+                    Orders received today
+                  </p>
+                </div>
+              </div>
 
               {/* QUICK ACTIONS */}
               <div className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm mt-12">
                 <div className="mb-6">
-                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Actions</p>
+                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">
+                    Actions
+                  </p>
+
                   <h3 className="text-2xl font-bold text-slate-900 mt-2">
                     Quick Access
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+                  {/* MANAGE MENU */}
                   <a
                     href="/business/menu"
-                    className="rounded-[20px] bg-blue-600 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-blue-700 transition shadow-sm"
+                    className="group rounded-[24px] border-2 border-blue-500 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                   >
-                    Manage Menu
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Menu
+                        </p>
+
+                        <h4 className="mt-3 text-lg font-bold text-slate-900">
+                          Manage Menu
+                        </h4>
+                      </div>
+
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                        <FontAwesomeIcon icon={faUtensils} className="text-lg" />
+                      </div>
+                    </div>
+
+                    <p className="mt-5 text-xs text-slate-500">
+                      Add, edit and organize your menu items.
+                    </p>
                   </a>
 
+                  {/* VIEW ORDERS */}
                   <a
                     href="/business/orders"
-                    className="rounded-[20px] bg-blue-200 text-slate-900 font-semibold text-sm px-4 py-3 text-center hover:bg-blue-300 transition shadow-sm"
+                    className="group rounded-[24px] border-2 border-amber-500 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                   >
-                    View Orders
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Orders
+                        </p>
+
+                        <h4 className="mt-3 text-lg font-bold text-slate-900">
+                          View Orders
+                        </h4>
+                      </div>
+
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                        <FontAwesomeIcon icon={faClipboardList} className="text-lg" />
+                      </div>
+                    </div>
+
+                    <p className="mt-5 text-xs text-slate-500">
+                      Monitor incoming and active customer orders.
+                    </p>
                   </a>
 
+                  {/* REPORTS */}
                   <a
                     href="/business/reports"
-                    className="rounded-[20px] bg-blue-600 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-blue-700 transition shadow-sm"
+                    className="group rounded-[24px] border-2 border-emerald-500 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                   >
-                    View Reports
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Reports
+                        </p>
+
+                        <h4 className="mt-3 text-lg font-bold text-slate-900">
+                          View Reports
+                        </h4>
+                      </div>
+
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                        <FontAwesomeIcon icon={faChartLine} className="text-lg" />
+                      </div>
+                    </div>
+
+                    <p className="mt-5 text-xs text-slate-500">
+                      Analyze sales and business performance insights.
+                    </p>
                   </a>
 
+                  {/* PREVIEW */}
                   <a
-                    href={businessData?.slug ? '/' + businessData.slug : '/'}
-                    className="rounded-[20px] bg-slate-700 text-white font-semibold text-sm px-4 py-3 text-center hover:bg-slate-800 transition shadow-sm"
+                    href={businessData?.slug ? "/" + businessData.slug : "/"}
+                    className="group rounded-[24px] border-2 border-slate-500 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                   >
-                    Preview Menu
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Preview
+                        </p>
+
+                        <h4 className="mt-3 text-lg font-bold text-slate-900">
+                          Preview Menu
+                        </h4>
+                      </div>
+
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                        <FontAwesomeIcon icon={faEye} className="text-lg" />
+                      </div>
+                    </div>
+
+                    <p className="mt-5 text-xs text-slate-500">
+                      Open your public menu page as customers see it.
+                    </p>
                   </a>
+
                 </div>
               </div>
             </div>

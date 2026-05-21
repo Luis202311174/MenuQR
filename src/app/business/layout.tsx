@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import BusinessSidebar from "@/components/business/BusinessSidebar";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
+import StaffShiftFloatingModal from "@/components/business/StaffShiftFloatingModal";
 
 export default function BusinessLayout({
   children,
@@ -24,6 +25,7 @@ export default function BusinessLayout({
   return (
     <>
       <BusinessOrdersNotifier onCountChange={setOrdersCount} />
+      <StaffShiftFloatingModal />
       
       <div className="min-h-screen bg-gray-50">
         <div className="grid lg:grid-cols-[260px_1fr] h-screen">

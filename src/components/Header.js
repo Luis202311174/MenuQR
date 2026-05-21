@@ -5,6 +5,8 @@ import { supabase } from "../lib/supabaseClient";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useStaffSession } from "@/hooks/useStaffSession";
+
 
 export default function Header() {
   const [showModal, setShowModal] = useState(false);
@@ -17,21 +19,27 @@ export default function Header() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const fetch = async () => {
+    const loadSession = async () => {
       const { data } = await supabase.auth.getSession();
+
       setSession(data.session);
       setUser(data.session?.user);
+
       if (data.session?.user) {
         const { data: u } = await supabase
           .from("users")
           .select("role")
           .eq("id", data.session.user.id)
           .single();
+
         setRole(u?.role || null);
-      }
-      setRoleChecked(true);
+      } setRoleChecked(true);
+
       try {
-        const resp = await fetch('/api/staff/session', { credentials: 'include' });
+        const resp = await fetch("/api/staff/session", {
+          credentials: "include",
+        });
+
         if (resp.ok) {
           setIsStaff(true);
         } else {
@@ -40,23 +48,26 @@ export default function Header() {
       } catch (err) {
         setIsStaff(false);
       }
-    };
-    fetch();
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user);
-      if (session?.user) {
-        supabase
-          .from("users")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data: u }) => setRole(u?.role || null));
-      } else {
-        setRole(null);
+    }; loadSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user);
+
+        if (session?.user) {
+          supabase
+            .from("users")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+            .then(({ data: u }) => setRole(u?.role || null));
+        } else {
+          setRole(null);
+        } setRoleChecked(true);
       }
-      setRoleChecked(true);
-    });
+    );
+
     return () => listener.subscription.unsubscribe();
   }, [pathname]);
 
@@ -67,7 +78,7 @@ export default function Header() {
 
   const homeHref = "/";
   const dashboardHref = isStaff || role === "owner" ? "/business/dashboard" : "/user-home";
-  const dashboardLabel = isStaff || role === "owner" ? "Menu Dashboard" : "My Dashboard";
+  const dashboardLabel = isStaff || role === "owner" ? "My Dashboard" : "Menu Dashboard";
 
   return (
     <>

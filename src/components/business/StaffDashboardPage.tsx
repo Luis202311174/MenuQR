@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import PageShell from "@/components/PageShell";
 import { useStaffSession } from "@/hooks/useStaffSession";
 import { getStaffStatusLabel } from "@/lib/staffPermissions";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCalendarDays,
+  faClockRotateLeft,
+  faClipboardList,
+} from "@fortawesome/free-solid-svg-icons";
 
 type ShiftLog = {
   id: string;
@@ -227,17 +233,65 @@ export default function StaffDashboardPage() {
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Shift summary</h2>
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <div>
-                <span className="font-semibold text-slate-900">Date:</span> {selectedDate}
+          <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+            {/* Header */}
+            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-5 text-white">
+              <h2 className="text-xl font-semibold">Shift Summary</h2>
+              <p className="mt-1 text-sm text-slate-300">
+                Quick overview of your current activity.
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4 p-6">
+              {/* Date */}
+              <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-slate-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                  <FontAwesomeIcon icon={faCalendarDays} className="text-lg" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Selected Date
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {selectedDate}
+                  </p>
+                </div>
               </div>
-              <div>
-                <span className="font-semibold text-slate-900">Last login:</span> {staffInfo?.lastLoginAt ? formatDate(staffInfo.lastLoginAt) : '—'}
+
+              {/* Last Login */}
+              <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-slate-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                  <FontAwesomeIcon icon={faClockRotateLeft} className="text-lg" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Last Login
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {staffInfo?.lastLoginAt
+                      ? formatDate(staffInfo.lastLoginAt)
+                      : "—"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <span className="font-semibold text-slate-900">Log entries:</span> {logs.length}
+
+              {/* Logs */}
+              <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-slate-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                  <FontAwesomeIcon icon={faClipboardList} className="text-lg" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Total Log Entries
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">
+                    {logs.length}
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -258,7 +312,7 @@ export default function StaffDashboardPage() {
             </button>
           </div>
 
-          <div className="mt-6 overflow-x-auto">
+          <div className="mt-6 max-h-[300px] overflow-y-auto overflow-x-auto">
             <table className="min-w-full text-sm text-slate-900">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">

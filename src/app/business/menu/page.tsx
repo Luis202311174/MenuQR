@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
+import { useStaffSessionHandler } from "@/hooks/useStaffSessionHandler";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
+
 
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
@@ -59,7 +61,10 @@ export default function BusinessMenuPage() {
   const orderedCategories = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
 
   const auth = useBusinessAuth("menu", "view");
+  const { businessId: staffBusinessId, loading: staffLoading } = useStaffSessionHandler("menu", "view");
+
   const [businessId, setBusinessId] = useState<string | null>(null);
+
   const [menuItems, setMenuItems] = useState<BusinessMenuCardItem[]>([]);
   const [ordersCount, setOrdersCount] = useState(0);
 
@@ -101,6 +106,12 @@ export default function BusinessMenuPage() {
   useEffect(() => {
     if (!auth.checked) return;
 
+    // Prefer staff session handler-derived businessId when staff.
+    if (auth.staffSession) {
+      setBusinessId(staffBusinessId);
+      return;
+    }
+
     const init = async () => {
       if (auth.owner) {
         const { data } = await supabase.auth.getSession();
@@ -124,14 +135,11 @@ export default function BusinessMenuPage() {
           console.error("Failed to load business:", error);
         }
       }
-
-      if (auth.staffSession) {
-        setBusinessId(auth.staffSession.businessId);
-      }
     };
 
     init();
-  }, [auth]);
+  }, [auth, staffBusinessId]);
+
 
   useEffect(() => {
     if (!businessId) return;
