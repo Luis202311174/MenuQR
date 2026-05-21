@@ -3,11 +3,16 @@
 import { useEffect, useState } from "react";
 import type { StaffSessionData } from "@/lib/staffPermissions";
 
-export function useStaffSession() {
+export function useStaffSession(enabled: boolean = true) {
   const [staffSession, setStaffSession] = useState<StaffSessionData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const loadSession = async () => {
@@ -43,12 +48,11 @@ export function useStaffSession() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return { staffSession, loading };
 }
 
-// Optionally, add a helper to check if staff is logged in
 export function useIsStaffLoggedIn() {
   const { staffSession, loading } = useStaffSession();
   return { isLoggedIn: !!staffSession, loading };

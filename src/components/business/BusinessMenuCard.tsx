@@ -71,7 +71,25 @@ type BusinessMenuCardProps = {
   onUpdated: () => Promise<void> | void;
 };
 
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
+import { hasStaffPermission } from "@/lib/staffPermissions";
+
 export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardProps) {
+  const auth = useBusinessAuth("menu", "view");
+
+  const canEditThisMenuItem = auth.owner ? true : !!auth.staffSession &&
+    hasStaffPermission(auth.staffSession, "menu", "edit");
+
+  const canDeleteThisMenuItem = auth.owner ? true : !!auth.staffSession &&
+    hasStaffPermission(auth.staffSession, "menu", "delete");
+
+  const canCreateOptionGroups = auth.owner ? true : !!auth.staffSession &&
+    hasStaffPermission(auth.staffSession, "menu", "create");
+
+  // Options inside an editable item should follow the same permission as editing.
+  const canManageOptions = canEditThisMenuItem;
+
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddonsTab, setShowAddonsTab] = useState(false);
   
@@ -216,10 +234,16 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   };
 
   const handleAddOptionGroup = async () => {
+    if (!canCreateOptionGroups) {
+      alert("You don't have permission to add option groups.");
+      return;
+    }
+
     if (!newGroupName.trim()) {
       alert("Group name is required");
       return;
     }
+
 
     try {
       await createOptionGroup(
@@ -229,6 +253,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
         newGroupMinSelect,
         newGroupMaxSelect
       );
+
       setNewGroupName("");
       setNewGroupRequired(false);
       setNewGroupMinSelect(0);
@@ -387,17 +412,20 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
         <div className="flex gap-2 pt-2">
           <button
             onClick={openEdit}
-            className="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-semibold active:scale-[0.98] transition"
+            disabled={!canEditThisMenuItem}
+            className="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-semibold active:scale-[0.98] transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             Edit
           </button>
 
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="px-3 py-2 rounded-xl text-xs font-semibold border border-blue-200 text-blue-600 active:scale-[0.98] transition"
+            disabled={!canDeleteThisMenuItem}
+            className="px-3 py-2 rounded-xl text-xs font-semibold border border-blue-200 text-blue-600 active:scale-[0.98] transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             Delete
           </button>
+
         </div>
 
       </div>
@@ -884,10 +912,13 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                                         </div>
                                         <button
                                           onClick={() => handleDeleteOption(option.id)}
-                                          className="text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition p-2"
+                                          disabled={!canManageOptions}
+                                          className="text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition p-2 disabled:cursor-not-allowed disabled:opacity-40"
                                         >
                                           ✕
                                         </button>
+
+
                                       </div>
                                     ))}
                                   </div>
@@ -924,10 +955,12 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                                   />
                                   <button
                                     onClick={() => handleAddOption(group.id)}
-                                    className="w-full bg-blue-600 text-white px-3 py-2 rounded-xl font-semibold text-sm hover:bg-blue-700 transition"
+                                    disabled={!canManageOptions}
+                                    className="w-full bg-blue-600 text-white px-3 py-2 rounded-xl font-semibold text-sm hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:opacity-60"
                                   >
                                     + Add Option
                                   </button>
+
                                 </div>
                               </div>
 

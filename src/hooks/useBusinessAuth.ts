@@ -10,6 +10,7 @@ interface BusinessAuthState {
   checked: boolean;
   owner: boolean;
   staffSession: StaffSessionData | null;
+  businessId: string | null;
 }
 
 export function useBusinessAuth(
@@ -21,6 +22,7 @@ export function useBusinessAuth(
     checked: false,
     owner: false,
     staffSession: null,
+    businessId: null,
   });
 
   useEffect(() => {
@@ -38,8 +40,20 @@ export function useBusinessAuth(
           .single();
 
         if (user?.role === "owner") {
+          // Fetch the business ID for this owner
+          const { data: business } = await supabase
+            .from("businesses")
+            .select("id")
+            .eq("owner_id", session.user.id)
+            .single();
+
           if (!canceled) {
-            setAuthState({ checked: true, owner: true, staffSession: null });
+            setAuthState({
+              checked: true,
+              owner: true,
+              staffSession: null,
+              businessId: business?.id || null,
+            });
           }
           return;
         }
@@ -53,8 +67,14 @@ export function useBusinessAuth(
 
         if (response.ok) {
           const staffSession = (await response.json()) as StaffSessionData;
+
           if (!canceled) {
-            setAuthState({ checked: true, owner: false, staffSession });
+            setAuthState({
+              checked: true,
+              owner: false,
+              staffSession,
+              businessId: staffSession.businessId,
+            });
           }
           return;
         }
@@ -63,7 +83,12 @@ export function useBusinessAuth(
       }
 
       if (!canceled) {
-        setAuthState({ checked: true, owner: false, staffSession: null });
+        setAuthState({
+          checked: true,
+          owner: false,
+          staffSession: null,
+          businessId: null,
+        });
       }
     };
 

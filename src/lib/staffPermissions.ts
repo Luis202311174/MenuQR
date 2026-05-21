@@ -240,8 +240,13 @@ export function hasStaffPermission(
 ): boolean {
   if (!staffSession) return false;
 
-  const row = staffSession.permissions.find((permission) => permission.module_name === module);
+  // Be tolerant of DB casing/spacing mismatches.
+  const normalizedTargetModule = normalizeModuleName(module);
+  const row = staffSession.permissions.find(
+    (permission) => normalizeModuleName(String(permission.module_name)) === normalizedTargetModule
+  );
   if (!row) return false;
+
 
   switch (action) {
     case "view":

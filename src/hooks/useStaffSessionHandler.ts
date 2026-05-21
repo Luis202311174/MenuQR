@@ -11,37 +11,35 @@ type StaffSessionHandlerResult = {
   loading: boolean;
 };
 
-/**
- * Centralized, guarded staff session handler.
- *
- * Guarantees:
- * - session is loaded before redirects
- * - businessId is derived from a validated session
- * - optional module permission checks
- */
 export function useStaffSessionHandler(
   requiredModule?: StaffModuleKey,
-  requiredAction: StaffPermissionAction = "view" as StaffPermissionAction
+  requiredAction: StaffPermissionAction = "view",
+  isOwner: boolean = false
 ): StaffSessionHandlerResult {
   const router = useRouter();
-  const { staffSession, loading } = useStaffSession();
+  
+  // ✅ Only load staff session if NOT an owner
+  const { staffSession, loading } = useStaffSession(!isOwner);
 
   const [redirected, setRedirected] = useState(false);
 
-  const businessId = useMemo(() => staffSession?.businessId ?? null, [staffSession]);
+  const businessId = useMemo(() => {
+    if (isOwner) return null;
+    return staffSession?.businessId ?? null;
+  }, [staffSession, isOwner]);
 
   useEffect(() => {
+    if (isOwner) return; // 🔥 OWNER ESCAPE HATCH
+
     if (redirected) return;
     if (loading) return;
 
-    // Not logged in as staff
     if (!staffSession) {
       setRedirected(true);
       router.replace("/business/staff-login");
       return;
     }
 
-    // Optional permission gating
     if (requiredModule) {
       const permitted = hasStaffPermission(staffSession, requiredModule, requiredAction);
       if (!permitted) {
@@ -49,12 +47,11 @@ export function useStaffSessionHandler(
         router.replace("/business/access-denied");
       }
     }
-  }, [loading, staffSession, redirected, requiredModule, requiredAction, router]);
+  }, [loading, staffSession, redirected, requiredModule, requiredAction, router, isOwner]);
 
   return {
     staffSession,
     businessId,
-    loading,
+    loading: isOwner ? false : loading,
   };
 }
-

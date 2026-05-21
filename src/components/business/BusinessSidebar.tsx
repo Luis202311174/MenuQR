@@ -44,7 +44,7 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
   const navItems: SidebarItem[] = [
 
     { label: "Dashboard", path: "/business/dashboard", icon: faGaugeHigh, module: "dashboard" },
-    { label: "Staff Dashboard", path: "/business/staff-dashboard", icon: faGaugeHigh, module: "dashboard" },
+    ...(staffSession ? [{ label: "Staff Dashboard", path: "/business/staff-dashboard", icon: faGaugeHigh, module: "dashboard" as const }] : []),
     { label: "Menu", path: "/business/menu", icon: faBagShopping, module: "menu" },
     { label: "Inventory", path: "/business/inventory", icon: faBox, module: "inventory" },
     { label: ordersLabel, path: "/business/orders", icon: faShoppingCart, module: "orders" },
@@ -64,8 +64,6 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
           <span>Business Dashboard</span>
         </div>
       </div>
-
-
 
       <nav className="space-y-2">
         {navItems

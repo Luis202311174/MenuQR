@@ -4,10 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
-import { useStaffSessionHandler } from "@/hooks/useStaffSessionHandler";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
-
-
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
@@ -55,15 +52,40 @@ type NewOptionGroup = {
   options: NewMenuOption[];
 };
 
+const ORDERED_CATEGORIES = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
+
 export default function BusinessMenuPage() {
   const router = useRouter();
 
-  const orderedCategories = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
-
   const auth = useBusinessAuth("menu", "view");
-  const { businessId: staffBusinessId, loading: staffLoading } = useStaffSessionHandler("menu", "view");
+
+  // Staff-session based CUD gating (UI-level). Owners always have full access.
+  const staffPermissions = auth.staffSession?.permissions || [];
+  
+  const hasMenuPermission = (action: "can_create" | "can_edit" | "can_delete") => 
+    auth.owner || staffPermissions.some((p: any) => p.module_name === "menu" && p[action]);
+
+  const canCreateMenu = hasMenuPermission("can_create");
+  const canEditMenu = hasMenuPermission("can_edit");
+  const canDeleteMenu = hasMenuPermission("can_delete");
 
   const [businessId, setBusinessId] = useState<string | null>(null);
+
+  // ✅ SINGLE useEffect to determine businessId
+  useEffect(() => {
+    if (!auth.checked) return;
+
+    if (auth.owner) {
+      // For owners, use businessId from auth
+      setBusinessId(auth.businessId);
+    } else if (auth.staffSession) {
+      // For staff, use businessId from staff session
+      setBusinessId(auth.staffSession.businessId);
+    } else {
+      // No valid auth
+      setBusinessId(null);
+    }
+  }, [auth.checked, auth.owner, auth.businessId, auth.staffSession]);
 
   const [menuItems, setMenuItems] = useState<BusinessMenuCardItem[]>([]);
   const [ordersCount, setOrdersCount] = useState(0);
@@ -104,44 +126,6 @@ export default function BusinessMenuPage() {
   const [showInventoryModal, setShowInventoryModal] = useState(false);
 
   useEffect(() => {
-    if (!auth.checked) return;
-
-    // Prefer staff session handler-derived businessId when staff.
-    if (auth.staffSession) {
-      setBusinessId(staffBusinessId);
-      return;
-    }
-
-    const init = async () => {
-      if (auth.owner) {
-        const { data } = await supabase.auth.getSession();
-        const userId = data?.session?.user?.id;
-        if (!userId) return;
-
-        try {
-          const bizData = await getBusinessByOwner(userId);
-          if (bizData) {
-            setBusinessId(bizData.id);
-            try {
-              const resetPerformed = await lazyResetInventoryForBusiness(bizData.id);
-              if (resetPerformed) {
-                await fetchMenuItems();
-              }
-            } catch (resetError) {
-              console.error("Failed to perform lazy inventory reset:", resetError);
-            }
-          }
-        } catch (error) {
-          console.error("Failed to load business:", error);
-        }
-      }
-    };
-
-    init();
-  }, [auth, staffBusinessId]);
-
-
-  useEffect(() => {
     if (!businessId) return;
     setOrdersCount(0);
   }, [businessId]);
@@ -156,10 +140,6 @@ export default function BusinessMenuPage() {
       console.error("Failed to fetch menu items:", error);
     }
   };
-
-
-
-
 
   useEffect(() => {
     if (businessId) fetchMenuItems();
@@ -369,7 +349,9 @@ export default function BusinessMenuPage() {
 
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto"
+                  disabled={!canCreateMenu}
+                  aria-disabled={!canCreateMenu}
+                  className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   + Add Item
                 </button>
@@ -399,8 +381,8 @@ export default function BusinessMenuPage() {
                 }, {} as Record<string, typeof menuItems>);
 
                 const categoryKeys = [
-                  ...orderedCategories.filter((cat) => grouped[cat]),
-                  ...Object.keys(grouped).filter((cat) => !orderedCategories.includes(cat)).sort(),
+                  ...ORDERED_CATEGORIES.filter((cat) => grouped[cat]),
+                  ...Object.keys(grouped).filter((cat) => !ORDERED_CATEGORIES.includes(cat)).sort(),
                 ];
 
                 if (filteredItems.length === 0) {
@@ -444,7 +426,7 @@ export default function BusinessMenuPage() {
         </main>
       </div>
 
-        {showAddModal && (
+        {showAddModal && canCreateMenu && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
             <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-[0_40px_120px_rgba(0,0,0,0.15)] overflow-hidden border border-gray-200">
               <div className="max-h-[90vh] overflow-y-auto p-6 lg:p-8 space-y-6">
@@ -1015,7 +997,7 @@ export default function BusinessMenuPage() {
                   <button
                     onClick={handleSaveMenuItem}
                     className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={loading}
+                    disabled={loading || !canCreateMenu}
                   >
                     {loading ? "Saving..." : "Save Menu Item"}
                   </button>
