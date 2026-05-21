@@ -40,6 +40,39 @@ export interface StaffSessionData {
   permissions: StaffPermissionRow[];
 }
 
+export const allowedStaffStatuses = [
+  "active",
+  "on_shift",
+  "on_break",
+  "off_shift",
+] as const;
+
+export type StaffStatus = (typeof allowedStaffStatuses)[number];
+
+export function normalizeStaffStatus(rawStatus?: string | null): string {
+  if (!rawStatus) return "";
+  return rawStatus.toString().trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+export function isValidStaffStatus(status?: string | null): status is StaffStatus {
+  return allowedStaffStatuses.includes(normalizeStaffStatus(status) as StaffStatus);
+}
+
+export function getStaffStatusLabel(status?: string | null): string {
+  switch (normalizeStaffStatus(status)) {
+    case "on_shift":
+      return "On Shift";
+    case "on_break":
+      return "On Break";
+    case "off_shift":
+      return "Off Shift";
+    case "active":
+      return "Active";
+    default:
+      return "Unknown";
+  }
+}
+
 export interface StaffModuleConfig {
   module: StaffModuleKey;
   label: string;

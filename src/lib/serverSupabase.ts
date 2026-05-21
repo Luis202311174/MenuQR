@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { hashSessionToken } from "@/lib/staffAuth";
+import { isValidStaffStatus, normalizeStaffStatus } from "@/lib/staffPermissions";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -30,7 +31,12 @@ export function createServerSupabaseClient(
 }
 
 export function createServerSupabaseAdminClient(): SupabaseClient {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? supabaseAnonKey;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error(
+      "Missing SUPABASE_SERVICE_ROLE_KEY. The server admin Supabase client requires the service role key."
+    );
+  }
   return createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
@@ -124,7 +130,12 @@ export async function getStaffSessionFromRequest(req: NextRequest): Promise<Staf
     .eq("id", sessionData.staff_id)
     .single();
 
-  if (staffError || !staff || staff.status !== "active") {
+  if (staffError || !staff) {
+    return null;
+  }
+
+  const normalizedStatus = normalizeStaffStatus(staff.status);
+  if (!isValidStaffStatus(normalizedStatus)) {
     return null;
   }
 
@@ -141,7 +152,7 @@ export async function getStaffSessionFromRequest(req: NextRequest): Promise<Staf
     staffId: staff.id,
     businessId: sessionData.business_id,
     role: staff.role,
-    status: staff.status,
+    status: normalizedStatus,
     permissions: permissions ?? [],
   };
 }

@@ -355,9 +355,9 @@ Select an option:
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start">
       {isOpen && (
-        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[90vw] max-w-[420px] h-[80vh] max-h-[720px] flex flex-col overflow-hidden mb-4 transition-all duration-300 transform origin-bottom-right">
+        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[90vw] max-w-[420px] h-[80vh] max-h-[720px] flex flex-col overflow-hidden mb-4 transition-all duration-300 transform origin-bottom-left">
           {/* Header */}
           <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
             <div className="flex items-center gap-3">

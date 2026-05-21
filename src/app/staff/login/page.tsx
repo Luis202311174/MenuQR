@@ -20,6 +20,7 @@ export default function StaffLoginPage() {
     try {
       const response = await fetch("/api/staff/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, rememberMe }),
       });

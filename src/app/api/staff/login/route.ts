@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseAdminClient } from "@/lib/serverSupabase";
 import { hashPassword, createSessionToken, hashSessionToken, verifyPassword } from "@/lib/staffAuth";
+import { isValidStaffStatus } from "@/lib/staffPermissions";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -12,7 +13,16 @@ export async function POST(req: Request) {
     return new NextResponse("Email and password are required", { status: 400 });
   }
 
-  const supabase = createServerSupabaseAdminClient();
+  let supabase;
+  try {
+    supabase = createServerSupabaseAdminClient();
+  } catch (error) {
+    return new NextResponse(
+      "Server misconfiguration",
+      { status: 500 }
+    );
+  }
+
   const { data: staff, error: staffError } = await supabase
     .from("staff_accounts")
     .select("id, full_name, email, password_hash, role, status, business_id")
@@ -23,7 +33,7 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid credentials", { status: 401 });
   }
 
-  if (staff.status !== "active") {
+  if (!isValidStaffStatus(staff.status)) {
     return new NextResponse("This account is disabled", { status: 403 });
   }
 

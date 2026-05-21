@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useStaffSession } from "@/hooks/useStaffSession";
 import {
   getSidebarVisibility,
+  getStaffStatusLabel,
   hasStaffPermission,
   type StaffModuleKey,
   type StaffPermissionAction,
@@ -66,6 +67,75 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
           <span>Business Dashboard</span>
         </div>
       </div>
+
+      {/* Staff quick actions */}
+      {staffSession && (
+        <div className="mb-4 rounded-2xl border border-slate-100 bg-white p-3">
+          <div className="mb-2 text-sm font-semibold">Staff Dashboard</div>
+          <div className="mb-2 text-xs text-slate-600">Status: <span className="font-medium">{getStaffStatusLabel(staffSession.status)}</span></div>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/staff/shift/start', { method: 'POST', credentials: 'include' });
+                  if (!res.ok) {
+                    const text = await res.text();
+                    alert(`Start shift failed: ${text}`);
+                    return;
+                  }
+                  router.refresh();
+                } catch (err: any) {
+                  console.error('Start shift failed', err);
+                  alert(`Start shift failed: ${err?.message || String(err)}`);
+                }
+              }}
+              className="rounded-md bg-green-500 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600"
+            >
+              Start Shift
+            </button>
+
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/staff/shift/break', { method: 'POST', credentials: 'include' });
+                  if (!res.ok) {
+                    const text = await res.text();
+                    alert(`Take break failed: ${text}`);
+                    return;
+                  }
+                  router.refresh();
+                } catch (err: any) {
+                  console.error('Take break failed', err);
+                  alert(`Take break failed: ${err?.message || String(err)}`);
+                }
+              }}
+              className="rounded-md bg-yellow-500 px-3 py-1 text-xs font-semibold text-white hover:bg-yellow-600"
+            >
+              Take Break
+            </button>
+
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/staff/shift/end', { method: 'POST', credentials: 'include' });
+                  if (!res.ok) {
+                    const text = await res.text();
+                    alert(`End shift failed: ${text}`);
+                    return;
+                  }
+                  router.refresh();
+                } catch (err: any) {
+                  console.error('End shift failed', err);
+                  alert(`End shift failed: ${err?.message || String(err)}`);
+                }
+              }}
+              className="rounded-md bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
+            >
+              End Shift
+            </button>
+          </div>
+        </div>
+      )}
 
       <nav className="space-y-2">
         {navItems

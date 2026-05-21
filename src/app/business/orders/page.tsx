@@ -335,6 +335,28 @@ export default function BusinessOrdersPage() {
   }, [notification]);
 
   // 🔄 Update status handlers
+  const staffUpdateOrderStatus = async (orderId: string, newStatus: string) => {
+    if (!orderId) {
+      throw new Error("Missing order ID for staff status update");
+    }
+
+    const response = await fetch(`/api/staff/orders/${encodeURIComponent(orderId)}/status`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || "Failed to update order status");
+    }
+
+    return response.json();
+  };
+
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       setProcessingOrderId(orderId);
@@ -346,31 +368,52 @@ export default function BusinessOrdersPage() {
         // Handle if needed, or leave as is
         break;
         case "received":
-          await confirmOrderReceived(orderId);
+          if (auth.staffSession) {
+            await staffUpdateOrderStatus(orderId, newStatus);
+          } else {
+            await confirmOrderReceived(orderId, businessId || undefined);
+          }
           setNotification({ message: `Table ${tableNumber} Order accepted successfully`, type: "success" });
           break;
         case "paid":
-          await confirmOrderPaid(orderId);
+          if (auth.staffSession) {
+            await staffUpdateOrderStatus(orderId, newStatus);
+          } else {
+            await confirmOrderPaid(orderId, businessId || undefined);
+          }
           setNotification({ message: `Table ${tableNumber} Order marked as paid`, type: "success" });
           break;
         case "preparing":
-          await markOrderPreparing(orderId);
+          if (auth.staffSession) {
+            await staffUpdateOrderStatus(orderId, newStatus);
+          } else {
+            await markOrderPreparing(orderId, businessId || undefined);
+          }
           setNotification({ message: `Table ${tableNumber} Order now preparing`, type: "success" });
           break;
         case "ready":
-          await markOrderReady(orderId);
+          if (auth.staffSession) {
+            await staffUpdateOrderStatus(orderId, newStatus);
+          } else {
+            await markOrderReady(orderId, businessId || undefined);
+          }
           setNotification({ message: `Table ${tableNumber} Order ready for pickup`, type: "success" });
           break;
         case "served":
-          await markOrderServed(orderId);
+          if (auth.staffSession) {
+            await staffUpdateOrderStatus(orderId, newStatus);
+          } else {
+            await markOrderServed(orderId, businessId || undefined);
+          }
           setNotification({ message: `Table ${tableNumber} Order served`, type: "success" });
           break;
         default:
           break;
       }
     } catch (error: any) {
-      console.error("Error updating order status:", JSON.stringify(error, null, 2));
-      setNotification({ message: `Failed to update order status: ${error.message}`, type: "error" });
+      console.error("Error updating order status:", error);
+      const msg = error?.message || String(error);
+      setNotification({ message: `Failed to update order status: ${msg}`, type: "error" });
     } finally {
       setProcessingOrderId(null);
     }
@@ -381,16 +424,35 @@ export default function BusinessOrdersPage() {
     if (!businessId) return;
     setProcessingOrderId(orderId);
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .update({ status: "paid", is_paid: true })
-        .eq("id", orderId)
-        .eq("business_id", businessId)
-        .select()
-        .single();
+      if (auth.staffSession) {
+        if (!orderId) {
+          throw new Error("Missing order ID for staff payment update");
+        }
 
-      if (error) throw error;
-      console.log("Order marked as paid:", data);
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "paid" }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to mark as paid");
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("orders")
+          .update({ status: "paid", is_paid: true })
+          .eq("id", orderId)
+          .eq("business_id", businessId)
+          .select()
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) throw new Error("Order not found or already updated");
+        console.log("Order marked as paid:", data);
+      }
     } catch (error: any) {
       console.error("Error marking as paid:", error);
       alert(`Failed to mark order as paid: ${error.message}`);
@@ -409,7 +471,11 @@ export default function BusinessOrdersPage() {
     try {
       console.log("OWNER completeOrder()", { order });
 
-      await markOrderCompleted(order.id);
+      if (auth.staffSession) {
+        await staffUpdateOrderStatus(order.id, "completed");
+      } else {
+        await markOrderCompleted(order.id, businessId || undefined);
+      }
 
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
       await handleOrderCompleted(order);
@@ -560,6 +626,7 @@ export default function BusinessOrdersPage() {
         discountVerificationModal={discountVerificationModal}
         setDiscountVerificationModal={setDiscountVerificationModal}
         processingOrderId={processingOrderId}
+        staffSession={!!auth.staffSession}
         businessId={businessId}
         paymentSettings={paymentSettings}
         orders={orders}

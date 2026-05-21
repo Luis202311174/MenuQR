@@ -47,3 +47,9 @@ export function useStaffSession() {
 
   return { staffSession, loading };
 }
+
+// Optionally, add a helper to check if staff is logged in
+export function useIsStaffLoggedIn() {
+  const { staffSession, loading } = useStaffSession();
+  return { isLoggedIn: !!staffSession, loading };
+}

@@ -13,6 +13,7 @@ export default function Header() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [roleChecked, setRoleChecked] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -29,6 +30,16 @@ export default function Header() {
         setRole(u?.role || null);
       }
       setRoleChecked(true);
+      try {
+        const resp = await fetch('/api/staff/session', { credentials: 'include' });
+        if (resp.ok) {
+          setIsStaff(true);
+        } else {
+          setIsStaff(false);
+        }
+      } catch (err) {
+        setIsStaff(false);
+      }
     };
     fetch();
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -55,14 +66,8 @@ export default function Header() {
   };
 
   const homeHref = "/";
-  const dashboardHref =
-    role === "owner"
-      ? "/business/dashboard"
-      : "/user-home";
-  const dashboardLabel =
-    role === "owner"
-      ? "Menu Dashboard"
-      : "My Dashboard";
+  const dashboardHref = isStaff || role === "owner" ? "/business/dashboard" : "/user-home";
+  const dashboardLabel = isStaff || role === "owner" ? "Menu Dashboard" : "My Dashboard";
 
   return (
     <>
@@ -80,12 +85,15 @@ export default function Header() {
 
           <nav className="hidden flex-1 justify-end md:flex">
             <div className="flex flex-wrap items-center justify-end gap-8 text-sm font-semibold text-[#102A43]">
-              <Link
-                href={homeHref}
-                className={`transition hover:text-slate-900 ${pathname === homeHref ? "underline decoration-2 underline-offset-4" : ""}`}
-              >
-                Home
-              </Link>
+              {!(roleChecked && (role === 'owner' || isStaff)) && (
+                <Link
+                  href={homeHref}
+                  className={`transition hover:text-slate-900 ${pathname === homeHref ? "underline decoration-2 underline-offset-4" : ""}`}
+                >
+                  Home
+                </Link>
+              )}
+
               {roleChecked && (
                 <Link
                   href={dashboardHref}
@@ -94,7 +102,22 @@ export default function Header() {
                   {dashboardLabel}
                 </Link>
               )}
-              {user ? (
+
+              {isStaff ? (
+                <button
+                  onClick={async () => {
+                    try {
+                      await fetch('/api/staff/logout', { method: 'POST', credentials: 'include' });
+                    } catch (err) {
+                      console.error('Staff logout failed', err);
+                    }
+                    window.location.href = '/';
+                  }}
+                  className="transition hover:text-slate-900"
+                >
+                  Log out
+                </button>
+              ) : user ? (
                 <button
                   onClick={async () => {
                     await supabase.auth.signOut();
@@ -154,6 +177,16 @@ export default function Header() {
             >
               Home
             </Link>
+            {!(roleChecked && (role === 'owner' || isStaff)) && (
+              <Link
+                href={homeHref}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-semibold text-[#102A43] transition hover:text-slate-900"
+              >
+                Home
+              </Link>
+            )}
+
             {roleChecked && (
               <Link
                 href={dashboardHref}
@@ -163,25 +196,48 @@ export default function Header() {
                 {dashboardLabel}
               </Link>
             )}
-            {user && (
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  window.location.href = "/";
-                }}
-                className="text-left text-sm font-semibold text-[#102A43] transition hover:text-slate-900"
-              >
-                Log out
-              </button>
-            )}
-            {user ? (
-              <Link
-                href={dashboardHref}
-                onClick={() => setMobileMenuOpen(false)}
-                className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
-              >
-                Dashboard
-              </Link>
+            {isStaff ? (
+              <>
+                <button
+                  onClick={async () => {
+                    try {
+                      await fetch('/api/staff/logout', { method: 'POST', credentials: 'include' });
+                    } catch (err) {
+                      console.error('Staff logout failed', err);
+                    }
+                    window.location.href = '/';
+                  }}
+                  className="text-left text-sm font-semibold text-[#102A43] transition hover:text-slate-900"
+                >
+                  Log out
+                </button>
+                <Link
+                  href={dashboardHref}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
+                >
+                  Dashboard
+                </Link>
+              </>
+            ) : user ? (
+              <>
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.href = "/";
+                  }}
+                  className="text-left text-sm font-semibold text-[#102A43] transition hover:text-slate-900"
+                >
+                  Log out
+                </button>
+                <Link
+                  href={dashboardHref}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
+                >
+                  Dashboard
+                </Link>
+              </>
             ) : (
               <div className="flex flex-col gap-2 mt-2">
                 <button

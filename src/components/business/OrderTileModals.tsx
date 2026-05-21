@@ -69,6 +69,7 @@ type Props = {
   setNotification: React.Dispatch<
     React.SetStateAction<{ message: string; type?: "success" | "error" } | null>
   >;
+  staffSession?: boolean;
 };
 
 const safeDisabled = (processingOrderId: string | null, orderId: string) =>
@@ -91,6 +92,7 @@ export default function OrderTileModals({
   fetchOrders,
   setOrders,
   setNotification,
+  staffSession,
 }: Props) {
   const [selectedMarkPaidMethod, setSelectedMarkPaidMethod] = useState<"cash" | "gcash">("cash");
   const [markPaidReference, setMarkPaidReference] = useState<string>("");
@@ -106,13 +108,31 @@ export default function OrderTileModals({
     try {
       const newStatus = isPaid ? "paid" : "received";
 
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus, is_paid: isPaid })
-        .eq("id", orderId)
-        .eq("business_id", businessId);
+      if (staffSession) {
+        if (!orderId) {
+          throw new Error("Missing order ID for staff payment update");
+        }
 
-      if (error) throw error;
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to update payment status");
+        }
+      } else {
+        const { error } = await supabase
+          .from("orders")
+          .update({ status: newStatus, is_paid: isPaid })
+          .eq("id", orderId)
+          .eq("business_id", businessId);
+
+        if (error) throw error;
+      }
 
       setPaymentStatusModal(null);
 
@@ -146,13 +166,31 @@ export default function OrderTileModals({
         updates.reference_numb = markPaidReference;
       }
 
-      const { error } = await supabase
-        .from("orders")
-        .update(updates)
-        .eq("id", markPaidModal.orderId)
-        .eq("business_id", businessId);
+      if (staffSession) {
+        if (!markPaidModal.orderId) {
+          throw new Error("Missing order ID for staff paid update");
+        }
 
-      if (error) throw error;
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(markPaidModal.orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "paid", payment_method: selectedMarkPaidMethod, reference_numb: updates.reference_numb }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to mark as paid");
+        }
+      } else {
+        const { error } = await supabase
+          .from("orders")
+          .update(updates)
+          .eq("id", markPaidModal.orderId)
+          .eq("business_id", businessId);
+
+        if (error) throw error;
+      }
 
       setMarkPaidModal(null);
       setMarkPaidReference("");
@@ -189,13 +227,27 @@ export default function OrderTileModals({
     const discountLabel = getDiscountLabel(discountType);
 
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ discount_approved: true })
-        .eq("id", discountVerificationModal.orderId)
-        .eq("business_id", businessId);
+      if (staffSession) {
+        const res = await fetch(`/api/staff/orders/${discountVerificationModal.orderId}/discount`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "approve" }),
+        });
 
-      if (error) throw error;
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to approve discount");
+        }
+      } else {
+        const { error } = await supabase
+          .from("orders")
+          .update({ discount_approved: true })
+          .eq("id", discountVerificationModal.orderId)
+          .eq("business_id", businessId);
+
+        if (error) throw error;
+      }
 
       const tableNumber = order?.table?.table_number || "Unknown";
 
@@ -222,25 +274,39 @@ export default function OrderTileModals({
     const discountLabel = discountType === "coupon" ? "Coupon discount" : "Senior/PWD discount";
 
     try {
-      const discountAmount = Number(order.discount_amount || 0);
-      const originalTotal = Number(order.total_amount || 0) + discountAmount;
-      const updatePayload: any = {
-        discount_amount: 0,
-        discount_approved: false,
-        total_amount: originalTotal,
-      };
+      if (staffSession) {
+        const res = await fetch(`/api/staff/orders/${discountVerificationModal.orderId}/discount`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reject" }),
+        });
 
-      if (discountType === "coupon") {
-        updatePayload.coupon_id = null;
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to reject discount");
+        }
+      } else {
+        const discountAmount = Number(order.discount_amount || 0);
+        const originalTotal = Number(order.total_amount || 0) + discountAmount;
+        const updatePayload: any = {
+          discount_amount: 0,
+          discount_approved: false,
+          total_amount: originalTotal,
+        };
+
+        if (discountType === "coupon") {
+          updatePayload.coupon_id = null;
+        }
+
+        const { error } = await supabase
+          .from("orders")
+          .update(updatePayload)
+          .eq("id", discountVerificationModal.orderId)
+          .eq("business_id", businessId);
+
+        if (error) throw error;
       }
-
-      const { error } = await supabase
-        .from("orders")
-        .update(updatePayload)
-        .eq("id", discountVerificationModal.orderId)
-        .eq("business_id", businessId);
-
-      if (error) throw error;
 
       const tableNumber = order.table?.table_number || "Unknown";
       setNotification({
@@ -264,13 +330,31 @@ export default function OrderTileModals({
     if (!businessId) return;
 
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: "cancelled" })
-        .eq("id", orderId)
-        .eq("business_id", businessId);
+      if (staffSession) {
+        if (!orderId) {
+          throw new Error("Missing order ID for staff cancel update");
+        }
 
-      if (error) throw error;
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "cancelled" }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to cancel order");
+        }
+      } else {
+        const { error } = await supabase
+          .from("orders")
+          .update({ status: "cancelled" })
+          .eq("id", orderId)
+          .eq("business_id", businessId);
+
+        if (error) throw error;
+      }
 
       const channel = supabase.channel(`order-${orderId}`);
       channel.send({

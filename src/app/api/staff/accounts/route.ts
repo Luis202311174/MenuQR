@@ -152,6 +152,31 @@ export async function POST(req: NextRequest) {
     ? createServerSupabaseClient(authToken)
     : createServerSupabaseAdminClient();
 
+  let adminSupabase;
+  try {
+    adminSupabase = createServerSupabaseAdminClient();
+  } catch (error) {
+    return createJsonError(
+      "Server misconfiguration",
+      500,
+      error instanceof Error ? error.message : "Missing Supabase service role key."
+    );
+  }
+
+  const cleanupAuthUser = async (authUserId: string) => {
+    try {
+      await adminSupabase.from("users").delete().eq("id", authUserId);
+    } catch {
+      // ignore cleanup failures
+    }
+
+    try {
+      await adminSupabase.auth.admin.deleteUser(authUserId);
+    } catch {
+      // ignore cleanup failures
+    }
+  };
+
   const businessId = owner
     ? (
         await supabase
@@ -168,6 +193,83 @@ export async function POST(req: NextRequest) {
       "Business not found",
       404,
       "No business found for current owner or staff session."
+    );
+  }
+
+  let authUserId: string | null = null;
+  let authErrorMessage: string | null = null;
+
+  const createResult = await adminSupabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName,
+      role: "staff",
+      business_id: businessId,
+    },
+  });
+
+  if (createResult.error) {
+    authErrorMessage = createResult.error.message;
+    console.error("[POST /api/staff/accounts] auth.admin.createUser error", createResult.error);
+
+    // If the auth user already exists, use the existing auth user.
+    if (
+      authErrorMessage.includes("User already registered") ||
+      authErrorMessage.includes("duplicate key") ||
+      authErrorMessage.includes("already exists")
+    ) {
+      // Try to find an existing auth profile in the `users` table as a fallback
+      const { data: existingUserRecord, error: userFetchError } = await adminSupabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .limit(1)
+        .maybeSingle();
+
+      if (userFetchError || !existingUserRecord?.id) {
+        console.error("[POST /api/staff/accounts] unable to locate existing auth user by email", userFetchError);
+        return createJsonError(
+          "Unable to create staff authentication user",
+          500,
+          authErrorMessage
+        );
+      }
+
+      authUserId = existingUserRecord.id;
+    } else {
+      return createJsonError(
+        "Unable to create staff authentication user",
+        500,
+        authErrorMessage
+      );
+    }
+  } else {
+    authUserId = createResult.data?.user?.id ?? null;
+  }
+
+  if (!authUserId) {
+    return createJsonError(
+      "Unable to create staff authentication user",
+      500,
+      authErrorMessage || "No auth user returned"
+    );
+  }
+
+  const { error: authProfileError } = await adminSupabase
+    .from("users")
+    .upsert(
+      { id: authUserId, role: "staff", email, created_at: new Date().toISOString() },
+      { onConflict: "id" }
+    );
+
+  if (authProfileError) {
+    await adminSupabase.auth.admin.deleteUser(authUserId).catch(() => null);
+    return createJsonError(
+      "Unable to create staff auth profile",
+      500,
+      authProfileError.message
     );
   }
 
@@ -188,6 +290,7 @@ export async function POST(req: NextRequest) {
       .single();
 
   if (createError || !createdStaff?.id) {
+    await cleanupAuthUser(authUserId);
     return createJsonError(
       "Unable to create staff account",
       500,
@@ -217,6 +320,12 @@ export async function POST(req: NextRequest) {
     .insert(permissionRows);
 
   if (permError) {
+    try {
+      await supabase.from("staff_accounts").delete().eq("id", createdStaff.id);
+    } catch {
+      // ignore cleanup failures
+    }
+    await cleanupAuthUser(authUserId);
     return createJsonError(
       "Unable to save permissions",
       500,

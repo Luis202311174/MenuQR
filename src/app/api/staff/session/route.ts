@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseAdminClient } from "@/lib/serverSupabase";
 import { hashSessionToken } from "@/lib/staffAuth";
+import { isValidStaffStatus, normalizeStaffStatus } from "@/lib/staffPermissions";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("staff_session")?.value;
@@ -33,7 +34,12 @@ export async function GET(req: NextRequest) {
     .eq("id", sessionData.staff_id)
     .single();
 
-  if (staffError || !staff || staff.status !== "active") {
+  if (staffError || !staff) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const normalizedStatus = normalizeStaffStatus(staff.status);
+  if (!isValidStaffStatus(normalizedStatus)) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -52,7 +58,7 @@ export async function GET(req: NextRequest) {
     fullName: staff.full_name,
     email: staff.email,
     role: staff.role,
-    status: staff.status,
+    status: normalizedStatus,
     lastLoginAt: staff.last_login_at,
     permissions: permissions ?? [],
   });

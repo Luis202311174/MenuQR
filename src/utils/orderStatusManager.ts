@@ -18,75 +18,84 @@ export interface OrderStatusTransition {
   newStatus: OrderStatus;
 }
 
-export async function confirmOrderReceived(orderId: string) {
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: "received" })
-    .eq("id", orderId)
-    .select()
-    .single();
+export async function confirmOrderReceived(orderId: string, businessId?: string) {
+  let query = supabase.from("orders").update({ status: "received" }).eq("id", orderId);
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data, error } = await query.select().maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Order not found or already updated");
   return data;
 }
 
-export async function confirmOrderPaid(orderId: string) {
-  const { data, error } = await supabase
+export async function confirmOrderPaid(orderId: string, businessId?: string) {
+  let query = supabase
     .from("orders")
-    .update({ is_paid: true })
-    .eq("id", orderId)
-    .select()
-    .single();
+    .update({ status: "paid", is_paid: true })
+    .eq("id", orderId);
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data, error } = await query.select().maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Order not found or already updated");
   return data;
 }
 
-export async function markOrderPreparing(orderId: string) {
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: "preparing" })
-    .eq("id", orderId)
-    .select()
-    .single();
+export async function markOrderPreparing(orderId: string, businessId?: string) {
+  let query = supabase.from("orders").update({ status: "preparing" }).eq("id", orderId);
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data, error } = await query.select().maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Order not found or already updated");
   return data;
 }
 
-export async function markOrderReady(orderId: string) {
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: "ready" })
-    .eq("id", orderId)
-    .select()
-    .single();
+export async function markOrderReady(orderId: string, businessId?: string) {
+  let query = supabase.from("orders").update({ status: "ready" }).eq("id", orderId);
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data, error } = await query.select().maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Order not found or already updated");
   return data;
 }
 
-export async function markOrderServed(orderId: string) {
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: "served" })
-    .eq("id", orderId)
-    .select()
-    .single();
+export async function markOrderServed(orderId: string, businessId?: string) {
+  let query = supabase.from("orders").update({ status: "served" }).eq("id", orderId);
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data, error } = await query.select().maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Order not found or already updated");
   return data;
 }
 
-export async function markOrderCompleted(orderId: string) {
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: "completed" })
-    .eq("id", orderId)
-    .select()
-    .single();
+export async function markOrderCompleted(orderId: string, businessId?: string) {
+  let query = supabase.from("orders").update({ status: "completed" }).eq("id", orderId);
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data, error } = await query.select().maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Order not found or already updated");
   return data;
 }
 
