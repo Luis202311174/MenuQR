@@ -37,6 +37,31 @@ export default function StaffManagementPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [logModalOpen, setLogModalOpen] = useState(false);
+  const [selectedLogAccount, setSelectedLogAccount] = useState<StaffAccount | null>(null);
+  const [selectedLogDate, setSelectedLogDate] = useState<string | null>(null);
+  const [staffLogs, setStaffLogs] = useState<Array<{ id: string; action: string; created_at: string }>>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
+  const [currentLogPage, setCurrentLogPage] = useState(1);
+  const LOGS_PER_PAGE = 10;
+  // Order activity logs modal state
+  const [orderLogModalOpen, setOrderLogModalOpen] = useState(false);
+  const [orderDates, setOrderDates] = useState<Array<{ date: string; count?: number }>>([]);
+  const [orderDatesLoading, setOrderDatesLoading] = useState(false);
+  const [orderDatesError, setOrderDatesError] = useState<string | null>(null);
+  const [orderDatePage, setOrderDatePage] = useState(1);
+  const ORDAYS_PER_PAGE = 10; // pagination for dates (10 per page)
+  const [selectedOrderDate, setSelectedOrderDate] = useState<string | null>(null);
+  const [ordersForDate, setOrdersForDate] = useState<Array<any>>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const ORDERS_PER_PAGE = 10;
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [selectedOrderLogs, setSelectedOrderLogs] = useState<Array<any>>([]);
+  const [orderLogsLoading, setOrderLogsLoading] = useState(false);
+  const [orderLogsError, setOrderLogsError] = useState<string | null>(null);
   const [editingAccount, setEditingAccount] = useState<StaffAccount | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -253,6 +278,222 @@ export default function StaffManagementPage() {
     }
   };
 
+  const formatShiftDuration = (start: string, end: string) => {
+    const startMs = new Date(start).getTime();
+    const endMs = new Date(end).getTime();
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+      return "—";
+    }
+    const diffMinutes = Math.round((endMs - startMs) / 60000);
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+  };
+
+  const dateGroups = useMemo(() => {
+    const groups = new Map<string, { date: string; logs: Array<{ id: string; action: string; created_at: string }> }>();
+    const sortedLogs = [...staffLogs].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    for (const log of sortedLogs) {
+      const date = new Date(log.created_at);
+      if (Number.isNaN(date.getTime())) continue;
+      const dateKey = date.toLocaleDateString("en-US");
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, { date: dateKey, logs: [] });
+      }
+      groups.get(dateKey)?.logs.push(log);
+    }
+
+    return Array.from(groups.values());
+  }, [staffLogs]);
+
+  const selectedDateLogs = useMemo(() => {
+    if (!selectedLogDate) return [];
+    return dateGroups.find((group) => group.date === selectedLogDate)?.logs ?? [];
+  }, [dateGroups, selectedLogDate]);
+
+  const shiftRecords = useMemo(() => {
+    const sortedLogs = [...selectedDateLogs].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    const records: Array<{ start: string | null; end: string | null; duration: string }> = [];
+    let currentStart: string | null = null;
+
+    for (const log of sortedLogs) {
+      const action = log.action?.toLowerCase().trim();
+      if (action === "start") {
+        currentStart = log.created_at;
+      } else if (action === "end") {
+        if (currentStart) {
+          records.push({
+            start: currentStart,
+            end: log.created_at,
+            duration: formatShiftDuration(currentStart, log.created_at),
+          });
+          currentStart = null;
+        } else {
+          records.push({ start: null, end: log.created_at, duration: "—" });
+        }
+      }
+    }
+
+    if (currentStart) {
+      records.push({ start: currentStart, end: null, duration: "—" });
+    }
+
+    return records.reverse();
+  }, [selectedDateLogs]);
+
+  const fetchStaffLogs = async (staffId: string) => {
+    setLogsLoading(true);
+    setLogsError(null);
+    setStaffLogs([]);
+    try {
+      const sessionData = await supabase.auth.getSession();
+      const accessToken = sessionData.data.session?.access_token;
+      const response = await fetch(`/api/staff/shift/logs?staffId=${encodeURIComponent(staffId)}`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        const errorBody = contentType.includes("application/json")
+          ? await response.json()
+          : { error: await response.text() };
+        throw new Error(errorBody?.error || "Unable to load staff logs.");
+      }
+      const logs = await response.json();
+      setStaffLogs(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      console.error(err);
+      setLogsError((err as Error).message || "Unable to load staff logs.");
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  // --- Order logs fetching flow ---
+  const fetchOrderDates = async (staffId: string) => {
+    setOrderDatesLoading(true);
+    setOrderDatesError(null);
+    setOrderDates([]);
+    try {
+      const sessionData = await supabase.auth.getSession();
+      const accessToken = sessionData.data.session?.access_token;
+      const res = await fetch(`/api/staff/order/dates?staffId=${encodeURIComponent(staffId)}`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        const errBody = contentType.includes("application/json") ? await res.json() : { error: await res.text() };
+        throw new Error(errBody?.error || "Unable to load order dates.");
+      }
+      const data = await res.json();
+      // expected: [{date: 'MM/DD/YYYY', count: number}, ...]
+      setOrderDates(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setOrderDatesError((err as Error).message || "Unable to load order dates.");
+    } finally {
+      setOrderDatesLoading(false);
+    }
+  };
+
+  const fetchOrdersForDate = async (staffId: string, date: string) => {
+    setOrdersLoading(true);
+    setOrdersError(null);
+    setOrdersForDate([]);
+    try {
+      const sessionData = await supabase.auth.getSession();
+      const accessToken = sessionData.data.session?.access_token;
+      const res = await fetch(`/api/staff/orders?staffId=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        const errBody = contentType.includes("application/json") ? await res.json() : { error: await res.text() };
+        throw new Error(errBody?.error || "Unable to load orders for date.");
+      }
+      const data = await res.json();
+      setOrdersForDate(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setOrdersError((err as Error).message || "Unable to load orders for date.");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const fetchOrderLogs = async (orderId: string) => {
+    setOrderLogsLoading(true);
+    setOrderLogsError(null);
+    setSelectedOrderLogs([]);
+    try {
+      const sessionData = await supabase.auth.getSession();
+      const accessToken = sessionData.data.session?.access_token;
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/logs`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        const errBody = contentType.includes("application/json") ? await res.json() : { error: await res.text() };
+        throw new Error(errBody?.error || "Unable to load order logs.");
+      }
+      const data = await res.json();
+      setSelectedOrderLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setOrderLogsError((err as Error).message || "Unable to load order logs.");
+    } finally {
+      setOrderLogsLoading(false);
+    }
+  };
+
+  const openOrderLogsModal = async (account: StaffAccount) => {
+    setSelectedLogAccount(account);
+    setSelectedOrderDate(null);
+    setSelectedOrder(null);
+    setOrderDatePage(1);
+    setOrdersPage(1);
+    setOrderLogModalOpen(true);
+    await fetchOrderDates(account.id);
+  };
+
+  const closeOrderLogsModal = () => {
+    setOrderLogModalOpen(false);
+    setSelectedLogAccount(null);
+    setOrderDates([]);
+    setOrdersForDate([]);
+    setSelectedOrderLogs([]);
+    setOrderDatesError(null);
+    setOrdersError(null);
+    setOrderLogsError(null);
+  };
+
+  const openLogsModal = async (account: StaffAccount) => {
+    setSelectedLogAccount(account);
+    setSelectedLogDate(null);
+    setCurrentLogPage(1);
+    setLogModalOpen(true);
+    await fetchStaffLogs(account.id);
+  };
+
+  const closeLogsModal = () => {
+    setLogModalOpen(false);
+    setSelectedLogAccount(null);
+    setStaffLogs([]);
+    setLogsError(null);
+  };
+
   const activeRole = useMemo(() => formState.role.toLowerCase(), [formState.role]);
 
   return (
@@ -374,6 +615,20 @@ export default function StaffManagementPage() {
                           className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                         >
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openLogsModal(account)}
+                          className="rounded-full bg-blue-100 px-4 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-200"
+                        >
+                          View logs
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openOrderLogsModal(account)}
+                          className="rounded-full bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-200"
+                        >
+                          Order logs
                         </button>
                         <button
                           type="button"
@@ -638,6 +893,360 @@ export default function StaffManagementPage() {
         </div>
       )}
       </>
+    )}
+
+      {logModalOpen && selectedLogAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 px-4 py-8">
+          <div className="w-full max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-900 px-6 py-5">
+              <div>
+                <h2 className="text-2xl font-semibold text-white">
+                  {selectedLogAccount?.full_name} {selectedLogDate ? `- ${selectedLogDate}` : "Shift Dates"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-300">
+                  {selectedLogDate
+                    ? "Detailed shifts for this date."
+                    : "Select a shift date to view start/end and total hours."}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {selectedLogDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLogDate(null)}
+                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeLogsModal}
+                  className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[calc(100vh-18rem)] overflow-y-auto px-6 py-6">
+              {logsLoading ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+                  Loading staff logs…
+                </div>
+              ) : logsError ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-900">
+                  {logsError}
+                </div>
+              ) : staffLogs.length === 0 ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+                  No logs found for this staff account.
+                </div>
+              ) : selectedLogDate ? (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Start</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">End</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Total hours</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {shiftRecords
+                          .slice((currentLogPage - 1) * LOGS_PER_PAGE, currentLogPage * LOGS_PER_PAGE)
+                          .map((record, index) => (
+                            <tr key={`${record.start ?? "null"}-${record.end ?? "null"}-${index}`}>
+                              <td className="px-4 py-4 text-slate-900">
+                                {record.start ? new Date(record.start).toLocaleString() : "—"}
+                              </td>
+                              <td className="px-4 py-4 text-slate-700">
+                                {record.end ? new Date(record.end).toLocaleString() : "—"}
+                              </td>
+                              <td className="px-4 py-4 text-slate-700">{record.duration}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+                    <div>
+                      Showing {Math.min((currentLogPage - 1) * LOGS_PER_PAGE + 1, shiftRecords.length)} to {Math.min(currentLogPage * LOGS_PER_PAGE, shiftRecords.length)} of {shiftRecords.length} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={currentLogPage === 1}
+                        onClick={() => setCurrentLogPage((page) => Math.max(1, page - 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-sm text-slate-600">
+                        Page {currentLogPage} of {Math.max(1, Math.ceil(shiftRecords.length / LOGS_PER_PAGE))}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={currentLogPage >= Math.ceil(shiftRecords.length / LOGS_PER_PAGE)}
+                        onClick={() => setCurrentLogPage((page) => Math.min(Math.ceil(shiftRecords.length / LOGS_PER_PAGE), page + 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {dateGroups.map((group) => (
+                          <tr key={group.date}>
+                            <td className="px-4 py-4 text-slate-900">{group.date}</td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedLogDate(group.date);
+                                  setCurrentLogPage(1);
+                                }}
+                                className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                              >
+                                View logs
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {orderLogModalOpen && selectedLogAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 px-4 py-8">
+          <div className="w-full max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-900 px-6 py-5">
+              <div>
+                <h2 className="text-2xl font-semibold text-white">
+                  {selectedLogAccount?.full_name} {selectedOrderDate ? `- ${selectedOrderDate}` : "Order Activity"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-300">
+                  {selectedOrder
+                    ? "Order details and activity logs."
+                    : selectedOrderDate
+                    ? "Orders for this date. Click an order to view activity logs."
+                    : "Select a date to view orders acted on by this staff."}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {selectedOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrder(null)}
+                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                )}
+                {selectedOrderDate && !selectedOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderDate(null)}
+                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeOrderLogsModal}
+                  className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[calc(100vh-18rem)] overflow-y-auto px-6 py-6">
+              {orderDatesLoading || ordersLoading || orderLogsLoading ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+                  Loading…
+                </div>
+              ) : orderDatesError || ordersError || orderLogsError ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-900">
+                  {orderDatesError || ordersError || orderLogsError}
+                </div>
+              ) : orderDates.length === 0 ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+                  No order activity found for this staff account.
+                </div>
+              ) : selectedOrder ? (
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <h3 className="text-lg font-semibold text-slate-900">Order #{selectedOrder.id ?? selectedOrder.order_number}</h3>
+                    <p className="text-sm text-slate-600">Placed: {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : "—"}</p>
+                    <p className="mt-2 text-sm text-slate-700">Customer: {selectedOrder.customer_name ?? "—"}</p>
+                  </div>
+
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Time</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Action</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">By</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {selectedOrderLogs.map((log: any, idx: number) => (
+                          <tr key={`${log.id ?? idx}`}>
+                            <td className="px-4 py-4 text-slate-900">{log.created_at ? new Date(log.created_at).toLocaleString() : "—"}</td>
+                            <td className="px-4 py-4 text-slate-700">{log.action}</td>
+                            <td className="px-4 py-4 text-slate-700">{log.actor_name ?? log.actor_id ?? "—"}</td>
+                            <td className="px-4 py-4 text-slate-700">{log.notes ?? ""}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : selectedOrderDate ? (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Order</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Time</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {ordersForDate.slice((ordersPage - 1) * ORDERS_PER_PAGE, ordersPage * ORDERS_PER_PAGE).map((order: any) => (
+                          <tr key={order.id}>
+                            <td className="px-4 py-4 text-slate-900">{order.order_number ?? order.id}</td>
+                            <td className="px-4 py-4 text-slate-700">{order.created_at ? new Date(order.created_at).toLocaleString() : "—"}</td>
+                            <td className="px-4 py-4 text-slate-700">{order.status ?? "—"}</td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setSelectedOrder(order);
+                                  await fetchOrderLogs(order.id ?? order.order_number);
+                                }}
+                                className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                              >
+                                View activity
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+                    <div>
+                      Showing {Math.min((ordersPage - 1) * ORDERS_PER_PAGE + 1, ordersForDate.length)} to {Math.min(ordersPage * ORDERS_PER_PAGE, ordersForDate.length)} of {ordersForDate.length} orders
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={ordersPage === 1}
+                        onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-sm text-slate-600">Page {ordersPage} of {Math.max(1, Math.ceil(ordersForDate.length / ORDERS_PER_PAGE))}</span>
+                      <button
+                        type="button"
+                        disabled={ordersPage >= Math.ceil(ordersForDate.length / ORDERS_PER_PAGE)}
+                        onClick={() => setOrdersPage((p) => Math.min(Math.ceil(ordersForDate.length / ORDERS_PER_PAGE), p + 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Orders</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {orderDates.slice((orderDatePage - 1) * ORDAYS_PER_PAGE, orderDatePage * ORDAYS_PER_PAGE).map((d) => (
+                          <tr key={d.date}>
+                            <td className="px-4 py-4 text-slate-900">{d.date}</td>
+                            <td className="px-4 py-4 text-slate-700">{d.count ?? "—"}</td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setSelectedOrderDate(d.date);
+                                  setOrdersPage(1);
+                                  await fetchOrdersForDate(selectedLogAccount!.id, d.date);
+                                }}
+                                className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                              >
+                                View orders
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+                    <div>
+                      Showing {Math.min((orderDatePage - 1) * ORDAYS_PER_PAGE + 1, orderDates.length)} to {Math.min(orderDatePage * ORDAYS_PER_PAGE, orderDates.length)} of {orderDates.length} dates
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={orderDatePage === 1}
+                        onClick={() => setOrderDatePage((p) => Math.max(1, p - 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-sm text-slate-600">Page {orderDatePage} of {Math.max(1, Math.ceil(orderDates.length / ORDAYS_PER_PAGE))}</span>
+                      <button
+                        type="button"
+                        disabled={orderDatePage >= Math.ceil(orderDates.length / ORDAYS_PER_PAGE)}
+                        onClick={() => setOrderDatePage((p) => Math.min(Math.ceil(orderDates.length / ORDAYS_PER_PAGE), p + 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </PageShell>
   );
