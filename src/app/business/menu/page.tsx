@@ -297,67 +297,6 @@ export default function BusinessMenuPage() {
           <main className="space-y-8">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
 
-            <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-              <h2 className="text-2xl font-bold w-full">Menu Items</h2>
-
-              <div className="w-full">
-                <label className="hidden text-sm text-gray-700 sm:block">
-                  Search items
-                </label>
-                <input
-                  type="text"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Search by name..."
-                  className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-end gap-3 w-full">
-                <div className="w-[140px] min-w-[140px] sm:w-[200px]">
-                  <label className="hidden text-sm text-gray-700 sm:block">
-                    Category
-                  </label>
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
-                  >
-                    <option value="All">All Categories</option>
-                    <option value="Meals">Meals</option>
-                    <option value="Beverage">Beverage</option>
-                    <option value="Solo">Solo</option>
-                    <option value="Extras">Extras</option>
-                    <option value="Dessert">Dessert</option>
-                  </select>
-                </div>
-
-                <div className="w-[140px] min-w-[140px] sm:w-[200px]">
-                  <label className="hidden text-sm text-gray-700 sm:block">
-                    Availability
-                  </label>
-                  <select
-                    value={availabilityFilter}
-                    onChange={(e) => setAvailabilityFilter(e.target.value)}
-                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
-                  >
-                    <option value="All">All Items</option>
-                    <option value="Available">Available</option>
-                    <option value="Not Available">Not Available</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  disabled={!canCreateMenu}
-                  aria-disabled={!canCreateMenu}
-                  className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  + Add Item
-                </button>
-              </div>
-            </div>
-
             {menuItems.length > 0 ? (
               (() => {
                 const filteredItems = menuItems.filter((item) => {
@@ -422,6 +361,67 @@ export default function BusinessMenuPage() {
                 <p className="text-sm text-slate-400 mt-2">Add your first item to get started</p>
               </div>
             )}
+
+            <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+              <h2 className="text-2xl font-bold w-full">Menu Items</h2>
+
+              <div className="w-full">
+                <label className="hidden text-sm text-gray-700 sm:block">
+                  Search items
+                </label>
+                <input
+                  type="text"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Search by name..."
+                  className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-end gap-3 w-full">
+                <div className="w-[140px] min-w-[140px] sm:w-[200px]">
+                  <label className="hidden text-sm text-gray-700 sm:block">
+                    Category
+                  </label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                  >
+                    <option value="All">All Categories</option>
+                    <option value="Meals">Meals</option>
+                    <option value="Beverage">Beverage</option>
+                    <option value="Solo">Solo</option>
+                    <option value="Extras">Extras</option>
+                    <option value="Dessert">Dessert</option>
+                  </select>
+                </div>
+
+                <div className="w-[140px] min-w-[140px] sm:w-[200px]">
+                  <label className="hidden text-sm text-gray-700 sm:block">
+                    Availability
+                  </label>
+                  <select
+                    value={availabilityFilter}
+                    onChange={(e) => setAvailabilityFilter(e.target.value)}
+                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                  >
+                    <option value="All">All Items</option>
+                    <option value="Available">Available</option>
+                    <option value="Not Available">Not Available</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  disabled={!canCreateMenu}
+                  aria-disabled={!canCreateMenu}
+                  className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  + Add Item
+                </button>
+              </div>
+            </div>
           </div>
         </main>
       </div>

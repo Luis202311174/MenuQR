@@ -2,7 +2,7 @@
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCalendarAlt, faFilter } from "@fortawesome/free-solid-svg-icons";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 type DailySalesOrderRow = {
   id: string;
@@ -53,6 +53,9 @@ export default function DailySalesReportModal({
   onSelectDay,
   formatCurrency,
 }: DailySalesReportModalProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   const reportSummary = useMemo(() => {
     const totalSales = dailySalesData.reduce((sum, day) => sum + (day.totalSales || 0), 0);
     const totalOrders = dailySalesData.reduce((sum, day) => sum + (day.totalOrders || 0), 0);
@@ -66,6 +69,19 @@ export default function DailySalesReportModal({
       averageOrderValue,
     };
   }, [dailySalesData]);
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return dailySalesData.slice(startIndex, endIndex);
+  }, [dailySalesData, currentPage]);
+
+  const totalPages = Math.ceil(dailySalesData.length / ITEMS_PER_PAGE);
+
+  // Reset pagination when search filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStartDate, selectedEndDate]);
 
   const dateRangeLabel = `${selectedStartDate} – ${selectedEndDate}`;
 
@@ -184,7 +200,7 @@ export default function DailySalesReportModal({
                       </td>
                     </tr>
                   ) : (
-                    dailySalesData.map((daily) => (
+                    paginatedData.map((daily) => (
                       <tr key={daily.date} className="hover:bg-slate-50">
                         <td className="px-4 py-4 font-medium text-slate-900">
                           {new Date(daily.date).toLocaleDateString("en-US", {
@@ -215,14 +231,54 @@ export default function DailySalesReportModal({
         </div>
 
         {/* Footer - Fixed */}
-        <div className="border-t border-slate-200 bg-slate-50 px-6 py-5 sm:px-8 text-sm text-slate-600 flex-shrink-0">
-          <p className="font-semibold text-slate-800">Report details</p>
-          <ul className="mt-3 space-y-2 list-disc pl-5">
-            <li>Filter the report by a specific calendar range to focus on a particular day or week.</li>
-            <li>Open the date action to view each order's details in a popup modal.</li>
-            <li>Open an order to see exact items, payment method, and reference number.</li>
-            <li>Use the summary cards to compare daily performance, average order value, and busiest day at a glance.</li>
-          </ul>
+        <div className="border-t border-slate-200 bg-slate-50 px-6 py-5 sm:px-8 flex-shrink-0">
+          {dailySalesData.length > 0 && !loadingDailyReport && (
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div className="text-sm text-slate-600">
+                Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, dailySalesData.length)} to {Math.min(currentPage * ITEMS_PER_PAGE, dailySalesData.length)} of {dailySalesData.length} days
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="text-sm text-slate-600">
+            <p className="font-semibold text-slate-800">Report details</p>
+            <ul className="mt-3 space-y-2 list-disc pl-5">
+              <li>Filter the report by a specific calendar range to focus on a particular day or week.</li>
+              <li>Open the date action to view each order's details in a popup modal.</li>
+              <li>Open an order to see exact items, payment method, and reference number.</li>
+              <li>Use the summary cards to compare daily performance, average order value, and busiest day at a glance.</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

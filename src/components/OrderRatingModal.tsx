@@ -81,6 +81,12 @@ export default function OrderRatingModal({
             <p className="text-xs text-slate-500 mt-1">
               Valid until {rewardCouponInfo.expires_at ? new Date(rewardCouponInfo.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No expiry'}
             </p>
+            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2">
+              <p className="text-xs font-semibold text-amber-900 flex items-start gap-2">
+                <span className="text-sm">⚠️</span>
+                <span>Screenshot or save this code now!</span>
+              </p>
+            </div>
           </div>
         )}
 

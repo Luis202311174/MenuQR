@@ -57,7 +57,9 @@ export default function MenuItemModal({
   businessId,
 }: MenuItemModalProps) {
   const [optionGroups, setOptionGroups] = useState<CustomerOptionGroup[]>([]);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string[]>
+  >({});
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [qty, setQty] = useState(1);
   const [qtyInput, setQtyInput] = useState("1");
@@ -109,7 +111,7 @@ export default function MenuItemModal({
   const handleOptionSelect = (
     groupId: string,
     optionId: string,
-    isMultiple: boolean
+    isMultiple: boolean,
   ) => {
     setSelectedOptions((prev) => {
       const current = prev[groupId] || [];
@@ -153,25 +155,50 @@ export default function MenuItemModal({
   const nutritionFacts = [
     { label: "Serving Size", value: viewItem.serving_size },
     { label: "Calories", value: viewItem.calories },
-    { label: "Protein", value: viewItem.protein ? `${viewItem.protein} g` : undefined },
-    { label: "Carbs", value: viewItem.carbs ? `${viewItem.carbs} g` : undefined },
+    {
+      label: "Protein",
+      value: viewItem.protein ? `${viewItem.protein} g` : undefined,
+    },
+    {
+      label: "Carbs",
+      value: viewItem.carbs ? `${viewItem.carbs} g` : undefined,
+    },
     { label: "Fat", value: viewItem.fat ? `${viewItem.fat} g` : undefined },
-    { label: "Fiber", value: viewItem.fiber ? `${viewItem.fiber} g` : undefined },
-    { label: "Sugar", value: viewItem.sugar ? `${viewItem.sugar} g` : undefined },
-    { label: "Sodium", value: viewItem.sodium ? `${viewItem.sodium} mg` : undefined },
+    {
+      label: "Fiber",
+      value: viewItem.fiber ? `${viewItem.fiber} g` : undefined,
+    },
+    {
+      label: "Sugar",
+      value: viewItem.sugar ? `${viewItem.sugar} g` : undefined,
+    },
+    {
+      label: "Sodium",
+      value: viewItem.sodium ? `${viewItem.sodium} mg` : undefined,
+    },
   ].filter((item) => item.value !== undefined && item.value !== null);
 
-  const hasNutritionFacts = nutritionFacts.length > 0 || (viewItem.allergens?.length ?? 0) > 0;
+  const hasNutritionFacts =
+    nutritionFacts.length > 0 || (viewItem.allergens?.length ?? 0) > 0;
 
-  const availableStock = viewItem?.is_trackable ? Math.max(0, Number(viewItem.current_stock ?? 0)) : null;
-  const isSoldOut = viewItem?.availability === false || (viewItem?.is_trackable && availableStock === 0);
+  const availableStock = viewItem?.is_trackable
+    ? Math.max(0, Number(viewItem.current_stock ?? 0))
+    : null;
+  const isSoldOut =
+    viewItem?.availability === false ||
+    (viewItem?.is_trackable && availableStock === 0);
   const enteredQty = parseInt(qtyInput, 10);
   const showQuantityWarning =
-    availableStock !== null && !Number.isNaN(enteredQty) && enteredQty > availableStock;
+    availableStock !== null &&
+    !Number.isNaN(enteredQty) &&
+    enteredQty > availableStock;
 
   const handleQtyChange = (nextQty: number) => {
     const normalizedQty = Math.max(1, nextQty);
-    const adjustedQty = availableStock !== null ? Math.min(normalizedQty, availableStock) : normalizedQty;
+    const adjustedQty =
+      availableStock !== null
+        ? Math.min(normalizedQty, availableStock)
+        : normalizedQty;
     setQty(adjustedQty);
     setQtyInput(String(adjustedQty));
   };
@@ -186,7 +213,8 @@ export default function MenuItemModal({
     if (Number.isNaN(parsedQty)) return;
 
     setQtyInput(value);
-    const adjustedQty = availableStock !== null ? Math.min(parsedQty, availableStock) : parsedQty;
+    const adjustedQty =
+      availableStock !== null ? Math.min(parsedQty, availableStock) : parsedQty;
     setQty(Math.max(1, adjustedQty));
   };
 
@@ -201,12 +229,16 @@ export default function MenuItemModal({
       }
 
       if (count < group.min_select) {
-        alert(`Select at least ${group.min_select} option(s) for "${group.name}"`);
+        alert(
+          `Select at least ${group.min_select} option(s) for "${group.name}"`,
+        );
         return false;
       }
 
       if (count > group.max_select) {
-        alert(`Select at most ${group.max_select} option(s) for "${group.name}"`);
+        alert(
+          `Select at most ${group.max_select} option(s) for "${group.name}"`,
+        );
         return false;
       }
     }
@@ -218,8 +250,8 @@ export default function MenuItemModal({
     if (!viewItem || !onAddToCart) return;
 
     const hasAddons =
-        optionGroups.length > 0 &&
-        optionGroups.some((group) => group.menu_item_options?.length > 0);
+      optionGroups.length > 0 &&
+      optionGroups.some((group) => group.menu_item_options?.length > 0);
 
     if (hasAddons && !validateSelections()) return;
 
@@ -252,11 +284,13 @@ export default function MenuItemModal({
           };
         })
         .filter(
-          (opt): opt is {
+          (
+            opt,
+          ): opt is {
             group_name: string;
             option_name: string;
             price_modifier: number;
-          } => opt !== null
+          } => opt !== null,
         );
     });
 
@@ -281,75 +315,83 @@ export default function MenuItemModal({
   if (!viewItem) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-3">
-      <div className="w-full max-w-lg h-[85vh] rounded-[28px] border border-blue-200/50 bg-white shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-2 sm:p-3">
+      <div className="w-full max-w-lg max-h-[90vh] rounded-lg sm:rounded-[28px] border border-blue-200/50 bg-white shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="shrink-0 bg-blue-600 px-4 py-3 flex items-center justify-between">
-          <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+        <div className="shrink-0 bg-blue-600 px-2 py-2 sm:px-4 sm:py-3 flex items-center justify-between">
+          <h3 className="text-sm sm:text-lg font-bold text-white tracking-tight truncate">
             {viewItem.name}
           </h3>
           <button
             onClick={() => setViewItem(null)}
-            className="rounded-lg border border-white px-2 py-1 text-[11px] font-semibold text-white hover:bg-white hover:text-blue-600 transition"
+            className="rounded-lg border border-white px-1.5 py-0.5 sm:px-2 sm:py-1 text-xs sm:text-[11px] font-semibold text-white hover:bg-white hover:text-blue-600 transition flex-shrink-0 ml-2"
           >
             ✖
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-2 sm:space-y-4">
           {/* Item Image & Nutrition Info */}
-          <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
-            <div className="w-full rounded-2xl border border-gray-300 bg-gray-100 overflow-hidden flex-shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-2 sm:gap-4">
+            <div className="w-full rounded-lg sm:rounded-2xl border border-gray-300 bg-gray-100 overflow-hidden flex-shrink-0">
               {viewItem.image_url ? (
                 <img
                   src={viewItem.image_url}
                   alt={viewItem.name}
-                  className="h-full w-full object-cover min-h-[180px]"
-                  style={{ objectPosition: viewItem.image_position || "center" }}
+                  className="h-full w-full object-cover min-h-[120px] sm:min-h-[180px]"
+                  style={{
+                    objectPosition: viewItem.image_position || "center",
+                  }}
                 />
               ) : (
-                <div className="flex min-h-[180px] items-center justify-center text-xs font-semibold text-gray-500">
+                <div className="flex min-h-[120px] sm:min-h-[180px] items-center justify-center text-xs font-semibold text-gray-500">
                   No image
                 </div>
               )}
             </div>
 
-            <div className="rounded-3xl border border-gray-200 bg-slate-50 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold text-slate-900 mb-2">Nutrition Facts</p>
+            <div className="rounded-xl sm:rounded-3xl border border-gray-200 bg-slate-50 p-2 sm:p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-slate-900 mb-1 sm:mb-2">
+                  Nutrition Facts
+                </p>
                 <button
                   type="button"
                   onClick={() => setShowNutritionMobile((prev) => !prev)}
-                  className="sm:hidden rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
+                  className="sm:hidden rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-slate-700 hover:bg-slate-100"
                 >
                   {showNutritionMobile ? "Hide" : "Show"}
                 </button>
               </div>
-              <div className={`${showNutritionMobile ? "block" : "hidden"} sm:block`}>
+              <div
+                className={`${showNutritionMobile ? "block" : "hidden"} sm:block`}
+              >
                 {hasNutritionFacts ? (
                   <>
-                    <div className="grid gap-1 grid-cols-2 text-[11px] text-gray-700">
+                    <div className="grid gap-0.5 sm:gap-1 grid-cols-2 text-[10px] sm:text-[11px] text-gray-700">
                       {nutritionFacts.map((fact) => (
                         <div key={fact.label}>
-                          <p className="text-[9px] text-gray-500 uppercase tracking-[0.25em]">
+                          <p className="text-[8px] sm:text-[9px] text-gray-500 uppercase tracking-[0.2em]">
                             {fact.label}
                           </p>
-                          <p className="mt-0.5 font-semibold text-[11px]">{fact.value}</p>
+                          <p className="mt-0 sm:mt-0.5 font-semibold text-[9px] sm:text-[11px]">
+                            {fact.value}
+                          </p>
                         </div>
                       ))}
                     </div>
 
                     {viewItem.allergens?.length ? (
-                      <div className="mt-3 rounded-2xl bg-white p-3 border border-gray-200">
-                        <p className="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-2">
+                      <div className="mt-1 sm:mt-3 rounded-lg sm:rounded-2xl bg-white p-2 sm:p-3 border border-gray-200">
+                        <p className="text-[8px] sm:text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1 sm:mb-2">
                           Allergens
                         </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1">
                           {viewItem.allergens.map((allergen) => (
                             <span
                               key={allergen}
-                              className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700"
+                              className="rounded-full bg-red-50 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[8px] sm:text-[10px] font-semibold text-red-700"
                             >
                               {allergen}
                             </span>
@@ -359,38 +401,39 @@ export default function MenuItemModal({
                     ) : null}
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-3 text-sm text-gray-500">
+                  <div className="rounded-lg sm:rounded-2xl border border-gray-200 bg-white p-2 sm:p-3 text-xs sm:text-sm text-gray-500">
                     No nutrition facts available for this item.
                   </div>
                 )}
               </div>
+            </div>
           </div>
 
-          <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg sm:rounded-3xl border border-gray-200 bg-white p-2 sm:p-4 shadow-sm">
+            <div className="grid gap-2 sm:gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
+                <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                   Base Price
                 </p>
-                <p className="text-2xl sm:text-3xl font-black text-blue-600 mt-2">
+                <p className="text-xl sm:text-3xl font-black text-blue-600 mt-1 sm:mt-2">
                   ₱{viewItem.price}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
+                <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                   Category
                 </p>
-                <p className="text-sm sm:text-base text-gray-700 font-semibold mt-2">
+                <p className="text-xs sm:text-base text-gray-700 font-semibold mt-1 sm:mt-2">
                   {viewItem.category || "Unknown"}
                 </p>
               </div>
             </div>
 
-            <div className="mt-4">
-              <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
+            <div className="mt-2 sm:mt-4">
+              <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                 Description
               </p>
-              <p className="text-sm sm:text-base text-gray-700 leading-6 mt-2">
+              <p className="text-xs sm:text-base text-gray-700 leading-4 sm:leading-6 mt-1 sm:mt-2">
                 {viewItem.description ||
                   viewItem.menu_desc ||
                   "No description available."}
@@ -399,229 +442,257 @@ export default function MenuItemModal({
           </div>
 
           {/* Option Groups (stable - no flicker) */}
-          <div className="space-y-4 border-t border-gray-200 pt-4 min-h-[200px]">
-            {isLoadingOptions ? (
-              // ✅ LOADING SKELETON (prevents layout jump)
-              <div className="space-y-3">
-                <div className="h-4 w-40 bg-gray-200 rounded" />
-                <div className="h-16 bg-gray-200 rounded-2xl" />
-                <div className="h-16 bg-gray-200 rounded-2xl" />
-              </div>
-            ) : hasAddons ? (
-              // ✅ REAL ADDONS
-              <>
-                <div>
-                  <h4 className="text-base font-bold text-slate-900">
-                    Customize Your Order
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Tap add-ons to select or deselect them. Multiple selections
-                    are allowed where available.
-                  </p>
+          {(isLoadingOptions || hasAddons) && (
+            <div
+              className={`space-y-2 sm:space-y-4 border-t border-gray-200 pt-2 sm:pt-4 ${isLoadingOptions || hasAddons ? "min-h-[200px]" : ""}`}
+            >
+              {isLoadingOptions ? (
+                // ✅ LOADING SKELETON (prevents layout jump)
+                <div className="space-y-2">
+                  <div className="h-3 w-32 bg-gray-200 rounded" />
+                  <div className="h-12 bg-gray-200 rounded-lg" />
+                  <div className="h-12 bg-gray-200 rounded-lg" />
                 </div>
+              ) : hasAddons ? (
+                // ✅ REAL ADDONS
+                <>
+                  <div>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                      Customize Your Order
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">
+                      Tap add-ons to select or deselect them. Multiple
+                      selections are allowed where available.
+                    </p>
+                  </div>
 
-                {optionGroups.map((group) => {
-                  const isMultiple = group.max_select > 1;
-                  const selectedCount = (selectedOptions[group.id] || []).length;
+                  {optionGroups.map((group) => {
+                    const isMultiple = group.max_select > 1;
+                    const selectedCount = (selectedOptions[group.id] || [])
+                      .length;
 
-                  return (
-                    <div
-                      key={group.id}
-                      className="border border-gray-300 rounded-2xl p-4 bg-gray-50"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div>
-                          <h5 className="font-semibold text-slate-900 text-sm">
-                            {group.name}
-                          </h5>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            {group.is_required ? "Required" : "Optional"}
-                            {isMultiple && ` • Select up to ${group.max_select}`}
-                          </p>
+                    return (
+                      <div
+                        key={group.id}
+                        className="border border-gray-300 rounded-lg sm:rounded-2xl p-2 sm:p-4 bg-gray-50"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
+                          <div>
+                            <h5 className="font-semibold text-slate-900 text-xs sm:text-sm">
+                              {group.name}
+                            </h5>
+                            <p className="text-[9px] sm:text-[11px] text-gray-500 mt-0.5 sm:mt-1">
+                              {group.is_required ? "Required" : "Optional"}
+                              {isMultiple &&
+                                ` • Select up to ${group.max_select}`}
+                            </p>
+                          </div>
+                          <span className="text-[9px] sm:text-[11px] bg-gray-200 text-gray-700 font-semibold px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full flex-shrink-0">
+                            {selectedCount}/{group.max_select}
+                          </span>
                         </div>
-                        <span className="text-[11px] bg-gray-200 text-gray-700 font-semibold px-2 py-1 rounded-full">
-                          {selectedCount}/{group.max_select}
-                        </span>
-                      </div>
 
-                      <div className="space-y-2">
-                        {group.menu_item_options.map((option) => {
-                          const isSelected = (
-                            selectedOptions[group.id] || []
-                          ).includes(option.id);
+                        <div className="space-y-1 sm:space-y-2">
+                          {group.menu_item_options.map((option) => {
+                            const isSelected = (
+                              selectedOptions[group.id] || []
+                            ).includes(option.id);
 
-                          const isDisabled = !option.is_available;
+                            const isDisabled = !option.is_available;
 
-                          return (
-                            <label
-                              key={option.id}
-                              className={`flex items-center gap-3 p-3 border rounded-2xl cursor-pointer ${
-                                !option.is_available
-                                  ? "opacity-50 cursor-not-allowed border-gray-300 bg-white"
-                                  : isSelected
-                                  ? "border-blue-600 bg-blue-50"
-                                  : "border-gray-300 bg-white hover:border-gray-400"
-                              }`}
-                            >
-                              <input
-                                type={isMultiple ? "checkbox" : "radio"}
-                                checked={isSelected}
-                                onChange={() =>
-                                  !isDisabled &&
-                                  handleOptionSelect(
-                                    group.id,
-                                    option.id,
-                                    isMultiple
-                                  )
-                                }
-                                disabled={isDisabled}
-                                className="w-4 h-4 rounded accent-blue-600"
-                              />
+                            return (
+                              <label
+                                key={option.id}
+                                className={`flex items-center gap-2 p-2 sm:p-3 border rounded-lg sm:rounded-2xl cursor-pointer ${
+                                  !option.is_available
+                                    ? "opacity-50 cursor-not-allowed border-gray-300 bg-white"
+                                    : isSelected
+                                      ? "border-blue-600 bg-blue-50"
+                                      : "border-gray-300 bg-white hover:border-gray-400"
+                                }`}
+                              >
+                                <input
+                                  type={isMultiple ? "checkbox" : "radio"}
+                                  checked={isSelected}
+                                  onChange={() =>
+                                    !isDisabled &&
+                                    handleOptionSelect(
+                                      group.id,
+                                      option.id,
+                                      isMultiple,
+                                    )
+                                  }
+                                  disabled={isDisabled}
+                                  className="w-4 h-4 rounded accent-blue-600 flex-shrink-0"
+                                />
 
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {option.name}
-                                </p>
-                                {!option.is_available && (
-                                  <p className="text-[11px] text-red-600 font-semibold">
-                                    Not Available
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
+                                    {option.name}
                                   </p>
-                                )}
-                              </div>
+                                  {!option.is_available && (
+                                    <p className="text-[9px] sm:text-[11px] text-red-600 font-semibold">
+                                      Not Available
+                                    </p>
+                                  )}
+                                </div>
 
-                              <div className="text-right">
-                                <p className="text-sm font-semibold text-slate-900">
-                                  {option.price_modifier > 0
-                                    ? `+₱${option.price_modifier}`
-                                    : option.price_modifier < 0
-                                    ? `₱${option.price_modifier}`
-                                    : "Free"}
-                                </p>
-                              </div>
-                            </label>
-                          );
-                        })}
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-xs sm:text-sm font-semibold text-slate-900">
+                                    {option.price_modifier > 0
+                                      ? `+₱${option.price_modifier}`
+                                      : option.price_modifier < 0
+                                        ? `₱${option.price_modifier}`
+                                        : "Free"}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Sticky Footer — Price Breakdown & Add to Cart */}
-        <div className="shrink-0 border-t border-gray-200 bg-white p-4 space-y-3">
-          {hasAddons && addonsTotal !== 0 && (
-            <>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Base Price</span>
-                <span className="font-semibold">₱{viewItem.price}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Addons</span>
-                <span
-                  className={`font-semibold ${
-                    addonsTotal > 0 ? "text-blue-600" : "text-green-600"
-                  }`}
-                >
-                  {addonsTotal > 0
-                    ? `+₱${addonsTotal}`
-                    : `₱${addonsTotal}`}
-                </span>
-              </div>
-            </>
+                    );
+                  })}
+                </>
+              ) : null}
+            </div>
           )}
 
-          <div className="flex items-center justify-between bg-gray-100 px-4 py-3 rounded-2xl">
-                <span className="font-semibold text-slate-900">Total</span>
-                <span className="text-2xl font-black text-blue-600">
-                  ₱{totalPrice}
-                </span>
-              </div>
-          <div className="space-y-2">
-            {/* Inventory Status Display */}
-            {viewItem.is_trackable && (
-              <div
-                className={`rounded-lg px-3 py-2 text-sm font-semibold flex items-center gap-2 ${
-                  availableStock === 0
-                    ? "bg-red-50 text-red-700 border border-red-200"
-                    : availableStock && availableStock <= 5
-                    ? "bg-orange-50 text-orange-700 border border-orange-200"
-                    : "bg-green-50 text-green-700 border border-green-200"
-                }`}
-              >
-                <span className="text-lg">
-                  {availableStock === 0 ? "🚫" : availableStock && availableStock <= 5 ? "⚠️" : "✓"}
-                </span>
-                <span>
-                  {InventoryManager.getStockLabel(availableStock, true)}
-                </span>
-              </div>
-            )}
-
-            {showQuantityWarning && (
-              <p className="text-sm text-red-600 font-semibold">
-                You entered more than available stock. Only {availableStock} item(s) can be added.
-              </p>
-            )}
-
-            <div className="grid gap-3 sm:hidden">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-700 flex flex-col gap-2 items-center">
-                <span className="text-[11px] uppercase tracking-[0.12em] text-slate-600">Qty</span>
-                <div className="flex items-center gap-1 text-sm font-semibold">
-                  <button
-                    onClick={() => handleQtyChange(qty - 1)}
-                    disabled={qty <= 1}
-                    className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+          {/* Sticky Footer — Price Breakdown & Add to Cart */}
+          <div className="shrink-0 border-t border-gray-200 bg-white p-2 sm:p-4 space-y-2 sm:space-y-3">
+            {hasAddons && addonsTotal !== 0 && (
+              <>
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="text-gray-600">Base Price</span>
+                  <span className="font-semibold">₱{viewItem.price}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="text-gray-600">Addons</span>
+                  <span
+                    className={`font-semibold ${
+                      addonsTotal > 0 ? "text-blue-600" : "text-green-600"
+                    }`}
                   >
-                    -
+                    {addonsTotal > 0 ? `+₱${addonsTotal}` : `₱${addonsTotal}`}
+                  </span>
+                </div>
+              </>
+            )}
+
+            <div className="flex items-center justify-between bg-gray-100 px-2 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-2xl">
+              <span className="font-semibold text-slate-900 text-xs sm:text-base">
+                Total
+              </span>
+              <span className="text-lg sm:text-2xl font-black text-blue-600">
+                ₱{totalPrice}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {viewItem.is_trackable && (
+                <div
+                  className={`hidden sm:flex rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold items-center gap-2 ${
+                    availableStock === 0
+                      ? "bg-red-50 text-red-700 border border-red-200"
+                      : availableStock && availableStock <= 5
+                        ? "bg-orange-50 text-orange-700 border border-orange-200"
+                        : "bg-green-50 text-green-700 border border-green-200"
+                  }`}
+                >
+                  <span className="text-lg">
+                    {availableStock === 0
+                      ? "🚫"
+                      : availableStock && availableStock <= 5
+                        ? "⚠️"
+                        : "✓"}
+                  </span>
+                  <span>
+                    {InventoryManager.getStockLabel(availableStock, true)}
+                  </span>
+                </div>
+              )}
+
+              {showQuantityWarning && (
+                <p className="text-xs sm:text-sm text-red-600 font-semibold">
+                  You entered more than available stock. Only {availableStock}{" "}
+                  item(s) can be added.
+                </p>
+              )}
+
+              <div className="flex flex-col gap-2 sm:hidden">
+                <div className="flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+                  {viewItem.is_trackable ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">
+                        {availableStock === 0
+                          ? "🚫"
+                          : availableStock && availableStock <= 5
+                            ? "⚠️"
+                            : "✓"}
+                      </span>
+                      <span>
+                        {InventoryManager.getStockLabel(availableStock, true)}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-600">Qty</span>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleQtyChange(qty - 1)}
+                      disabled={qty <= 1}
+                      className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50 text-sm"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={availableStock ?? undefined}
+                      value={qtyInput}
+                      onChange={(e) => handleQtyInputChange(e.target.value)}
+                      className="w-14 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
+                    />
+                    <button
+                      onClick={() => handleQtyChange(qty + 1)}
+                      disabled={
+                        availableStock !== null && qty >= availableStock
+                      }
+                      className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50 text-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setViewItem(null)}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Cancel
                   </button>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={availableStock ?? undefined}
-                    value={qtyInput}
-                    onChange={(e) => handleQtyInputChange(e.target.value)}
-                    className="w-20 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
-                  />
                   <button
-                    onClick={() => handleQtyChange(qty + 1)}
-                    disabled={availableStock !== null && qty >= availableStock}
-                    className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={handleAddToCart}
+                    disabled={isSoldOut}
+                    className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold text-white transition ${
+                      isSoldOut
+                        ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
                   >
-                    +
+                    {isSoldOut ? (
+                      <span className="flex items-center justify-center gap-1">
+                        <span>🚫</span> Out of Stock
+                      </span>
+                    ) : (
+                      `Add ₱${totalPrice.toFixed(2)}`
+                    )}
                   </button>
                 </div>
               </div>
 
-              <button
-                onClick={() => setViewItem(null)}
-                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddToCart}
-                disabled={isSoldOut}
-                className={`w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${
-                  isSoldOut
-                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                }`}
-              >
-                {isSoldOut ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span>🚫</span> Out of Stock
-                  </span>
-                ) : (
-                  `Add ₱${totalPrice.toFixed(2)}`
-                )}
-              </button>
-            </div>
-
-              {/* Desktop layout */}
               <div className="hidden sm:grid sm:grid-cols-[auto_minmax(140px,1fr)_auto] sm:items-center sm:gap-3">
                 <button
                   onClick={() => setViewItem(null)}
@@ -630,7 +701,9 @@ export default function MenuItemModal({
                   Cancel
                 </button>
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-700 flex flex-col gap-2 items-center sm:flex-row sm:items-center sm:justify-between w-full max-w-[180px]">
-                  <span className="text-[11px] uppercase tracking-[0.12em] text-slate-600">Qty</span>
+                  <span className="text-[11px] uppercase tracking-[0.12em] text-slate-600">
+                    Qty
+                  </span>
                   <div className="flex items-center gap-1 text-sm font-semibold">
                     <button
                       onClick={() => handleQtyChange(qty - 1)}
@@ -650,7 +723,9 @@ export default function MenuItemModal({
                     />
                     <button
                       onClick={() => handleQtyChange(qty + 1)}
-                      disabled={availableStock !== null && qty >= availableStock}
+                      disabled={
+                        availableStock !== null && qty >= availableStock
+                      }
                       className="w-7 h-7 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       +
@@ -682,4 +757,3 @@ export default function MenuItemModal({
     </div>
   );
 }
-

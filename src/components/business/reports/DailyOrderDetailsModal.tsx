@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useMemo } from "react";
+
 export interface DailySalesOrderRow {
   id: string;
   total_amount: number;
@@ -43,6 +45,21 @@ export default function DailyOrderDetailsModal({
   onOpenOrderDetail,
   formatCurrency,
 }: DailyOrderDetailsModalProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  const paginatedOrders = useMemo(() => {
+    if (!daily) return [];
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return daily.orders.slice(startIndex, endIndex);
+  }, [daily, currentPage]);
+
+  const totalPages = useMemo(() => {
+    if (!daily) return 1;
+    return Math.ceil(daily.orders.length / ITEMS_PER_PAGE);
+  }, [daily]);
+
   if (!isOpen || !daily) return null;
 
   return (
@@ -90,7 +107,7 @@ export default function DailyOrderDetailsModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {daily.orders.map((order) => (
+                    {paginatedOrders.map((order) => (
                       <tr key={order.id} className="hover:bg-slate-50">
                         <td className="px-4 py-3 text-slate-900">{order.id.slice(0, 8)}</td>
                         <td className="px-4 py-3 text-slate-600">
@@ -118,6 +135,43 @@ export default function DailyOrderDetailsModal({
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 sm:px-6 flex items-center justify-between gap-3">
+            <div className="text-sm text-slate-600">
+              Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, daily.orders.length)} to {Math.min(currentPage * ITEMS_PER_PAGE, daily.orders.length)} of {daily.orders.length} orders
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
+                      currentPage === page
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>

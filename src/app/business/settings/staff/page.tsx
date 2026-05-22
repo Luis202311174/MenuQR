@@ -38,6 +38,8 @@ export default function StaffManagementPage() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<StaffAccount | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [formState, setFormState] = useState({
     fullName: "",
     email: "",
@@ -102,8 +104,14 @@ export default function StaffManagementPage() {
 
   useEffect(() => {
     if (!auth.checked || !canManageStaff) return;
+    setCurrentPage(1);
     loadAccounts();
   }, [auth.checked, canManageStaff, search, roleFilter]);
+
+  useEffect(() => {
+    // reset page when accounts or filters change
+    setCurrentPage(1);
+  }, [accounts.length, search, roleFilter]);
 
   const openCreateModal = () => {
     setEditingAccount(null);
@@ -347,7 +355,11 @@ export default function StaffManagementPage() {
                   </td>
                 </tr>
               ) : (
-                accounts.map((account) => (
+                (() => {
+                  const totalPages = Math.max(1, Math.ceil(accounts.length / ITEMS_PER_PAGE));
+                  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                  const paginated = accounts.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+                  return paginated.map((account) => (
                   <tr key={account.id}>
                     <td className="px-4 py-4 text-slate-900">{account.full_name}</td>
                     <td className="px-4 py-4 text-slate-700">{account.email}</td>
@@ -373,10 +385,35 @@ export default function StaffManagementPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  ));
+                })()
               )}
             </tbody>
           </table>
+          <div className="border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Showing <span className="font-medium">{Math.min((currentPage-1)*ITEMS_PER_PAGE+1, accounts.length || 0)}</span> to <span className="font-medium">{Math.min(currentPage*ITEMS_PER_PAGE, accounts.length)}</span> of <span className="font-medium">{accounts.length}</span> results
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p-1))}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <div className="text-sm text-slate-700">Page {currentPage} / {Math.max(1, Math.ceil(accounts.length / ITEMS_PER_PAGE))}</div>
+                <button
+                  disabled={currentPage >= Math.ceil(accounts.length / ITEMS_PER_PAGE)}
+                  onClick={() => setCurrentPage((p) => Math.min(Math.ceil(accounts.length / ITEMS_PER_PAGE), p+1))}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

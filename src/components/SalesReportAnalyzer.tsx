@@ -25,7 +25,7 @@ interface SalesReportAnalyzerSummary {
   averageOrderValue: number;
   bestSellers: { name: string; count: number }[];
   leastSellers: { name: string; count: number }[];
-  suggestions: string[];
+  suggestions: Array<{ items: string[]; count: number; text: string; type: 'combo' | 'promotion' }>;
 }
 
 interface SalesReportAnalyzerProps {
@@ -109,6 +109,7 @@ export default function SalesReportAnalyzer({
         items: pair.items,
         count: pair.count,
         text: `"${pair.items[0]}" + "${pair.items[1]}"`,
+        type: 'combo',
       }));
 
       if (suggestions.length === 0 && Object.values(itemPairCounts).length > 0) {
@@ -120,7 +121,51 @@ export default function SalesReportAnalyzer({
           items: pair.items,
           count: pair.count,
           text: `"${pair.items[0]}" + "${pair.items[1]}"`,
+          type: 'combo',
         }));
+      }
+
+      // Generate promotional suggestions when no combo patterns are found
+      if (suggestions.length === 0 && bestSellers.length > 0) {
+        const promotionalSuggestions = [];
+        
+        // Buy 1 Take 1 on top seller
+        promotionalSuggestions.push({
+          items: [bestSellers[0].name],
+          count: bestSellers[0].count,
+          text: `Buy 1 Take 1 promotion on "${bestSellers[0].name}"`,
+          type: 'promotion',
+        });
+
+        // Bundle best sellers
+        if (bestSellers.length >= 2) {
+          promotionalSuggestions.push({
+            items: [bestSellers[0].name, bestSellers[1].name],
+            count: 0,
+            text: `Bundle "${bestSellers[0].name}" with "${bestSellers[1].name}" at a discounted price`,
+            type: 'promotion',
+          });
+        }
+
+        // Promote low sellers with top seller
+        if (leastSellers.length > 0) {
+          promotionalSuggestions.push({
+            items: [bestSellers[0].name, leastSellers[0].name],
+            count: 0,
+            text: `Create a combo: Buy "${bestSellers[0].name}" get "${leastSellers[0].name}" at 50% off`,
+            type: 'promotion',
+          });
+        }
+
+        // Quantity discount on top seller
+        promotionalSuggestions.push({
+          items: [bestSellers[0].name],
+          count: 0,
+          text: `Offer quantity discounts on "${bestSellers[0].name}" (e.g., Buy 2 Get 10% Off)`,
+          type: 'promotion',
+        });
+
+        suggestions = promotionalSuggestions;
       }
 
       return {
@@ -341,7 +386,7 @@ export default function SalesReportAnalyzer({
             <div className="bg-blue-100 rounded-full p-2 mr-3">
               <FontAwesomeIcon icon={faLightbulb} className="text-blue-600" />
             </div>
-            Combo Recommendations
+            {currentAnalysis.suggestions.some(s => s.type === 'promotion') ? 'Growth Suggestions' : 'Combo Recommendations'}
           </h3>
           <div className="space-y-3">
             {currentAnalysis.suggestions.map((suggestion, index) => (
@@ -357,10 +402,14 @@ export default function SalesReportAnalyzer({
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900 mb-1">
-                      Create a bundle: {suggestion.text}
+                      {suggestion.type === 'combo' ? 'Create a bundle: ' : ''}{suggestion.text}
                     </p>
                     <p className="text-sm text-slate-600">
-                      These items are frequently purchased together ({suggestion.count} times). Bundle them to increase AOV and customer satisfaction.
+                      {suggestion.type === 'combo' 
+                        ? `These items are frequently purchased together (${suggestion.count} times). Bundle them to increase AOV and customer satisfaction.`
+                        : suggestion.type === 'promotion'
+                        ? 'This promotional strategy can help increase sales and customer engagement.'
+                        : 'Implement this strategy to boost revenue.'}
                     </p>
                   </div>
                 </div>
@@ -370,12 +419,12 @@ export default function SalesReportAnalyzer({
         </div>
       )}
 
-      {/* Empty State for Suggestions */}
+      {/* Empty State for Suggestions - Only show if absolutely no data */}
       {currentAnalysis.suggestions.length === 0 && currentAnalysis.totalOrders > 0 && (
         <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-6 text-center">
           <FontAwesomeIcon icon={faLightbulb} className="text-slate-400 text-2xl mb-2" />
           <p className="text-slate-600 text-sm">
-            No strong combo patterns found in this period. If your selected range contains mostly single-item sales, bundle recommendations will appear when multi-item orders are present.
+            Not enough data to generate suggestions at this time.
           </p>
         </div>
       )}

@@ -2,7 +2,17 @@
 
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faX, faChevronLeft, faChevronRight, faCheck, faShoppingCart, faTag, faUsers, faCreditCard, faClipboardList } from "@fortawesome/free-solid-svg-icons";
+import {
+  faX,
+  faChevronLeft,
+  faChevronRight,
+  faCheck,
+  faShoppingCart,
+  faTag,
+  faUsers,
+  faCreditCard,
+  faClipboardList,
+} from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/supabaseClient";
 
 type CartItem = {
@@ -20,7 +30,12 @@ type CartItem = {
   }[];
 };
 
-type CheckoutStep = "cart-review" | "discount" | "guests" | "payment" | "summary";
+type CheckoutStep =
+  | "cart-review"
+  | "discount"
+  | "guests"
+  | "payment"
+  | "summary";
 
 type SubmittedOrderDetails = {
   discountType: "none" | "senior" | "pwd" | "promo";
@@ -97,7 +112,9 @@ export default function CheckoutModal({
   orderInProgressMessage = null,
 }: CheckoutModalProps) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("cart-review");
-  const [discountType, setDiscountType] = useState<"none" | "senior" | "pwd" | "promo">("none");
+  const [discountType, setDiscountType] = useState<
+    "none" | "senior" | "pwd" | "promo"
+  >("none");
   const [totalGuests, setTotalGuests] = useState(1);
   const [seniorCount, setSeniorCount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "gcash">("cash");
@@ -105,46 +122,12 @@ export default function CheckoutModal({
   const [cartError, setCartError] = useState<string | null>(null);
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const [promoCode, setPromoCode] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; couponId?: string } | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string;
+    discount: number;
+    couponId?: string;
+  } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
-
-  const getOrCreateRewardCoupon = async () => {
-    if (!rewardEligible || rewardCouponValue <= 0 || !business?.id) return null;
-
-    const customCode = (business?.milestone_custom_code ?? business?.reward_custom_code ?? '').trim().toUpperCase() || undefined;
-    const expiresAt = business?.milestone_coupon_expires_at ?? business?.reward_coupon_expires_at ?? null;
-    const description = business?.milestone_coupon_description ?? business?.reward_coupon_description ?? 'Reward coupon for your next order';
-    const usageLimit = Number(business?.milestone_coupon_usage_limit ?? business?.reward_coupon_usage_limit ?? 1) || 1;
-
-    try {
-      const response = await fetch("/api/reward-coupons", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          businessId: business.id,
-          discountType: rewardCouponType,
-          discountValue: rewardCouponValue,
-          description,
-          usageLimit,
-          expiresAt,
-          customCode,
-        }),
-      });
-
-      if (!response.ok) {
-        const bodyText = await response.text();
-        console.error("Reward coupon API error:", response.status, bodyText);
-        return null;
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Reward coupon API request failed:", error);
-      return null;
-    }
-  };
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -156,28 +139,35 @@ export default function CheckoutModal({
     setAppliedPromo(null);
 
     if (!business?.id) {
-      setPromoError("Unable to validate promo code without business information.");
+      setPromoError(
+        "Unable to validate promo code without business information.",
+      );
       return;
     }
 
     try {
       // Call Supabase function to validate coupon
-      const { data, error } = await supabase.rpc('validate_and_apply_coupon', {
+      const { data, error } = await supabase.rpc("validate_and_apply_coupon", {
         p_coupon_code: promoCode.trim(),
         p_business_id: business.id,
         p_order_total: cartTotal,
       });
 
       if (error) {
-        console.error("Supabase coupon RPC error:", error, { promoCode, businessId: business.id });
+        console.error("Supabase coupon RPC error:", error, {
+          promoCode,
+          businessId: business.id,
+        });
         setAppliedPromo(null);
-        setPromoError(error.message || "Error validating coupon. Please try again.");
+        setPromoError(
+          error.message || "Error validating coupon. Please try again.",
+        );
         return;
       }
 
       const normalizedData = (() => {
         if (data == null) return null;
-        if (typeof data === 'string') {
+        if (typeof data === "string") {
           try {
             return JSON.parse(data);
           } catch {
@@ -190,7 +180,7 @@ export default function CheckoutModal({
         return data;
       })();
 
-      if (!normalizedData || typeof normalizedData !== 'object') {
+      if (!normalizedData || typeof normalizedData !== "object") {
         console.error("Unexpected coupon validation response:", data);
         setPromoError("Invalid coupon validation response. Please try again.");
         return;
@@ -208,7 +198,10 @@ export default function CheckoutModal({
         setPromoError(normalizedData.message || "Invalid coupon code");
       }
     } catch (error: any) {
-      console.error("Error validating coupon:", error, { promoCode, businessId: business?.id });
+      console.error("Error validating coupon:", error, {
+        promoCode,
+        businessId: business?.id,
+      });
       setAppliedPromo(null);
       setPromoError("Error validating coupon. Please try again.");
     }
@@ -223,34 +216,40 @@ export default function CheckoutModal({
     business?.reward_coupon_redemption_minimum ??
     business?.milestone_coupon_redemption_minimum ??
     0;
-  const rewardPromoEnabled = business?.milestone_promo_enabled ?? business?.reward_promo_enabled;
-  const rewardCouponType = business?.milestone_coupon_discount_type ?? business?.reward_coupon_discount_type ?? "percentage";
-  const rewardCouponValue = Number(business?.milestone_coupon_discount_value ?? business?.reward_coupon_discount_value ?? 0);
-  const rewardQualifierLabel = rewardCouponType === "fixed"
-    ? `₱${rewardCouponValue.toFixed(2)} OFF`
-    : `${rewardCouponValue}% OFF`;
-  const rewardEligible = Boolean(rewardPromoEnabled && cartTotal >= rewardThreshold);
-  const autoRewardDiscount = rewardEligible
-    ? rewardCouponType === "fixed"
-      ? rewardCouponValue
-      : Math.round(cartTotal * (rewardCouponValue / 100) * 100) / 100
-    : 0;
-  const rewardBannerClass = "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900";
-  const effectiveDiscountType = rewardEligible && discountType === "none" ? "promo" : discountType;
+  const rewardPromoEnabled =
+    business?.milestone_promo_enabled ?? business?.reward_promo_enabled;
+  const rewardEligible = Boolean(
+    rewardPromoEnabled && cartTotal >= rewardThreshold,
+  );
+  const rewardBannerClass =
+    "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900";
+  const effectiveDiscountType = discountType;
 
   let discountAmount = 0;
   if (discountType === "senior" || discountType === "pwd") {
-    discountAmount = effectiveSeniorCount === 0 ? 0 : Math.round(perGuestShare * effectiveSeniorCount * SENIOR_DISCOUNT_PERCENT * 100) / 100;
+    discountAmount =
+      effectiveSeniorCount === 0
+        ? 0
+        : Math.round(
+            perGuestShare *
+              effectiveSeniorCount *
+              SENIOR_DISCOUNT_PERCENT *
+              100,
+          ) / 100;
   } else if (discountType === "promo" && appliedPromo) {
     discountAmount = appliedPromo.discount;
-  } else if (rewardEligible && discountType === "none") {
-    discountAmount = autoRewardDiscount;
   }
-  
+
   const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   const handleBack = () => {
-    const steps: CheckoutStep[] = ["cart-review", "discount", "guests", "payment", "summary"];
+    const steps: CheckoutStep[] = [
+      "cart-review",
+      "discount",
+      "guests",
+      "payment",
+      "summary",
+    ];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex > 0) {
       setCurrentStep(steps[currentIndex - 1]);
@@ -266,7 +265,11 @@ export default function CheckoutModal({
       setCartError(null);
     }
 
-    if (currentStep === "discount" && discountType === "promo" && !appliedPromo) {
+    if (
+      currentStep === "discount" &&
+      discountType === "promo" &&
+      !appliedPromo
+    ) {
       // Prevent proceeding if promo is selected but not successfully applied
       setPromoError("Please apply a valid promo code or select No Discount.");
       return;
@@ -279,7 +282,9 @@ export default function CheckoutModal({
       }
       if (discountType === "senior" || discountType === "pwd") {
         if (effectiveSeniorCount < 1) {
-          setGuestError(`Enter how many ${discountType === "senior" ? "Senior" : "PWD"} guests are dining.`);
+          setGuestError(
+            `Enter how many ${discountType === "senior" ? "Senior" : "PWD"} guests are dining.`,
+          );
           return;
         }
         if (effectiveSeniorCount > totalGuests) {
@@ -290,7 +295,13 @@ export default function CheckoutModal({
       setGuestError(null);
     }
 
-    const steps: CheckoutStep[] = ["cart-review", "discount", "guests", "payment", "summary"];
+    const steps: CheckoutStep[] = [
+      "cart-review",
+      "discount",
+      "guests",
+      "payment",
+      "summary",
+    ];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
       setCurrentStep(steps[currentIndex + 1]);
@@ -298,34 +309,31 @@ export default function CheckoutModal({
   };
 
   const handleSubmit = async () => {
-    if (!hasCartItems || isSubmitting || localSubmitting || orderInProgress) return;
+    if (!hasCartItems || isSubmitting || localSubmitting || orderInProgress)
+      return;
 
     setLocalSubmitting(true);
     try {
-      let couponId = appliedPromo?.couponId;
-      let promoCodeValue = appliedPromo?.code;
+      const seniorCountValue =
+        effectiveDiscountType === "senior" || effectiveDiscountType === "pwd"
+          ? effectiveSeniorCount
+          : 0;
+      const couponIdValue =
+        effectiveDiscountType === "promo" ? appliedPromo?.couponId : undefined;
+      const promoCodeValue =
+        effectiveDiscountType === "promo" ? appliedPromo?.code : undefined;
 
-      if (rewardEligible && discountType === "none") {
-        const rewardCoupon = await getOrCreateRewardCoupon();
-        if (!rewardCoupon) {
-          setPromoError(
-            "Reward coupon is not available right now. Please try again later or choose another discount option."
-          );
-          setLocalSubmitting(false);
-          return;
-        }
-        couponId = rewardCoupon.id;
-        promoCodeValue = rewardCoupon.code;
-      }
+      // Reward coupons are issued after order completion and should not be auto-applied here.
+      // The user can still enter a valid promo/coupon code in the discount step.
 
       await onSubmitOrder({
         discountType: effectiveDiscountType,
         totalGuests,
-        seniorCount: effectiveSeniorCount,
+        seniorCount: seniorCountValue,
         discountAmount,
         paymentMethod,
         promoCode: promoCodeValue,
-        couponId,
+        couponId: couponIdValue,
       });
       // Only close on success
       onClose();
@@ -357,17 +365,48 @@ export default function CheckoutModal({
   };
 
   const getStepNumber = () => {
-    const steps: CheckoutStep[] = ["cart-review", "discount", "guests", "payment", "summary"];
+    const steps: CheckoutStep[] = [
+      "cart-review",
+      "discount",
+      "guests",
+      "payment",
+      "summary",
+    ];
     return steps.indexOf(currentStep) + 1;
   };
 
   const getStepInfo = () => {
     const steps = [
-      { id: "cart-review", title: "Review Order", description: "Review your items", icon: faShoppingCart },
-      { id: "discount", title: "Discount", description: "Apply discount if eligible", icon: faTag },
-      { id: "guests", title: "Guests", description: "Number of diners", icon: faUsers },
-      { id: "payment", title: "Payment", description: "Choose payment method", icon: faCreditCard },
-      { id: "summary", title: "Confirm", description: "Review & submit order", icon: faClipboardList },
+      {
+        id: "cart-review",
+        title: "Review Order",
+        description: "Review your items",
+        icon: faShoppingCart,
+      },
+      {
+        id: "discount",
+        title: "Discount",
+        description: "Apply discount if eligible",
+        icon: faTag,
+      },
+      {
+        id: "guests",
+        title: "Guests",
+        description: "Number of diners",
+        icon: faUsers,
+      },
+      {
+        id: "payment",
+        title: "Payment",
+        description: "Choose payment method",
+        icon: faCreditCard,
+      },
+      {
+        id: "summary",
+        title: "Confirm",
+        description: "Review & submit order",
+        icon: faClipboardList,
+      },
     ];
     return steps;
   };
@@ -377,13 +416,18 @@ export default function CheckoutModal({
       <div className="w-full max-w-md h-[90vh] lg:h-auto lg:max-h-[90vh] rounded-t-[24px] lg:rounded-[32px] bg-white shadow-lg flex flex-col lg:max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 lg:px-6 py-3 lg:py-5 flex-shrink-0">
-          <h2 className="text-lg lg:text-xl font-bold text-slate-900">{getStepTitle()}</h2>
+          <h2 className="text-lg lg:text-xl font-bold text-slate-900">
+            {getStepTitle()}
+          </h2>
           <button
             onClick={onClose}
             className="rounded-lg p-2 hover:bg-slate-100"
             disabled={isSubmitting || localSubmitting}
           >
-            <FontAwesomeIcon icon={faX} className="text-slate-600 text-sm lg:text-base" />
+            <FontAwesomeIcon
+              icon={faX}
+              className="text-slate-600 text-sm lg:text-base"
+            />
           </button>
         </div>
 
@@ -399,8 +443,8 @@ export default function CheckoutModal({
             <p className="font-semibold text-sm">Reward coupon available</p>
             <p className="mt-1 text-slate-700 text-xs leading-5">
               {rewardEligible
-                ? `Great news! This order qualifies for a reward discount of ${rewardQualifierLabel}. It will be applied automatically when you check out.`
-                : `Spend ₱${Math.max(0, rewardThreshold - cartTotal).toFixed(2)} more to qualify for a reward coupon. ${rewardQualifierLabel}.`}
+                ? `Great news! This order qualifies for a reward coupon when completed. A coupon code will be issued after this order is finished.`
+                : `Spend ₱${Math.max(0, rewardThreshold - cartTotal).toFixed(2)} more to qualify for a reward coupon after this order is completed.`}
             </p>
           </div>
         ) : null}
@@ -416,14 +460,16 @@ export default function CheckoutModal({
                 {submittedOrderDetails.discountType === "none"
                   ? "Discount"
                   : submittedOrderDetails.discountType === "senior"
-                  ? "Senior Discount"
-                  : submittedOrderDetails.discountType === "pwd"
-                  ? "PWD Discount"
-                  : submittedOrderDetails.promoCode
-                  ? `Promo (${submittedOrderDetails.promoCode})`
-                  : "Reward Discount"}
+                    ? "Senior Discount"
+                    : submittedOrderDetails.discountType === "pwd"
+                      ? "PWD Discount"
+                      : submittedOrderDetails.promoCode
+                        ? `Promo (${submittedOrderDetails.promoCode})`
+                        : "Reward Discount"}
               </span>
-              <span className="font-semibold text-slate-900">-₱{submittedOrderDetails.discountAmount.toFixed(2)}</span>
+              <span className="font-semibold text-slate-900">
+                -₱{submittedOrderDetails.discountAmount.toFixed(2)}
+              </span>
             </div>
             <div className="border-t border-slate-200 pt-2 mt-2 flex justify-between font-semibold text-slate-900">
               <span>Total</span>
@@ -433,7 +479,8 @@ export default function CheckoutModal({
               <div className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-900">
                 <p className="text-xs font-semibold">Reward coupon pending</p>
                 <p className="text-xs text-emerald-700">
-                  This order qualifies for a reward coupon once the restaurant completes it.
+                  This order qualifies for a reward coupon once the restaurant
+                  completes it.
                 </p>
               </div>
             ) : null}
@@ -448,26 +495,37 @@ export default function CheckoutModal({
               <div
                 key={step.id}
                 className={`h-1 lg:h-1.5 flex-1 rounded-full transition duration-300 ${
-                  index < getStepNumber() ? "bg-[#4f65ff]" : index === getStepNumber() - 1 ? "bg-[#4f65ff]" : "bg-slate-300"
+                  index < getStepNumber()
+                    ? "bg-[#4f65ff]"
+                    : index === getStepNumber() - 1
+                      ? "bg-[#4f65ff]"
+                      : "bg-slate-300"
                 }`}
               />
             ))}
           </div>
-          
+
           {/* Step Info */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider leading-tight">
                 Step {getStepNumber()} of 5
               </p>
-              <h3 className="text-base lg:text-lg font-bold text-slate-900 mt-0.5 truncate">{getStepTitle()}</h3>
+              <h3 className="text-base lg:text-lg font-bold text-slate-900 mt-0.5 truncate">
+                {getStepTitle()}
+              </h3>
               <p className="text-xs lg:text-sm text-slate-600 mt-0.5 line-clamp-1">
                 {getStepInfo()[getStepNumber() - 1]?.description}
               </p>
             </div>
             <div className="flex-shrink-0">
               <div className="flex h-10 lg:h-12 w-10 lg:w-12 items-center justify-center rounded-full bg-[#4f65ff] text-white flex-shrink-0">
-                <FontAwesomeIcon icon={getStepInfo()[getStepNumber() - 1]?.icon || faShoppingCart} className="text-base lg:text-lg" />
+                <FontAwesomeIcon
+                  icon={
+                    getStepInfo()[getStepNumber() - 1]?.icon || faShoppingCart
+                  }
+                  className="text-base lg:text-lg"
+                />
               </div>
             </div>
           </div>
@@ -480,38 +538,60 @@ export default function CheckoutModal({
             <div className="space-y-2 lg:space-y-4">
               {!hasCartItems ? (
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                  <p className="text-base font-semibold text-slate-900">Your cart is empty</p>
-                  <p className="mt-2 text-sm text-slate-600">Add items to your cart before continuing to checkout.</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    Your cart is empty
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Add items to your cart before continuing to checkout.
+                  </p>
                 </div>
               ) : (
                 <>
                   {cartItems.map((item, index) => (
-                    <div key={index} className="relative flex justify-between rounded-lg bg-slate-50 p-2 lg:p-3 pr-12 lg:pr-14">
+                    <div
+                      key={index}
+                      className="relative flex justify-between rounded-lg bg-slate-50 p-2 lg:p-3 pr-12 lg:pr-14"
+                    >
                       <button
                         type="button"
                         onClick={() => onRemoveCartItem(index)}
                         className="absolute right-2 lg:right-3 top-2 lg:top-3 rounded-full p-1.5 lg:p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         aria-label={`Remove ${item.name}`}
                       >
-                        <FontAwesomeIcon icon={faX} className="text-xs lg:text-base" />
+                        <FontAwesomeIcon
+                          icon={faX}
+                          className="text-xs lg:text-base"
+                        />
                       </button>
                       <div className="flex-1 pr-8 lg:pr-10 min-w-0">
-                        <p className="font-semibold text-slate-900 text-sm lg:text-base truncate">{item.name}</p>
-                        <p className="text-xs lg:text-sm text-slate-600">Qty: {item.qty}</p>
-                        {item.selected_options && item.selected_options.length > 0 && (
-                          <div className="mt-1 space-y-0.5">
-                            {item.selected_options.map((opt, idx) => (
-                              <p key={idx} className="text-xs text-slate-500 line-clamp-1">
-                                • {opt.group_name}: {opt.option_name}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+                        <p className="font-semibold text-slate-900 text-sm lg:text-base truncate">
+                          {item.name}
+                        </p>
+                        <p className="text-xs lg:text-sm text-slate-600">
+                          Qty: {item.qty}
+                        </p>
+                        {item.selected_options &&
+                          item.selected_options.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {item.selected_options.map((opt, idx) => (
+                                <p
+                                  key={idx}
+                                  className="text-xs text-slate-500 line-clamp-1"
+                                >
+                                  • {opt.group_name}: {opt.option_name}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                       </div>
-                      <p className="min-w-[60px] lg:min-w-[72px] text-right font-semibold text-slate-900 text-sm lg:text-base">₱{(item.total || item.price * item.qty).toFixed(2)}</p>
+                      <p className="min-w-[60px] lg:min-w-[72px] text-right font-semibold text-slate-900 text-sm lg:text-base">
+                        ₱{(item.total || item.price * item.qty).toFixed(2)}
+                      </p>
                     </div>
                   ))}
-                  <p className="text-xs text-slate-500">Tap the X to remove an item from your order.</p>
+                  <p className="text-xs text-slate-500">
+                    Tap the X to remove an item from your order.
+                  </p>
                   <div className="border-t border-slate-200 pt-3 lg:pt-4">
                     <div className="flex justify-between text-base lg:text-lg font-bold text-slate-900">
                       <span>Subtotal</span>
@@ -531,12 +611,30 @@ export default function CheckoutModal({
           {/* Discount Step */}
           {currentStep === "discount" && (
             <div className="space-y-2 lg:space-y-4">
-              <p className="text-xs lg:text-sm text-slate-600">Do you have a discount?</p>
+              <p className="text-xs lg:text-sm text-slate-600">
+                Do you have a discount?
+              </p>
               {[
-                { type: "none" as const, label: "No Discount", description: "Regular Price" },
-                { type: "senior" as const, label: "Senior Citizen", description: "20% Discount" },
-                { type: "pwd" as const, label: "PWD (Person with Disability)", description: "20% Discount" },
-                { type: "promo" as const, label: "Promo Code", description: "Enter a coupon or promo code" },
+                {
+                  type: "none" as const,
+                  label: "No Discount",
+                  description: "Regular Price",
+                },
+                {
+                  type: "senior" as const,
+                  label: "Senior Citizen",
+                  description: "20% Discount",
+                },
+                {
+                  type: "pwd" as const,
+                  label: "PWD (Person with Disability)",
+                  description: "20% Discount",
+                },
+                {
+                  type: "promo" as const,
+                  label: "Promo Code",
+                  description: "Enter a coupon or promo code",
+                },
               ].map((option) => (
                 <button
                   key={option.type}
@@ -547,6 +645,9 @@ export default function CheckoutModal({
                       setPromoCode("");
                       setPromoError(null);
                     }
+                    if (option.type !== "senior" && option.type !== "pwd") {
+                      setSeniorCount(0);
+                    }
                   }}
                   className={`w-full rounded-lg lg:rounded-2xl border-2 p-3 lg:p-4 text-left transition ${
                     discountType === option.type
@@ -556,11 +657,18 @@ export default function CheckoutModal({
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-slate-900 text-sm lg:text-base">{option.label}</p>
-                      <p className="text-xs lg:text-sm text-slate-600">{option.description}</p>
+                      <p className="font-semibold text-slate-900 text-sm lg:text-base">
+                        {option.label}
+                      </p>
+                      <p className="text-xs lg:text-sm text-slate-600">
+                        {option.description}
+                      </p>
                     </div>
                     {discountType === option.type && (
-                      <FontAwesomeIcon icon={faCheck} className="text-[#4f65ff] text-sm lg:text-base" />
+                      <FontAwesomeIcon
+                        icon={faCheck}
+                        className="text-[#4f65ff] text-sm lg:text-base"
+                      />
                     )}
                   </div>
                 </button>
@@ -568,7 +676,9 @@ export default function CheckoutModal({
 
               {discountType === "promo" && (
                 <div className="mt-4 p-4 border rounded-2xl bg-white shadow-sm space-y-3">
-                  <label className="text-sm font-semibold text-slate-700">Enter Promo Code</label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    Enter Promo Code
+                  </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -588,7 +698,9 @@ export default function CheckoutModal({
                       Apply
                     </button>
                   </div>
-                  {promoError && <p className="text-xs text-red-600">{promoError}</p>}
+                  {promoError && (
+                    <p className="text-xs text-red-600">{promoError}</p>
+                  )}
                   {appliedPromo && (
                     <p className="text-xs text-green-600 font-semibold">
                       Promo applied! ₱{appliedPromo.discount.toFixed(2)} off.
@@ -603,7 +715,9 @@ export default function CheckoutModal({
           {currentStep === "guests" && (
             <div className="space-y-3 lg:space-y-5">
               <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-5 shadow-sm">
-                <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">How many guests will dine?</p>
+                <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">
+                  How many guests will dine?
+                </p>
                 <div className="flex items-center justify-center gap-3 lg:gap-4">
                   <button
                     onClick={() => setTotalGuests(Math.max(1, totalGuests - 1))}
@@ -619,7 +733,9 @@ export default function CheckoutModal({
                     value={totalGuests}
                     onChange={(e) => {
                       const value = Number(e.target.value);
-                      setTotalGuests(Number.isNaN(value) ? 1 : Math.max(1, value));
+                      setTotalGuests(
+                        Number.isNaN(value) ? 1 : Math.max(1, value),
+                      );
                     }}
                     className="h-14 lg:h-16 w-24 lg:w-28 rounded-[24px] lg:rounded-[28px] border border-slate-200 bg-slate-50 text-center text-2xl lg:text-3xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -630,15 +746,22 @@ export default function CheckoutModal({
                     +
                   </button>
                 </div>
-                <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">Guest(s)</p>
+                <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">
+                  Guest(s)
+                </p>
               </div>
 
               {(discountType === "senior" || discountType === "pwd") && (
                 <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-5 shadow-sm">
-                  <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">How many {discountType === "senior" ? "Senior" : "PWD"} guests?</p>
+                  <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">
+                    How many {discountType === "senior" ? "Senior" : "PWD"}{" "}
+                    guests?
+                  </p>
                   <div className="flex items-center justify-center gap-3 lg:gap-4">
                     <button
-                      onClick={() => setSeniorCount(Math.max(0, seniorCount - 1))}
+                      onClick={() =>
+                        setSeniorCount(Math.max(0, seniorCount - 1))
+                      }
                       className="flex h-11 lg:h-14 w-11 lg:w-14 items-center justify-center rounded-full bg-slate-100 text-lg lg:text-2xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
                     >
                       −
@@ -652,36 +775,60 @@ export default function CheckoutModal({
                       value={effectiveSeniorCount}
                       onChange={(e) => {
                         const value = Number(e.target.value);
-                        setSeniorCount(Number.isNaN(value) ? 0 : Math.min(totalGuests, Math.max(0, value)));
+                        setSeniorCount(
+                          Number.isNaN(value)
+                            ? 0
+                            : Math.min(totalGuests, Math.max(0, value)),
+                        );
                       }}
                       className="h-14 lg:h-16 w-24 lg:w-28 rounded-[24px] lg:rounded-[28px] border border-slate-200 bg-slate-50 text-center text-2xl lg:text-3xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
-                      onClick={() => setSeniorCount(Math.min(totalGuests, seniorCount + 1))}
+                      onClick={() =>
+                        setSeniorCount(Math.min(totalGuests, seniorCount + 1))
+                      }
                       className="flex h-11 lg:h-14 w-11 lg:w-14 items-center justify-center rounded-full bg-slate-100 text-lg lg:text-2xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
                     >
                       +
                     </button>
                   </div>
-                  <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">{discountType === "senior" ? "Senior" : "PWD"} guest(s)</p>
+                  <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">
+                    {discountType === "senior" ? "Senior" : "PWD"} guest(s)
+                  </p>
                 </div>
               )}
 
-              {guestError && <p className="text-center text-xs lg:text-sm text-red-600">{guestError}</p>}
+              {guestError && (
+                <p className="text-center text-xs lg:text-sm text-red-600">
+                  {guestError}
+                </p>
+              )}
             </div>
           )}
 
           {/* Payment Step */}
           {currentStep === "payment" && (
             <div className="space-y-2 lg:space-y-4">
-              <p className="text-xs lg:text-sm text-slate-600">Choose your payment method</p>
+              <p className="text-xs lg:text-sm text-slate-600">
+                Choose your payment method
+              </p>
               {[
-                { type: "cash" as const, label: "Cash", enabled: business?.cash_enabled !== false },
-                { type: "gcash" as const, label: "GCash", enabled: business?.gcash_enabled !== false },
+                {
+                  type: "cash" as const,
+                  label: "Cash",
+                  enabled: business?.cash_enabled !== false,
+                },
+                {
+                  type: "gcash" as const,
+                  label: "GCash",
+                  enabled: business?.gcash_enabled !== false,
+                },
               ].map((option) => (
                 <button
                   key={option.type}
-                  onClick={() => option.enabled && setPaymentMethod(option.type)}
+                  onClick={() =>
+                    option.enabled && setPaymentMethod(option.type)
+                  }
                   disabled={!option.enabled}
                   className={`w-full rounded-lg lg:rounded-2xl border-2 p-3 lg:p-4 text-left transition ${
                     !option.enabled
@@ -692,9 +839,14 @@ export default function CheckoutModal({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold text-slate-900 text-sm lg:text-base">{option.label}</p>
+                    <p className="font-semibold text-slate-900 text-sm lg:text-base">
+                      {option.label}
+                    </p>
                     {paymentMethod === option.type && (
-                      <FontAwesomeIcon icon={faCheck} className="text-[#4f65ff] text-sm lg:text-base" />
+                      <FontAwesomeIcon
+                        icon={faCheck}
+                        className="text-[#4f65ff] text-sm lg:text-base"
+                      />
                     )}
                   </div>
                 </button>
@@ -708,30 +860,40 @@ export default function CheckoutModal({
               <div className="rounded-lg lg:rounded-2xl bg-slate-50 p-3 lg:p-4 space-y-2 lg:space-y-3">
                 <div className="flex justify-between text-xs lg:text-sm">
                   <span className="text-slate-600">Items Subtotal</span>
-                  <span className="font-semibold text-slate-900">₱{cartTotal.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">
+                    ₱{cartTotal.toFixed(2)}
+                  </span>
                 </div>
-                {(discountAmount > 0) && (
+                {discountAmount > 0 && (
                   <div className="flex justify-between text-xs lg:text-sm">
                     <span className="text-slate-600">
                       {discountType === "senior"
                         ? "Senior Discount (20%)"
                         : discountType === "pwd"
-                        ? "PWD Discount (20%)"
-                        : discountType === "promo"
-                        ? `Promo (${appliedPromo?.code})`
-                        : "Reward Discount"}
+                          ? "PWD Discount (20%)"
+                          : discountType === "promo"
+                            ? `Promo (${appliedPromo?.code})`
+                            : "Reward Discount"}
                     </span>
-                    <span className="font-semibold text-emerald-600">−₱{discountAmount.toFixed(2)}</span>
+                    <span className="font-semibold text-emerald-600">
+                      −₱{discountAmount.toFixed(2)}
+                    </span>
                   </div>
                 )}
                 <div className="border-t border-slate-200 pt-2 lg:pt-3 flex justify-between">
-                  <span className="font-bold text-slate-900 text-sm lg:text-base">Total Amount</span>
-                  <span className="text-lg lg:text-2xl font-bold text-slate-900">₱{finalTotal.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900 text-sm lg:text-base">
+                    Total Amount
+                  </span>
+                  <span className="text-lg lg:text-2xl font-bold text-slate-900">
+                    ₱{finalTotal.toFixed(2)}
+                  </span>
                 </div>
                 {rewardPromoEnabled ? (
                   <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900">
                     {rewardEligible ? (
-                      <p className="font-semibold">This order is reward eligible.</p>
+                      <p className="font-semibold">
+                        This order is reward eligible.
+                      </p>
                     ) : (
                       <p className="font-semibold">Not reward eligible yet.</p>
                     )}
@@ -747,12 +909,18 @@ export default function CheckoutModal({
               <div className="rounded-lg lg:rounded-2xl bg-slate-50 p-3 lg:p-4 space-y-1.5 lg:space-y-2">
                 <div className="flex justify-between text-xs lg:text-sm">
                   <span className="text-slate-600">Guests</span>
-                  <span className="font-semibold text-slate-900">{totalGuests}</span>
+                  <span className="font-semibold text-slate-900">
+                    {totalGuests}
+                  </span>
                 </div>
                 {(discountType === "senior" || discountType === "pwd") && (
                   <div className="flex justify-between text-xs lg:text-sm">
-                    <span className="text-slate-600">{discountType === "senior" ? "Senior" : "PWD"} guests</span>
-                    <span className="font-semibold text-slate-900">{effectiveSeniorCount}</span>
+                    <span className="text-slate-600">
+                      {discountType === "senior" ? "Senior" : "PWD"} guests
+                    </span>
+                    <span className="font-semibold text-slate-900">
+                      {effectiveSeniorCount}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-xs lg:text-sm">
@@ -761,19 +929,21 @@ export default function CheckoutModal({
                     {effectiveDiscountType === "none"
                       ? "None"
                       : effectiveDiscountType === "senior"
-                      ? "Senior (20%)"
-                      : effectiveDiscountType === "pwd"
-                      ? "PWD (20%)"
-                      : effectiveDiscountType === "promo"
-                      ? appliedPromo?.code
-                        ? `Promo (${appliedPromo.code})`
-                        : "Reward Discount"
-                      : "Reward Discount"}
+                        ? "Senior (20%)"
+                        : effectiveDiscountType === "pwd"
+                          ? "PWD (20%)"
+                          : effectiveDiscountType === "promo"
+                            ? appliedPromo?.code
+                              ? `Promo (${appliedPromo.code})`
+                              : "Reward Discount"
+                            : "Reward Discount"}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs lg:text-sm">
                   <span className="text-slate-600">Payment Method</span>
-                  <span className="font-semibold text-slate-900">{paymentMethod === "cash" ? "Cash" : "GCash"}</span>
+                  <span className="font-semibold text-slate-900">
+                    {paymentMethod === "cash" ? "Cash" : "GCash"}
+                  </span>
                 </div>
               </div>
               {orderInProgress && (
@@ -793,10 +963,13 @@ export default function CheckoutModal({
               <button
                 onClick={handleBack}
                 disabled={isSubmitting || localSubmitting}
-                className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 rounded-xl lg:rounded-2xl border-2 border-slate-300 py-2 lg:py-3 font-semibold text-sm lg:text-base text-slate-700 hover:bg-white hover:border-slate-400 transition disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 rounded-xl lg:rounded-2xl border-2 border-slate-300 py-2 lg:py-3 font-semibold text-[11px] sm:text-sm lg:text-base text-slate-700 hover:bg-white hover:border-slate-400 transition disabled:opacity-50"
               >
-                <FontAwesomeIcon icon={faChevronLeft} className="text-xs lg:text-sm" />
-                <span className="hidden sm:inline">Back</span>
+                <FontAwesomeIcon
+                  icon={faChevronLeft}
+                  className="text-[10px] sm:text-xs lg:text-sm"
+                />
+                <span>Back</span>
               </button>
             )}
             <button
@@ -808,32 +981,37 @@ export default function CheckoutModal({
                 orderInProgress ||
                 (currentStep === "cart-review" && !hasCartItems)
               }
-              className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 rounded-xl lg:rounded-2xl bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] py-2 lg:py-3 font-semibold text-sm lg:text-base text-white hover:shadow-xl transition disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 rounded-xl lg:rounded-2xl bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] py-2 lg:py-3 font-semibold text-[11px] sm:text-sm lg:text-base text-white hover:shadow-xl transition disabled:opacity-50"
             >
               {currentStep === "summary" ? (
                 <>
                   {submissionComplete
                     ? "✓ Done"
                     : orderInProgress
-                    ? "Order in Progress"
-                    : isSubmitting || localSubmitting
-                    ? "Submitting..."
-                    : "Submit"}
+                      ? "Order in Progress"
+                      : isSubmitting || localSubmitting
+                        ? "Submitting..."
+                        : "Submit"}
                 </>
               ) : (
                 <>
-                  <span className="hidden sm:inline">Next</span>
-                  <FontAwesomeIcon icon={faChevronRight} className="text-xs lg:text-sm" />
+                  <span>Next</span>
+                  <FontAwesomeIcon
+                    icon={faChevronRight}
+                    className="text-[10px] sm:text-xs lg:text-sm"
+                  />
                 </>
               )}
             </button>
           </div>
-          
+
           {/* Step Summary */}
           <div className="mt-2 lg:mt-4 pt-2 lg:pt-4 border-t border-slate-200">
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-600">Progress</span>
-              <span className="font-semibold text-[#4f65ff]">{getStepNumber()}/5</span>
+              <span className="font-semibold text-[#4f65ff]">
+                {getStepNumber()}/5
+              </span>
             </div>
           </div>
         </div>

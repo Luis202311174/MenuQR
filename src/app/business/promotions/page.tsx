@@ -10,6 +10,7 @@ import {
   faTags,
   faPlus,
   faEye,
+  faEyeSlash,
   faTrash,
   faCopy,
   faCheck,
@@ -61,6 +62,28 @@ export default function BusinessPromotionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
+  const [archivedPage, setArchivedPage] = useState(1);
+  const [revealedCodes, setRevealedCodes] = useState<Set<string>>(new Set());
+  const ITEMS_PER_PAGE = 10;
+
+  // Filter active coupons (not yet fully used)
+  const activeCoupons = coupons.filter(c => c.usage_count < c.usage_limit);
+  // Filter archived coupons (fully used)
+  const archivedCoupons = coupons.filter(c => c.usage_count >= c.usage_limit);
+
+  const toggleCodeVisibility = (couponId: string) => {
+    setRevealedCodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(couponId)) {
+        newSet.delete(couponId);
+      } else {
+        newSet.add(couponId);
+      }
+      return newSet;
+    });
+  };
 
   // Form states for creating coupons
   const [formData, setFormData] = useState({
@@ -163,6 +186,7 @@ export default function BusinessPromotionsPage() {
   const loadCoupons = async (bizId: string) => {
     setLoading(true);
     setLoadError(null);
+    setCurrentPage(1);
     try {
       const { data, error } = await supabase
         .from("coupons")
@@ -457,13 +481,13 @@ export default function BusinessPromotionsPage() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
-              <p className="text-xs sm:text-sm text-slate-500">Total Coupons</p>
-              <p className="text-xl sm:text-2xl font-bold text-slate-900">{coupons.length}</p>
+              <p className="text-xs sm:text-sm text-slate-500">Active Coupons</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{activeCoupons.length}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
-              <p className="text-xs sm:text-sm text-slate-500">Active Coupons</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-600">
-                {coupons.filter(c => c.is_active).length}
+              <p className="text-xs sm:text-sm text-slate-500">Archived Coupons</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-500">
+                {archivedCoupons.length}
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
@@ -485,8 +509,19 @@ export default function BusinessPromotionsPage() {
 
           {/* Coupons Table */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
-              <h3 className="font-semibold text-slate-900">Your Coupons</h3>
+            <div className="border-b border-slate-200 bg-slate-50 px-6 py-4 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900">Active Coupons</h3>
+              {archivedCoupons.length > 0 && (
+                <button
+                  onClick={() => {
+                    setShowArchivedModal(true);
+                    setArchivedPage(1);
+                  }}
+                  className="text-xs sm:text-sm font-medium text-purple-600 hover:text-purple-700 underline"
+                >
+                  View Archived ({archivedCoupons.length})
+                </button>
+              )}
             </div>
 
             {loading ? (
@@ -494,10 +529,10 @@ export default function BusinessPromotionsPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                 <span className="ml-3 text-slate-600">Loading coupons...</span>
               </div>
-            ) : coupons.length === 0 ? (
+            ) : activeCoupons.length === 0 ? (
               <div className="text-center py-12">
                 <FontAwesomeIcon icon={faTags} className="text-slate-300 text-4xl mb-4" />
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">No coupons yet</h3>
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No active coupons</h3>
                 <p className="text-slate-500 mb-4">Create your first coupon to start offering discounts</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
@@ -507,113 +542,160 @@ export default function BusinessPromotionsPage() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Code
-                      </th>
-                      <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Discount
-                      </th>
-                      <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Usage
-                      </th>
-                      <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Expires
-                      </th>
-                      <th className="px-3 py-2 text-right text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
-                    {coupons.map((coupon) => (
-                      <tr key={coupon.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <code className="bg-slate-100 px-2 py-1 rounded text-xs sm:text-sm font-mono">
-                              {coupon.code}
-                            </code>
-                            <button
-                              onClick={() => copyToClipboard(coupon.code)}
-                              className="text-slate-400 hover:text-slate-600"
-                              title="Copy code"
-                            >
-                              <FontAwesomeIcon icon={faCopy} className="text-xs" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1 text-xs sm:text-sm">
-                            {coupon.discount_type === 'percentage' ? (
-                              <FontAwesomeIcon icon={faPercent} className="text-green-600 text-xs" />
-                            ) : (
-                              <FontAwesomeIcon icon={faDollarSign} className="text-blue-600 text-xs" />
-                            )}
-                            <span className="text-xs sm:text-sm font-medium">
-                              {coupon.discount_type === 'percentage'
-                                ? `${coupon.discount_value}%`
-                                : formatCurrency(coupon.discount_value)
-                              }
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-xs sm:text-sm text-slate-900">
-                          {coupon.usage_count}/{coupon.usage_limit}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            coupon.is_active && coupon.usage_count < coupon.usage_limit
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {coupon.is_active && coupon.usage_count < coupon.usage_limit ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-xs sm:text-sm text-slate-900">
-                          {coupon.expires_at
-                            ? new Date(coupon.expires_at).toLocaleDateString()
-                            : 'Never'
-                          }
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedCoupon(coupon);
-                                setShowViewModal(true);
-                              }}
-                              className="text-slate-400 hover:text-slate-600 p-2"
-                              title="View details"
-                            >
-                              <FontAwesomeIcon icon={faEye} className="text-sm" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(coupon.id, coupon.is_active)}
-                              className={`${coupon.is_active ? "text-red-400 hover:text-red-600" : "text-green-400 hover:text-green-600"} p-2`}
-                              title={coupon.is_active ? "Deactivate" : "Activate"}
-                            >
-                              <FontAwesomeIcon icon={coupon.is_active ? faTimes : faCheck} className="text-sm" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCoupon(coupon.id)}
-                              className="text-red-400 hover:text-red-600 p-2"
-                              title="Delete coupon"
-                            >
-                              <FontAwesomeIcon icon={faTrash} className="text-sm" />
-                            </button>
-                          </div>
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Code
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Discount
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Usage
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Expires
+                        </th>
+                        <th className="px-3 py-2 text-right text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                      {activeCoupons.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((coupon) => (
+                        <tr key={coupon.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <code className="bg-slate-100 px-2 py-1 rounded text-xs sm:text-sm font-mono">
+                                {revealedCodes.has(coupon.id) ? coupon.code : '•'.repeat(coupon.code.length)}
+                              </code>
+                              <button
+                                onClick={() => toggleCodeVisibility(coupon.id)}
+                                className="text-slate-400 hover:text-slate-600"
+                                title={revealedCodes.has(coupon.id) ? "Hide code" : "Show code"}
+                              >
+                                <FontAwesomeIcon icon={revealedCodes.has(coupon.id) ? faEyeSlash : faEye} className="text-xs" />
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(coupon.code)}
+                                className="text-slate-400 hover:text-slate-600"
+                                title="Copy code"
+                              >
+                                <FontAwesomeIcon icon={faCopy} className="text-xs" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1 text-xs sm:text-sm">
+                              {coupon.discount_type === 'percentage' ? (
+                                <FontAwesomeIcon icon={faPercent} className="text-green-600 text-xs" />
+                              ) : (
+                                <FontAwesomeIcon icon={faDollarSign} className="text-blue-600 text-xs" />
+                              )}
+                              <span className="text-xs sm:text-sm font-medium">
+                                {coupon.discount_type === 'percentage'
+                                  ? `${coupon.discount_value}%`
+                                  : formatCurrency(coupon.discount_value)
+                                }
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-xs sm:text-sm text-slate-900">
+                            {coupon.usage_count}/{coupon.usage_limit}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              coupon.is_active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-slate-100 text-slate-800'
+                            }`}>
+                              {coupon.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-xs sm:text-sm text-slate-900">
+                            {coupon.expires_at
+                              ? new Date(coupon.expires_at).toLocaleDateString()
+                              : 'Never'
+                            }
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedCoupon(coupon);
+                                  setShowViewModal(true);
+                                }}
+                                className="text-slate-400 hover:text-slate-600 p-2"
+                                title="View details"
+                              >
+                                <FontAwesomeIcon icon={faEye} className="text-sm" />
+                              </button>
+                              <button
+                                onClick={() => handleToggleActive(coupon.id, coupon.is_active)}
+                                className={`${coupon.is_active ? "text-red-400 hover:text-red-600" : "text-green-400 hover:text-green-600"} p-2`}
+                                title={coupon.is_active ? "Deactivate" : "Activate"}
+                              >
+                                <FontAwesomeIcon icon={coupon.is_active ? faTimes : faCheck} className="text-sm" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCoupon(coupon.id)}
+                                className="text-red-400 hover:text-red-600 p-2"
+                                title="Delete coupon"
+                              >
+                                <FontAwesomeIcon icon={faTrash} className="text-sm" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3">
+                  <div className="text-xs sm:text-sm text-slate-600">
+                    Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, activeCoupons.length)} to {Math.min(currentPage * ITEMS_PER_PAGE, activeCoupons.length)} of {activeCoupons.length} active coupons
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.ceil(activeCoupons.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
+                            currentPage === page
+                              ? 'bg-purple-600 text-white'
+                              : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(activeCoupons.length / ITEMS_PER_PAGE), prev + 1))}
+                      disabled={currentPage === Math.ceil(activeCoupons.length / ITEMS_PER_PAGE)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </main>
@@ -947,11 +1029,11 @@ export default function BusinessPromotionsPage() {
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-500">Status</label>
                 <span className={`inline-flex px-2 py-1 text-xs sm:text-sm font-semibold rounded-full mt-1 ${
-                  selectedCoupon.is_active && selectedCoupon.usage_count < selectedCoupon.usage_limit
+                  selectedCoupon.is_active
                     ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                    : 'bg-slate-100 text-slate-800'
                 }`}>
-                  {selectedCoupon.is_active && selectedCoupon.usage_count < selectedCoupon.usage_limit ? 'Active' : 'Inactive'}
+                  {selectedCoupon.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
 
@@ -980,6 +1062,172 @@ export default function BusinessPromotionsPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archived Coupons Modal */}
+      {showArchivedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 py-6 sm:px-4 sm:py-8 overflow-y-auto">
+          <div className="w-full max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-black/10 my-auto">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6 sm:py-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Archived Coupons</h3>
+                  <p className="text-sm text-slate-500">Coupons that have reached their usage limit</p>
+                </div>
+                <button
+                  onClick={() => setShowArchivedModal(false)}
+                  className="rounded-full bg-slate-100 p-2 text-slate-600 hover:bg-slate-200"
+                >
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+            </div>
+
+            {archivedCoupons.length === 0 ? (
+              <div className="text-center py-12">
+                <FontAwesomeIcon icon={faTags} className="text-slate-300 text-4xl mb-4" />
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No archived coupons</h3>
+                <p className="text-slate-500">Coupons will appear here once they reach their usage limit</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto max-h-[60vh]">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Code
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Discount
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Usage
+                        </th>
+                        <th className="px-3 py-2 text-left text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Expires
+                        </th>
+                        <th className="px-3 py-2 text-right text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                      {archivedCoupons.slice((archivedPage - 1) * ITEMS_PER_PAGE, archivedPage * ITEMS_PER_PAGE).map((coupon) => (
+                        <tr key={coupon.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <code className="bg-slate-100 px-2 py-1 rounded text-xs sm:text-sm font-mono">
+                                {revealedCodes.has(coupon.id) ? coupon.code : '•'.repeat(coupon.code.length)}
+                              </code>
+                              <button
+                                onClick={() => toggleCodeVisibility(coupon.id)}
+                                className="text-slate-400 hover:text-slate-600"
+                                title={revealedCodes.has(coupon.id) ? "Hide code" : "Show code"}
+                              >
+                                <FontAwesomeIcon icon={revealedCodes.has(coupon.id) ? faEyeSlash : faEye} className="text-xs" />
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(coupon.code)}
+                                className="text-slate-400 hover:text-slate-600"
+                                title="Copy code"
+                              >
+                                <FontAwesomeIcon icon={faCopy} className="text-xs" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1 text-xs sm:text-sm">
+                              {coupon.discount_type === 'percentage' ? (
+                                <FontAwesomeIcon icon={faPercent} className="text-green-600 text-xs" />
+                              ) : (
+                                <FontAwesomeIcon icon={faDollarSign} className="text-blue-600 text-xs" />
+                              )}
+                              <span className="text-xs sm:text-sm font-medium">
+                                {coupon.discount_type === 'percentage'
+                                  ? `${coupon.discount_value}%`
+                                  : formatCurrency(coupon.discount_value)
+                                }
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-xs sm:text-sm text-slate-900">
+                            {coupon.usage_count}/{coupon.usage_limit}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-xs sm:text-sm text-slate-900">
+                            {coupon.expires_at
+                              ? new Date(coupon.expires_at).toLocaleDateString()
+                              : 'Never'
+                            }
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedCoupon(coupon);
+                                  setShowViewModal(true);
+                                }}
+                                className="text-slate-400 hover:text-slate-600 p-2"
+                                title="View details"
+                              >
+                                <FontAwesomeIcon icon={faEye} className="text-sm" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCoupon(coupon.id)}
+                                className="text-red-400 hover:text-red-600 p-2"
+                                title="Delete coupon"
+                              >
+                                <FontAwesomeIcon icon={faTrash} className="text-sm" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Archived Pagination Controls */}
+                <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3">
+                  <div className="text-xs sm:text-sm text-slate-600">
+                    Showing {Math.min((archivedPage - 1) * ITEMS_PER_PAGE + 1, archivedCoupons.length)} to {Math.min(archivedPage * ITEMS_PER_PAGE, archivedCoupons.length)} of {archivedCoupons.length} archived coupons
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setArchivedPage(prev => Math.max(1, prev - 1))}
+                      disabled={archivedPage === 1}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.ceil(archivedCoupons.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setArchivedPage(page)}
+                          className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
+                            archivedPage === page
+                              ? 'bg-slate-900 text-white'
+                              : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setArchivedPage(prev => Math.min(Math.ceil(archivedCoupons.length / ITEMS_PER_PAGE), prev + 1))}
+                      disabled={archivedPage === Math.ceil(archivedCoupons.length / ITEMS_PER_PAGE)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -125,6 +125,10 @@ BEGIN
 
   UPDATE coupons
   SET usage_count = usage_count + 1,
+      is_active = CASE
+        WHEN usage_count + 1 >= usage_limit THEN false
+        ELSE is_active
+      END,
       updated_at = now()
   WHERE id = coupon_id;
 

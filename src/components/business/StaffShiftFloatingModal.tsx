@@ -152,12 +152,12 @@ export default function StaffShiftFloatingModal() {
   if (!staffSession) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-3 right-3 z-50">
       {/* COLLAPSED */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-5 py-3 text-sm font-semibold text-slate-900 shadow-xl backdrop-blur-xl transition hover:-translate-y-1"
+          className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs font-semibold text-slate-900 shadow-xl backdrop-blur-xl transition hover:-translate-y-1"
         >
           <span className={`h-2.5 w-2.5 rounded-full ${floatingDotColor}`} />
           Shift Controls
@@ -166,22 +166,22 @@ export default function StaffShiftFloatingModal() {
 
       {/* PANEL */}
       {isOpen && (
-        <div className="w-[340px] overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl">
+        <div className="w-[calc(100vw-1rem)] max-w-[300px] overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl">
           {/* HEADER */}
-          <div className="border-b border-slate-100 bg-slate-900 p-5 text-white">
+          <div className="border-b border-slate-100 bg-slate-900 p-3 sm:p-4 text-white">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
-                  <FontAwesomeIcon icon={faUserTie} className="text-white" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl bg-white/10">
+                  <FontAwesomeIcon icon={faUserTie} className="text-white text-sm" />
                 </div>
 
                 <div>
                   <p className="text-sm font-bold">Shift Controls</p>
 
                   <div
-                    className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${currentStatusStyle}`}
+                    className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold ${currentStatusStyle}`}
                   >
-                    <FontAwesomeIcon icon={faClock} />
+                    <FontAwesomeIcon icon={faClock} className="text-[10px]" />
                     {staffStatusLabel}
                   </div>
                 </div>
@@ -201,68 +201,68 @@ export default function StaffShiftFloatingModal() {
             <button
               onClick={() => callShiftAction("start")}
               disabled={actionLoading !== null || isOnShift}
-              className="flex w-full items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 hover:bg-emerald-100 disabled:opacity-40"
+              className="flex w-full items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 hover:bg-emerald-100 disabled:opacity-40"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
-                  <FontAwesomeIcon icon={faRightToBracket} />
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <FontAwesomeIcon icon={faRightToBracket} className="text-sm" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-emerald-900">
+                  <p className="text-[13px] font-semibold text-emerald-900">
                     {isOnBreak ? "Resume Shift" : "Start Shift"}
                   </p>
-                  <p className="text-[11px] text-emerald-700">
+                  <p className="text-[10px] text-emerald-700">
                     {isOnBreak ? "Continue working" : "Clock in and begin work"}
                   </p>
                 </div>
               </div>
 
-              <FontAwesomeIcon icon={faCircleCheck} className="text-emerald-500" />
+              <FontAwesomeIcon icon={faCircleCheck} className="text-emerald-500 text-sm" />
             </button>
 
             <button
               onClick={() => callShiftAction("break")}
               disabled={actionLoading !== null || !isOnShift}
-              className="flex w-full items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 hover:bg-amber-100 disabled:opacity-40"
+              className="flex w-full items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 hover:bg-amber-100 disabled:opacity-40"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white">
-                  <FontAwesomeIcon icon={faMugHot} />
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-white">
+                  <FontAwesomeIcon icon={faMugHot} className="text-sm" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-amber-900">
+                  <p className="text-[13px] font-semibold text-amber-900">
                     Take Break
                   </p>
-                  <p className="text-[11px] text-amber-700">Have a breather</p>
+                  <p className="text-[10px] text-amber-700">Have a breather</p>
                 </div>
               </div>
 
-              <FontAwesomeIcon icon={faCircleCheck} className="text-amber-500" />
+              <FontAwesomeIcon icon={faCircleCheck} className="text-amber-500 text-sm" />
             </button>
 
             <button
               onClick={() => callShiftAction("end")}
               disabled={actionLoading !== null || (!isOnShift && !isOnBreak)}
-              className="flex w-full items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 hover:bg-rose-100 disabled:opacity-40"
+              className="flex w-full items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 hover:bg-rose-100 disabled:opacity-40"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500 text-white">
-                  <FontAwesomeIcon icon={faDoorOpen} />
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500 text-white">
+                  <FontAwesomeIcon icon={faDoorOpen} className="text-sm" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-rose-900">
+                  <p className="text-[13px] font-semibold text-rose-900">
                     End Shift
                   </p>
-                  <p className="text-[11px] text-rose-700">
+                  <p className="text-[10px] text-rose-700">
                     Clock out and finish session
                   </p>
                 </div>
               </div>
 
-              <FontAwesomeIcon icon={faPowerOff} className="text-rose-500" />
+              <FontAwesomeIcon icon={faPowerOff} className="text-rose-500 text-sm" />
             </button>
           </div>
         </div>

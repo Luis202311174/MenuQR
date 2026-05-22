@@ -12,6 +12,7 @@ export type OrderData = {
   is_paid?: boolean;
   total_guests?: number;
   senior_pwd_count?: number;
+  coupon_id?: string | null;
   discount_amount?: number;
   discount_approved?: boolean;
   milestone_coupon_awarded?: boolean;

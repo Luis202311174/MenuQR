@@ -1396,7 +1396,7 @@ export default function BusinessReportsPage() {
 
           {showAnalyzer && (
             <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-3 sm:p-6" onClick={() => setShowAnalyzer(false)}>
-              <div className="relative w-full max-w-full sm:max-w-5xl lg:max-w-6xl overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
+              <div className="relative w-full max-w-md sm:max-w-2xl lg:max-w-3xl max-h-[70vh] overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 p-4 sm:p-6">
                   <div>
                     <h3 className="text-xl sm:text-2xl font-semibold text-slate-900">AI Analyzer</h3>
@@ -1411,7 +1411,7 @@ export default function BusinessReportsPage() {
                     <span className="sr-only">Close analyzer</span>
                   </button>
                 </div>
-                <div className="max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+                <div className="max-h-[60vh] overflow-y-auto p-4 sm:p-6 pb-20 sm:pb-24">
                   {analyzerLoading ? (
                     <div className="flex min-h-[320px] items-center justify-center py-16">
                       <div className="text-center w-full max-w-sm">
@@ -1472,6 +1472,18 @@ export default function BusinessReportsPage() {
                       dateRangeLabel={analyzerDateLabel}
                     />
                   )}
+                </div>
+                <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 p-4 sm:p-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAnalyzer(false);
+                      setShowAnalyzerSetup(true);
+                    }}
+                    className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Analyze again
+                  </button>
                 </div>
               </div>
             </div>

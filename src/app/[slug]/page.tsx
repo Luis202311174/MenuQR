@@ -880,7 +880,7 @@ export default function BusinessPage() {
     if (!business) return <div className="p-6 text-center">Loading...</div>;
 
     return (
-      <div className="min-h-screen bg-[#FCFBF4] px-4 py-6 pb-28 sm:px-6 md:px-10">
+      <div className="min-h-screen bg-[#FCFBF4] px-4 py-6 pb-44 sm:pb-28 sm:px-6 md:px-10">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <main className="space-y-6 lg:order-2">
             <BusinessHeader business={business} />

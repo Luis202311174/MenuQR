@@ -355,7 +355,7 @@ Select an option:
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start">
+    <div className="fixed bottom-20 sm:bottom-6 left-6 z-50 flex flex-col items-start">
       {isOpen && (
         <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[90vw] max-w-[420px] h-[80vh] max-h-[720px] flex flex-col overflow-hidden mb-4 transition-all duration-300 transform origin-bottom-left">
           {/* Header */}

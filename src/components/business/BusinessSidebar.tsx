@@ -68,6 +68,9 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
       <nav className="space-y-2">
         {navItems
           .filter((item) => {
+            // Staff Dashboard is always visible for staff members
+            if (item.label === "Staff Dashboard" && staffSession) return true;
+            
             if (!staffSession) return true;
             if (item.requiredAction) {
               return hasStaffPermission(staffSession, item.module, item.requiredAction);
