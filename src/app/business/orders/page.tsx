@@ -441,17 +441,21 @@ export default function BusinessOrdersPage() {
           throw new Error(text || "Failed to mark as paid");
         }
       } else {
-        const { data, error } = await supabase
-          .from("orders")
-          .update({ status: "paid", is_paid: true })
-          .eq("id", orderId)
-          .eq("business_id", businessId)
-          .select()
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) throw new Error("Order not found or already updated");
-        console.log("Order marked as paid:", data);
+        // Owner path: call server endpoint so we can record activity logs centrally
+        const sessionData = await supabase.auth.getSession();
+        const accessToken = sessionData.data.session?.access_token;
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/mark-paid`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || "Failed to mark as paid");
+        }
       }
     } catch (error: any) {
       console.error("Error marking as paid:", error);

@@ -125,13 +125,21 @@ export default function OrderTileModals({
           throw new Error(text || "Failed to update payment status");
         }
       } else {
-        const { error } = await supabase
-          .from("orders")
-          .update({ status: newStatus, is_paid: isPaid })
-          .eq("id", orderId)
-          .eq("business_id", businessId);
-
-        if (error) throw error;
+        const sessionData = await supabase.auth.getSession();
+        const accessToken = sessionData.data.session?.access_token;
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({ status: newStatus, is_paid: isPaid }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to update payment status");
+        }
       }
 
       setPaymentStatusModal(null);
@@ -183,13 +191,21 @@ export default function OrderTileModals({
           throw new Error(text || "Failed to mark as paid");
         }
       } else {
-        const { error } = await supabase
-          .from("orders")
-          .update(updates)
-          .eq("id", markPaidModal.orderId)
-          .eq("business_id", businessId);
-
-        if (error) throw error;
+        const sessionData = await supabase.auth.getSession();
+        const accessToken = sessionData.data.session?.access_token;
+        const res = await fetch(`/api/orders/${encodeURIComponent(markPaidModal.orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to mark as paid");
+        }
       }
 
       setMarkPaidModal(null);
@@ -240,13 +256,21 @@ export default function OrderTileModals({
           throw new Error(text || "Failed to approve discount");
         }
       } else {
-        const { error } = await supabase
-          .from("orders")
-          .update({ discount_approved: true })
-          .eq("id", discountVerificationModal.orderId)
-          .eq("business_id", businessId);
-
-        if (error) throw error;
+        const sessionData = await supabase.auth.getSession();
+        const accessToken = sessionData.data.session?.access_token;
+        const res = await fetch(`/api/orders/${encodeURIComponent(discountVerificationModal.orderId)}/status`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({ discount_approved: true }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to approve discount");
+        }
       }
 
       const tableNumber = order?.table?.table_number || "Unknown";

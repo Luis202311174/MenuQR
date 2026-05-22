@@ -78,5 +78,23 @@ export async function POST(req: NextRequest, context: any) {
     return new NextResponse("Order not found or not accessible", { status: 404 });
   }
 
+  try {
+    // record activity
+    const { error: logError } = await supabase.from("order_activity_logs").insert([
+      {
+        order_id: orderId,
+        business_id: staffSession.businessId,
+        staff_id: staffSession.staffId,
+        action: status,
+        actor_name: null,
+      },
+    ]);
+    if (logError) {
+      console.warn("Failed to insert order activity log", logError);
+    }
+  } catch (err) {
+    console.error("Error inserting order activity log", err);
+  }
+
   return NextResponse.json(data);
 }
