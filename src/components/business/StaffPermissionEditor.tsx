@@ -8,6 +8,11 @@ interface StaffPermissionEditorProps {
 }
 
 export default function StaffPermissionEditor({ permissions, onChange }: StaffPermissionEditorProps) {
+  // 🟢 Filter out sensitive modules
+  const filteredModules = staffModules.filter(
+    (module) => module.module !== "reports" && module.module !== "settings"
+  );
+
   const getPermissionForModule = (moduleName: string) => {
     return (
       permissions.find((permission) => permission.module_name === moduleName) || {
@@ -45,7 +50,8 @@ export default function StaffPermissionEditor({ permissions, onChange }: StaffPe
 
   return (
     <div className="space-y-6">
-      {staffModules.map((module) => {
+      {/* 🟢 Map over the filtered modules instead of the full list */}
+      {filteredModules.map((module) => {
         const permission = getPermissionForModule(module.module);
 
         return (

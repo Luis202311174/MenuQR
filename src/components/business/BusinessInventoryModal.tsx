@@ -1,12 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import { resetInventoryForBusiness, lazyResetInventoryForBusiness } from "@/utils/businessCRUDMenu";
-import { InventoryManager } from "@/utils/inventoryManager";
-import { useInventory } from "@/hooks/useInventory";
 
 interface BusinessInventoryModalProps {
   isOpen: boolean;
@@ -14,6 +11,9 @@ interface BusinessInventoryModalProps {
   menuItems: BusinessMenuCardItem[];
   onClose: () => void;
   onRefetch: () => Promise<void>;
+
+  isOwner?: boolean;
+  canManageInventory?: boolean;
 }
 
 export default function BusinessInventoryModal({
@@ -22,6 +22,8 @@ export default function BusinessInventoryModal({
   menuItems,
   onClose,
   onRefetch,
+  isOwner = false,
+  canManageInventory = false, 
 }: BusinessInventoryModalProps) {
   const [inventorySearchFilter, setInventorySearchFilter] = useState("");
   const [inventoryItems, setInventoryItems] = useState<
@@ -71,6 +73,12 @@ export default function BusinessInventoryModal({
         };
 
   const handleSaveInventory = async () => {
+    // 🔐 Failsafe check
+    if (!isOwner && !canManageInventory) {
+      alert("Access Denied: You do not have permission to make modifications to the inventory.");
+      return;
+    }
+
     if (!businessId) return;
 
     setInventoryLoading(true);
@@ -100,6 +108,12 @@ export default function BusinessInventoryModal({
   };
 
   const handleInventorySameAsYesterday = async () => {
+    // 🔐 Failsafe check (added here too for protection against resets)
+    if (!isOwner && !canManageInventory) {
+      alert("Access Denied: You do not have permission to make modifications to the inventory.");
+      return;
+    }
+
     if (!businessId) return;
 
     setInventoryLoading(true);
@@ -217,16 +231,17 @@ export default function BusinessInventoryModal({
                             min="0"
                             value={inventoryItems[item.id]?.stock || "0"}
                             onChange={(e) => handleInventoryChange(item.id, e.target.value)}
-                            disabled={!inventoryItems[item.id]?.isTrackable}
+                            disabled={!inventoryItems[item.id]?.isTrackable || (!isOwner && !canManageInventory)}
                             className="w-20 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-center outline-none transition focus:border-blue-600 disabled:opacity-40 disabled:cursor-not-allowed"
                             />
                         </td>
                         <td className="px-4 py-4">
                         <button
                             onClick={() => handleToggleTrackable(item.id)}
+                            disabled={!isOwner && !canManageInventory}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
                             inventoryItems[item.id]?.isTrackable ? "bg-green-500" : "bg-gray-300"
-                            }`}
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -270,4 +285,3 @@ export default function BusinessInventoryModal({
     </div>
   );
 }
-

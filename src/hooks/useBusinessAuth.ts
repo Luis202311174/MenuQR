@@ -110,9 +110,11 @@ export function useBusinessAuth(
     if (
       authState.staffSession &&
       requiredModule &&
+      // 🟢 Pass requiredAction as the third parameter here:
       !hasStaffPermission(authState.staffSession, requiredModule, requiredAction)
     ) {
       router.push("/business/access-denied");
+      return;
     }
   }, [authState, requiredModule, requiredAction, router]);
 

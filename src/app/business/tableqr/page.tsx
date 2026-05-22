@@ -7,6 +7,7 @@ import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 import jsPDF from "jspdf";
+import { hasStaffPermission } from "@/lib/staffPermissions";
 
 interface ITable {
   id: string;
@@ -21,9 +22,7 @@ interface ITable {
 export default function TableQRPage() {
   const router = useRouter();
   const auth = useBusinessAuth("tableqr", "view");
-
   const [session, setSession] = useState<any>(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessSlug, setBusinessSlug] = useState<string | null>(null);
@@ -33,7 +32,10 @@ export default function TableQRPage() {
   const [tables, setTables] = useState<ITable[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 🔐 Check explicit actions (Owners inherently have all permissions)
+  const canCreate = auth.owner || (auth.staffSession ? hasStaffPermission(auth.staffSession, "tableqr", "create") : false);
+  const canDelete = auth.owner || (auth.staffSession ? hasStaffPermission(auth.staffSession, "tableqr", "delete") : false);
 
   const handleDownloadPDF = async (table: ITable) => {
     try {
@@ -176,6 +178,10 @@ export default function TableQRPage() {
 
   // ADD TABLE (FIXED QR FLOW)
   const handleAddTables = async (count: number) => {
+    if (!canCreate) {
+      alert("Access Denied: You do not have permission to create tables.");
+      return;
+    }
     if (!businessId || !businessSlug) return;
     setLoading(true);
 
@@ -250,6 +256,10 @@ export default function TableQRPage() {
 
   // DELETE TABLE
   const handleDeleteTable = async (id: string) => {
+    if (!canDelete) {
+      alert("Access Denied: You do not have permission to delete tables.");
+      return;
+    }
     if (!confirm("Delete this table?")) return;
 
     const { error } = await supabase.from("tables").delete().eq("id", id);
@@ -263,6 +273,10 @@ export default function TableQRPage() {
   };
 
   const handleClearAllSessions = async () => {
+    if (!canDelete) {
+      alert("Access Denied: You do not have permission to clear table sessions.");
+      return;
+    }
     if (!businessId) return;
     if (
       !confirm(
@@ -304,7 +318,7 @@ export default function TableQRPage() {
         .update({
           current_session_id: null,
           status: "available",
-        })
+         })
         .eq("business_id", businessId)
         .not("current_session_id", "is", null);
 
@@ -342,23 +356,25 @@ export default function TableQRPage() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
-                <div className="relative flex">
-                  <button
-                    onClick={() => handleAddTables(1)}
-                    disabled={loading}
-                    className="rounded-l-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
-                  >
-                    {loading ? "Creating..." : "+ Add"}
-                  </button>
-                  <button
-                    onClick={() => setShowDropdown((prev) => !prev)}
-                    className="rounded-r-3xl bg-blue-700 text-white px-2 sm:px-3"
-                  >
-                    ▼
-                  </button>
-                </div>
+                {canCreate && (
+                  <div className="relative flex">
+                    <button
+                      onClick={() => handleAddTables(1)}
+                      disabled={loading}
+                      className="rounded-l-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
+                    >
+                      {loading ? "Creating..." : "+ Add"}
+                    </button>
+                    <button
+                      onClick={() => setShowDropdown((prev) => !prev)}
+                      className="rounded-r-3xl bg-blue-700 text-white px-2 sm:px-3"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
 
-                {showDropdown && (
+                {showDropdown && canCreate && (
                   <div className="absolute right-0 mt-2 w-32 sm:w-40 bg-white border border-slate-200 rounded-2xl shadow-lg z-50">
                     <button
                       onClick={() => {
@@ -389,12 +405,15 @@ export default function TableQRPage() {
                     </button>
                   </div>
                 )}
-                <button
-                  onClick={handleClearAllSessions}
-                  className="rounded-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 whitespace-nowrap"
-                >
-                  Clear Sessions
-                </button>
+                
+                {canDelete && (
+                  <button
+                    onClick={handleClearAllSessions}
+                    className="rounded-3xl bg-blue-600 text-white font-bold px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm hover:bg-blue-700 whitespace-nowrap"
+                  >
+                    Clear Sessions
+                  </button>
+                )}
               </div>
             </div>
 
@@ -424,12 +443,14 @@ export default function TableQRPage() {
                         >
                           Download
                         </button>
-                        <button
-                          onClick={() => handleDeleteTable(table.id)}
-                          className="w-full rounded-[20px] border border-slate-200 bg-white text-slate-700 font-semibold px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm transition hover:bg-slate-50"
-                        >
-                          Delete
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteTable(table.id)}
+                            className="w-full rounded-[20px] border border-slate-200 bg-white text-slate-700 font-semibold px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm transition hover:bg-slate-50"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

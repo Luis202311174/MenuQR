@@ -20,6 +20,8 @@ import {
   getOrderStatusLabel,
   getStatusColor,
 } from "@/utils/orderStatusManager";
+import { hasStaffPermission } from "@/lib/staffPermissions";
+import { useStaffSession } from "@/hooks/useStaffSession";
 
 
 type Order = {
@@ -45,7 +47,11 @@ type Order = {
 export default function BusinessOrdersPage() {
   const router = useRouter();
   const auth = useBusinessAuth("orders", "view");
-
+  const { staffSession } = useStaffSession();
+  const staffId = staffSession?.staffId || auth.staffSession?.staffId;
+  const isOwner = auth.owner;
+  const canManageOrders = isOwner || (auth.staffSession && 
+    hasStaffPermission(auth.staffSession, "orders", "edit"));
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("Restaurant");
   const [businessAddress, setBusinessAddress] = useState<string>("");
@@ -76,7 +82,6 @@ export default function BusinessOrdersPage() {
   } | null>(null);
 
   const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
-
 
   const openDiscountVerification = (orderId: string, orderNumber: string) => {
     setDiscountVerificationModal({ orderId, orderNumber });
@@ -358,6 +363,15 @@ export default function BusinessOrdersPage() {
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    // 🔐 ENFORCE STAFF EDIT PERMISSIONS
+    if (!canManageOrders) {
+      setNotification({ 
+        message: "Access Denied: You do not have permission to modify order statuses.", 
+        type: "error" 
+      });
+      return;
+    }
+
     try {
       setProcessingOrderId(orderId);
       const order = orders.find(o => o.id === orderId);
@@ -365,13 +379,12 @@ export default function BusinessOrdersPage() {
 
       switch (newStatus) {
         case "pending_payment":
-        // Handle if needed, or leave as is
         break;
         case "received":
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await confirmOrderReceived(orderId, businessId || undefined);
+            await confirmOrderReceived(orderId, staffId || "system");
           }
           setNotification({ message: `Table ${tableNumber} Order accepted successfully`, type: "success" });
           break;
@@ -379,7 +392,7 @@ export default function BusinessOrdersPage() {
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await confirmOrderPaid(orderId, businessId || undefined);
+            await confirmOrderPaid(orderId, staffId || "system");
           }
           setNotification({ message: `Table ${tableNumber} Order marked as paid`, type: "success" });
           break;
@@ -387,7 +400,7 @@ export default function BusinessOrdersPage() {
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await markOrderPreparing(orderId, businessId || undefined);
+            await markOrderPreparing(orderId, staffId || "system");
           }
           setNotification({ message: `Table ${tableNumber} Order now preparing`, type: "success" });
           break;
@@ -395,7 +408,7 @@ export default function BusinessOrdersPage() {
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await markOrderReady(orderId, businessId || undefined);
+            await markOrderReady(orderId, staffId || "system");
           }
           setNotification({ message: `Table ${tableNumber} Order ready for pickup`, type: "success" });
           break;
@@ -403,7 +416,7 @@ export default function BusinessOrdersPage() {
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await markOrderServed(orderId, businessId || undefined);
+            await markOrderServed(orderId, staffId || "system");
           }
           setNotification({ message: `Table ${tableNumber} Order served`, type: "success" });
           break;
@@ -421,6 +434,15 @@ export default function BusinessOrdersPage() {
 
   // 💰 Mark order as paid (from received unpaid state)
   const markAsPaid = async (orderId: string) => {
+    // 🔐 ENFORCE STAFF EDIT PERMISSIONS
+    if (!canManageOrders) {
+      setNotification({ 
+        message: "Access Denied: You do not have permission to modify order statuses.", 
+        type: "error" 
+      });
+      return;
+    }
+
     if (!businessId) return;
     setProcessingOrderId(orderId);
     try {
@@ -465,20 +487,27 @@ export default function BusinessOrdersPage() {
     }
   };
 
-
   // ✅ Complete order
   const completeOrder = async (order: Order) => {
+    // 🔐 ENFORCE STAFF EDIT PERMISSIONS
+    if (!canManageOrders) {
+      setNotification({ 
+        message: "Access Denied: You do not have permission to modify order statuses.", 
+        type: "error" 
+      });
+      return;
+    }
+
     if (!businessId || completingOrderId === order.id) return;
 
     setCompletingOrderId(order.id);
 
     try {
-      console.log("OWNER completeOrder()", { order });
-
       if (auth.staffSession) {
         await staffUpdateOrderStatus(order.id, "completed");
       } else {
-        await markOrderCompleted(order.id, businessId || undefined);
+        // FIX: Pass order.id, then staffName, then businessId
+        await markOrderCompleted(order.id, staffId || "system");
       }
 
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
@@ -573,6 +602,7 @@ export default function BusinessOrdersPage() {
                         getStatusBgColor={getStatusColor}
                         processingOrderId={processingOrderId}
                         completingOrderId={completingOrderId}
+                        readOnly={!canManageOrders} 
                         updateOrderStatus={updateOrderStatus}
                         markAsPaid={markAsPaid}
                         setPaymentStatusModal={setPaymentStatusModal}

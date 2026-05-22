@@ -45,6 +45,7 @@ export function useStaffSessionHandler(
       if (!permitted) {
         setRedirected(true);
         router.replace("/business/access-denied");
+        return;
       }
     }
   }, [loading, staffSession, redirected, requiredModule, requiredAction, router, isOwner]);

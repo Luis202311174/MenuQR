@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
+import { hasStaffPermission } from "@/lib/staffPermissions";
 import PageShell from "@/components/PageShell";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -36,6 +37,13 @@ interface Coupon {
 export default function BusinessPromotionsPage() {
   const router = useRouter();
   const auth = useBusinessAuth("promotions", "view");
+  const isOwner = auth.owner;
+  const canCreatePromotions = isOwner || (auth.staffSession && 
+    hasStaffPermission(auth.staffSession, "promotions", "create"));
+  const canEditPromotions = isOwner || (auth.staffSession && 
+    hasStaffPermission(auth.staffSession, "promotions", "edit"));
+  const canDeletePromotions = isOwner || (auth.staffSession && 
+    hasStaffPermission(auth.staffSession, "promotions", "delete"));
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -55,7 +63,6 @@ export default function BusinessPromotionsPage() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error'} | null>(null);
   const [showRewardSettingsModal, setShowRewardSettingsModal] = useState(false);
   const [savingRewardSettings, setSavingRewardSettings] = useState(false);
-
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -221,7 +228,13 @@ export default function BusinessPromotionsPage() {
     return result;
   };
 
+  // 1. In handleCreateCoupon:
   const handleCreateCoupon = async () => {
+    if (!canCreatePromotions) {
+      alert("Access Denied: You do not have permission to create promotions.");
+      return;
+    }
+
     if (!businessId) return;
 
     const numCodes = parseInt(numberOfCodes);
@@ -275,9 +288,35 @@ export default function BusinessPromotionsPage() {
     }
   };
 
-  
+  // 2. In handleToggleActive (matches your file's toggle name):
+  const handleToggleActive = async (couponId: string, isActive: boolean) => {
+    if (!canEditPromotions) {
+      alert("Access Denied: You do not have permission to modify promotions.");
+      return;
+    }
 
+    try {
+      const { error } = await supabase
+        .from("coupons")
+        .update({ is_active: !isActive })
+        .eq("id", couponId);
+
+      if (error) throw error;
+
+      await loadCoupons(businessId!);
+    } catch (error: any) {
+      console.error("Error updating coupon:", error);
+      alert("Error updating coupon: " + error.message);
+    }
+  };
+
+  // 3. In handleDeleteCoupon:
   const handleDeleteCoupon = async (couponId: string) => {
+    if (!canDeletePromotions) {
+      alert("Access Denied: You do not have permission to delete promotions.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this coupon? This action cannot be undone.")) {
       return;
     }
@@ -308,23 +347,12 @@ export default function BusinessPromotionsPage() {
     }
   };
 
-  const handleToggleActive = async (couponId: string, isActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("coupons")
-        .update({ is_active: !isActive })
-        .eq("id", couponId);
-
-      if (error) throw error;
-
-      await loadCoupons(businessId!);
-    } catch (error: any) {
-      console.error("Error updating coupon:", error);
-      alert("Error updating coupon: " + error.message);
-    }
-  };
-
   const saveRewardSettings = async () => {
+    if (!canEditPromotions) {
+      alert("Access Denied: You do not have permission to modify reward settings.");
+      return;
+    }
+
     if (!businessId) return;
     setSavingRewardSettings(true);
 
@@ -420,23 +448,27 @@ export default function BusinessPromotionsPage() {
       <main className="space-y-4">
           {/* Header */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2 sm:gap-3">
-                  <FontAwesomeIcon icon={faTags} className="text-purple-600 text-base sm:text-lg" />
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                  <FontAwesomeIcon icon={faTags} className="text-blue-600 h-6 w-6 sm:h-7 sm:w-7" />
                   Promotions & Coupons
                 </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Create and manage discount coupons for your customers
+                <p className="text-sm sm:text-base text-slate-500 mt-1">
+                  Create and manage discount coupons for your store.
                 </p>
               </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="rounded-2xl bg-purple-600 px-3 py-2 text-xs sm:px-4 sm:py-2 sm:text-sm font-semibold text-white transition hover:bg-purple-700 flex items-center gap-2"
-              >
-                <FontAwesomeIcon icon={faPlus} className="text-sm sm:text-base" />
-                Create Coupons
-              </button>
+              
+              {/* Inside your JSX for the Create Coupon top button: */}
+                {canCreatePromotions && (
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition active:scale-[0.98]"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                    Create Coupon
+                  </button>
+                )}
             </div>
           </div>
 
@@ -471,7 +503,15 @@ export default function BusinessPromotionsPage() {
               </div>
               <button
                 onClick={() => setShowRewardSettingsModal(true)}
-                className="rounded-2xl bg-slate-900 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-slate-800"
+                disabled={!canEditPromotions}
+                className={`
+                  rounded-2xl px-4 py-2 text-xs sm:text-sm font-semibold text-white transition
+                  ${
+                    canEditPromotions
+                      ? "bg-slate-900 hover:bg-slate-800 active:scale-[0.98] cursor-pointer"
+                      : "bg-slate-400 opacity-60 cursor-not-allowed"
+                  }
+                `}
               >
                 Manage Reward Settings
               </button>
@@ -534,12 +574,15 @@ export default function BusinessPromotionsPage() {
                 <FontAwesomeIcon icon={faTags} className="text-slate-300 text-4xl mb-4" />
                 <h3 className="text-lg font-semibold text-slate-700 mb-2">No active coupons</h3>
                 <p className="text-slate-500 mb-4">Create your first coupon to start offering discounts</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="rounded-2xl bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
-                >
-                  Create Your First Coupon
-                </button>
+                {canCreatePromotions && (
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition active:scale-[0.98]"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                    Create Coupon
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -625,31 +668,35 @@ export default function BusinessPromotionsPage() {
                             }
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedCoupon(coupon);
-                                  setShowViewModal(true);
-                                }}
-                                className="text-slate-400 hover:text-slate-600 p-2"
-                                title="View details"
-                              >
-                                <FontAwesomeIcon icon={faEye} className="text-sm" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleActive(coupon.id, coupon.is_active)}
-                                className={`${coupon.is_active ? "text-red-400 hover:text-red-600" : "text-green-400 hover:text-green-600"} p-2`}
-                                title={coupon.is_active ? "Deactivate" : "Activate"}
-                              >
-                                <FontAwesomeIcon icon={coupon.is_active ? faTimes : faCheck} className="text-sm" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCoupon(coupon.id)}
-                                className="text-red-400 hover:text-red-600 p-2"
-                                title="Delete coupon"
-                              >
-                                <FontAwesomeIcon icon={faTrash} className="text-sm" />
-                              </button>
+                            <div className="flex items-center gap-2">
+                              {/* 🔄 Modify your permissions gate from a strict binary toggle to look like this: */}
+                              {(canEditPromotions || canDeletePromotions) ? (
+                                <>
+                                  {canEditPromotions && (
+                                    <button 
+                                      onClick={() => handleToggleActive(coupon.id, coupon.is_active)} 
+                                      title="Deactivate Coupon" 
+                                      className="p-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 transition"
+                                    >
+                                      <FontAwesomeIcon icon={faEyeSlash} className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  
+                                  {canDeletePromotions && (
+                                    <button 
+                                      onClick={() => handleDeleteCoupon(coupon.id)} 
+                                      title="Delete Coupon" 
+                                      className="p-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                    >
+                                      <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-xs text-slate-400 italic bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
+                                  View Only
+                                </span>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1163,24 +1210,29 @@ export default function BusinessPromotionsPage() {
                             }
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedCoupon(coupon);
-                                  setShowViewModal(true);
-                                }}
-                                className="text-slate-400 hover:text-slate-600 p-2"
-                                title="View details"
-                              >
-                                <FontAwesomeIcon icon={faEye} className="text-sm" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCoupon(coupon.id)}
-                                className="text-red-400 hover:text-red-600 p-2"
-                                title="Delete coupon"
-                              >
-                                <FontAwesomeIcon icon={faTrash} className="text-sm" />
-                              </button>
+                            <div className="flex items-center gap-2">
+                              {canEditPromotions ? (
+                                <>
+                                  <button
+                                    onClick={() => handleToggleActive(coupon.id, coupon.is_active)}
+                                    title="Activate Coupon"
+                                    className="p-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"
+                                  >
+                                    <FontAwesomeIcon icon={faEye} className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCoupon(coupon.id)}
+                                    title="Delete Coupon"
+                                    className="p-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                  >
+                                    <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-slate-400 italic bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
+                                  View Only
+                                </span>
+                              )}
                             </div>
                           </td>
                         </tr>

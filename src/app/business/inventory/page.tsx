@@ -8,6 +8,7 @@ import BusinessInventoryModal from "@/components/business/BusinessInventoryModal
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import { useInventory } from "@/hooks/useInventory";
 import { getBusinessByOwner } from "@/utils/businessCRUDMenu";
+import { hasStaffPermission } from "@/lib/staffPermissions";
 
 type Business = {
   id: string;
@@ -51,6 +52,9 @@ type MenuItem = {
 export default function BusinessInventoryPage() {
   const router = useRouter();
   const auth = useBusinessAuth("inventory", "view");
+  const isOwner = auth.owner;
+  const canManageInventory = isOwner || (auth.staffSession && 
+    hasStaffPermission(auth.staffSession, "inventory", "edit"));
   const [business, setBusiness] = useState<Business | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,12 +183,16 @@ export default function BusinessInventoryPage() {
                     Track and manage your menu item stock levels
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowInventoryModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Manage Inventory
-                </button>
+                
+                {/* 🔐 Add the permission check wrapper here: */}
+                {canManageInventory && (
+                  <button
+                    onClick={() => setShowInventoryModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Manage Inventory
+                  </button>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -279,6 +287,7 @@ export default function BusinessInventoryPage() {
           menuItems={menuItems}
           onClose={() => setShowInventoryModal(false)}
           onRefetch={handleRefetch}
+          canManageInventory={canManageInventory}
         />
       )}
     </div>

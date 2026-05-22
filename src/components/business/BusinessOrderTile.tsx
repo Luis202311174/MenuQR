@@ -29,25 +29,25 @@ interface Props {
   order: Order;
   displayStatusLabel: (status: string, isPaid?: boolean) => string;
   getStatusBgColor: (status: OrderStatus, isPaid?: boolean) => string;
-
   processingOrderId: string | null;
   completingOrderId: string | null;
-
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   markAsPaid: (id: string) => void;
   setPaymentStatusModal: (v: any) => void;
   setCancelOrderModal: (v: any) => void;
   completeOrder: (order: Order) => void;
   setMarkPaidModal: (v: any) => void;
-  verifyDiscount: (id: string, orderNumber: string) => void;
-  businessName?: string;
-  businessAddress?: string;
+  businessName: string;
+  businessAddress: string;
+  verifyDiscount: (orderId: string, orderNumber: string) => void;
+  readOnly?: boolean; 
 }
 
 const BusinessOrderTile: React.FC<Props> = ({
   order,
   displayStatusLabel,
   getStatusBgColor,
+  processingOrderId, // Make sure this is captured to determine 'isProcessing'
   completingOrderId,
   updateOrderStatus,
   markAsPaid,
@@ -58,8 +58,15 @@ const BusinessOrderTile: React.FC<Props> = ({
   verifyDiscount,
   businessName = "Restaurant",
   businessAddress,
+  readOnly = false, // 👈 1. Destructure readOnly with a default value
 }) => {
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+  // Quick helper variables to match your snippet's shorthand references
+  const id = order.id;
+  const orderNumber = order.id.slice(0, 8);
+  const isProcessing = processingOrderId === order.id || completingOrderId === order.id;
+
   /**
    * Normalize status to avoid UI mismatch bugs
    */
@@ -91,21 +98,20 @@ const BusinessOrderTile: React.FC<Props> = ({
   const hasDiscountPendingApproval = (order.discount_amount || 0) > 0 && !order.discount_approved;
   const orderDiscountLabel = order.coupon_id ? "Coupon Discount" : order.senior_pwd_count ? "Senior/PWD Discount" : "Discount";
 
+  // 👈 2. Updated Memoized Actions with readOnly, isProcessing, and hover styles applied
   const actions = useMemo<Record<string, any[]>>(() => ({
     pending: [
       {
         label: "Accept Order",
-        className: "bg-blue-600",
-        action: () => updateOrderStatus(order.id, "received"),
+        className: "bg-blue-600 hover:bg-blue-700",
+        action: () => updateOrderStatus(id, "received" as OrderStatus),
+        disabled: isProcessing || readOnly,
       },
       {
         label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
+        className: "bg-rose-600 hover:bg-rose-700",
+        action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+        disabled: isProcessing || readOnly,
       },
     ],
     pending_payment: [
@@ -113,136 +119,139 @@ const BusinessOrderTile: React.FC<Props> = ({
         ? [
             {
               label: "Mark Paid",
-              className: "bg-green-600",
+              className: "bg-emerald-600 hover:bg-emerald-700",
               action: () =>
                 setMarkPaidModal({
-                  orderId: order.id,
-                  orderNumber: order.id.slice(0, 8),
+                  orderId: id,
+                  orderNumber,
                   paymentMethod: order.payment_method === "gcash" ? "gcash" : "cash",
                 }),
+              disabled: isProcessing || readOnly,
             },
           ]
         : []),
       hasDiscountPendingApproval && {
         label: "Verify Discount",
-        className: "bg-amber-600",
-        action: () => verifyDiscount(order.id, order.id.slice(0, 8)),
+        className: "bg-amber-600 hover:bg-amber-700",
+        action: () => verifyDiscount(id, orderNumber),
+        disabled: isProcessing || readOnly,
       },
       {
         label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
+        className: "bg-rose-600 hover:bg-rose-700",
+        action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+        disabled: isProcessing || readOnly,
       },
     ].filter(Boolean),
-    received: [
-      ...(!order.is_paid && !hasDiscountPendingApproval
-        ? [
-            {
-              label: "Mark Paid",
-              className: "bg-green-600",
-              action: () =>
-                setMarkPaidModal({
-                  orderId: order.id,
-                  orderNumber: order.id.slice(0, 8),
-                  paymentMethod: order.payment_method === "gcash" ? "gcash" : "cash",
-                }),
-            },
-          ]
-        : []),
-      hasDiscountPendingApproval && {
-        label: "Verify Discount",
-        className: "bg-amber-600",
-        action: () => verifyDiscount(order.id, order.id.slice(0, 8)),
-      },
-      {
-        label: "Prepare",
-        className: "bg-yellow-500",
-        action: () => updateOrderStatus(order.id, "preparing"),
-      },
-      {
-        label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
-      },
-    ].filter(Boolean),
+    received: order.is_paid
+      ? [
+          {
+            label: "Start Preparing",
+            className: "bg-amber-600 hover:bg-amber-700",
+            action: () => updateOrderStatus(id, "preparing" as OrderStatus),
+            disabled: isProcessing || readOnly,
+          },
+        ]
+      : [
+          ...(!hasDiscountPendingApproval
+            ? [
+                {
+                  label: "Mark as Paid",
+                  className: "bg-emerald-600 hover:bg-emerald-700",
+                  action: () =>
+                    setMarkPaidModal({
+                      orderId: id,
+                      orderNumber,
+                      paymentMethod: order.payment_method || "cash",
+                    }),
+                  disabled: isProcessing || readOnly,
+                },
+              ]
+            : []),
+          hasDiscountPendingApproval && {
+            label: "Verify Discount",
+            className: "bg-amber-600 hover:bg-amber-700",
+            action: () => verifyDiscount(id, orderNumber),
+            disabled: isProcessing || readOnly,
+          },
+          {
+            label: "Start Preparing (Unpaid)",
+            className: "bg-amber-600 hover:bg-amber-700",
+            action: () => updateOrderStatus(id, "preparing" as OrderStatus),
+            disabled: isProcessing || readOnly,
+          },
+          {
+            label: "Cancel",
+            className: "bg-rose-600 hover:bg-rose-700",
+            action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+            disabled: isProcessing || readOnly,
+          },
+        ].filter(Boolean),
     paid: [
       {
-        label: "Prepare",
-        className: "bg-yellow-500",
-        action: () => updateOrderStatus(order.id, "preparing"),
+        label: "Start Preparing",
+        className: "bg-amber-600 hover:bg-amber-700",
+        action: () => updateOrderStatus(id, "preparing" as OrderStatus),
+        disabled: isProcessing || readOnly,
       },
       {
         label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
+        className: "bg-rose-600 hover:bg-rose-700",
+        action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+        disabled: isProcessing || readOnly,
       },
     ],
     preparing: [
       {
-        label: "Ready",
-        className: "bg-purple-600",
-        action: () => updateOrderStatus(order.id, "ready"),
+        label: "Mark as Ready",
+        className: "bg-indigo-600 hover:bg-indigo-700",
+        action: () => updateOrderStatus(id, "ready" as OrderStatus),
+        disabled: isProcessing || readOnly,
       },
       {
         label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
+        className: "bg-rose-600 hover:bg-rose-700",
+        action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+        disabled: isProcessing || readOnly,
       },
     ],
     ready: [
       {
-        label: "Served",
-        className: "bg-teal-600",
-        action: () => updateOrderStatus(order.id, "served"),
+        label: "Mark as Served",
+        className: "bg-teal-600 hover:bg-teal-700",
+        action: () => updateOrderStatus(id, "served" as OrderStatus),
+        disabled: isProcessing || readOnly,
       },
       {
         label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
+        className: "bg-rose-600 hover:bg-rose-700",
+        action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+        disabled: isProcessing || readOnly,
       },
     ],
     served: [
       {
         label: "Print Receipt",
-        className: "bg-purple-600",
+        className: "bg-purple-600 hover:bg-purple-700",
         action: () => setReceiptModalOpen(true),
+        // Keeping print button enabled during read-only mode typically makes sense, 
+        // but feel free to add "|| readOnly" here if you want printing disabled too!
+        disabled: isProcessing, 
       },
       {
-        label: "Complete",
-        className: "bg-green-700",
+        label: "Complete Order & Session",
+        className: "bg-slate-900 hover:bg-black",
         action: () => completeOrder(order),
+        disabled: isProcessing || readOnly,
       },
       {
         label: "Cancel",
-        className: "bg-red-700",
-        action: () =>
-          setCancelOrderModal({
-            orderId: order.id,
-            orderNumber: order.id.slice(0, 8),
-          }),
+        className: "bg-rose-600 hover:bg-rose-700",
+        action: () => setCancelOrderModal({ orderId: id, orderNumber }),
+        disabled: isProcessing || readOnly,
       },
     ],
-  }), [order, markAsPaid, setMarkPaidModal, setCancelOrderModal, updateOrderStatus, completeOrder]);
+  }), [order, id, orderNumber, isProcessing, readOnly, setMarkPaidModal, setCancelOrderModal, updateOrderStatus, completeOrder, verifyDiscount]);
 
   return (
     <>
@@ -256,158 +265,150 @@ const BusinessOrderTile: React.FC<Props> = ({
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
-      {/* HEADER */}
-      <div className="bg-slate-50 px-4 py-4">
-        <div className="flex justify-between">
-          <div>
+        {/* HEADER */}
+        <div className="bg-slate-50 px-4 py-4">
+          <div className="flex justify-between">
+            <div>
+              <div className="flex gap-2 flex-wrap">
+                {/* ORDER STATUS */}
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold leading-none ${getStatusColor(
+                    status as any,
+                    order.is_paid
+                  )}`}
+                >
+                  {displayStatusLabel(status)}
+                </span>
 
-            <div className="flex gap-2 flex-wrap">
-              {/* ORDER STATUS */}
-              <span
-                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold leading-none ${getStatusColor(
-                  status as any,
-                  order.is_paid // Use actual payment status for coloring
-                )}`}
-              >
-                {displayStatusLabel(status)}
-              </span>
-
-              {/* PAYMENT STATUS */}
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
-                  order.is_paid
-                    ? "bg-green-100 text-green-700 border border-green-200"
-                    : "bg-yellow-100 text-yellow-700 border border-yellow-200"
-                }`}
-              >
-                {order.is_paid ? "Paid" : "Unpaid"}
-              </span>
-
-              {/* PAYMENT METHOD */}
-              {order.payment_method && (
+                {/* PAYMENT STATUS */}
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
-                    order.payment_method === "gcash"
-                      ? "bg-blue-100 text-blue-700 border border-blue-200"
-                      : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    order.is_paid
+                      ? "bg-green-100 text-green-700 border border-green-200"
+                      : "bg-yellow-100 text-yellow-700 border border-yellow-200"
                   }`}
                 >
-                  {order.payment_method === "gcash" ? "GCash" : "Cash"}
+                  {order.is_paid ? "Paid" : "Unpaid"}
                 </span>
-              )}
 
-              {/* DISCOUNT INDICATOR */}
-              {(order.discount_amount || 0) > 0 && (
-                <div className="space-y-2">
+                {/* PAYMENT METHOD */}
+                {order.payment_method && (
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none border ${
-                      order.discount_approved
-                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                        : "bg-amber-100 text-amber-700 border-amber-200"
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
+                      order.payment_method === "gcash"
+                        ? "bg-blue-100 text-blue-700 border border-blue-200"
+                        : "bg-emerald-100 text-emerald-700 border border-emerald-200"
                     }`}
                   >
-                    {orderDiscountLabel}: -₱{(order.discount_amount || 0).toFixed(2)}
+                    {order.payment_method === "gcash" ? "GCash" : "Cash"}
                   </span>
-                  <p className={`text-[10px] font-semibold uppercase tracking-[0.3em] ${order.discount_approved ? "text-emerald-700" : "text-amber-700"}`}>
-                    {order.discount_approved
-                      ? `${order.coupon_id ? "Coupon" : order.senior_pwd_count ? "Senior/PWD" : "Discount"} discount approved`
-                      : `${order.coupon_id ? "Coupon" : order.senior_pwd_count ? "Senior/PWD" : "Discount"} discount pending approval`
-                    }
-                  </p>
+                )}
+
+                {/* DISCOUNT INDICATOR */}
+                {(order.discount_amount || 0) > 0 && (
+                  <div className="space-y-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none border ${
+                        order.discount_approved
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                          : "bg-amber-100 text-amber-700 border-amber-200"
+                      }`}
+                    >
+                      {orderDiscountLabel}: -₱{(order.discount_amount || 0).toFixed(2)}
+                    </span>
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.3em] ${order.discount_approved ? "text-emerald-700" : "text-amber-700"}`}>
+                      {order.discount_approved
+                        ? `${order.coupon_id ? "Coupon" : order.senior_pwd_count ? "Senior/PWD" : "Discount"} discount approved`
+                        : `${order.coupon_id ? "Coupon" : order.senior_pwd_count ? "Senior/PWD" : "Discount"} discount pending approval`
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-2 text-xs text-slate-500">
+                <p>{new Date(order.created_at).toLocaleString()}</p>
+                <p>Table: {order.table?.table_number || "N/A"}</p>
+              </div>
+            </div>
+
+            <div className="font-bold text-[#9B1C1C]">
+              ₱{(order.total_amount - (order.discount_amount || 0)).toFixed(2)}
+              {(order.discount_amount || 0) > 0 && (
+                <div className="text-xs text-gray-500 font-normal">
+                  (₱{order.total_amount.toFixed(2)} - ₱{(order.discount_amount || 0).toFixed(2)})
                 </div>
               )}
             </div>
-
-            <div className="mt-2 text-xs text-slate-500">
-              <p>{new Date(order.created_at).toLocaleString()}</p>
-              <p>Table: {order.table?.table_number || "N/A"}</p>
-            </div>
-          </div>
-
-          <div className="font-bold text-[#9B1C1C]">
-            ₱{(order.total_amount - (order.discount_amount || 0)).toFixed(2)}
-            {(order.discount_amount || 0) > 0 && (
-              <div className="text-xs text-gray-500 font-normal">
-                (₱{order.total_amount.toFixed(2)} - ₱{(order.discount_amount || 0).toFixed(2)})
-              </div>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* ITEMS - WITH FOODPANDA STYLE OPTIONS */}
-      <div className="p-4 space-y-3">
-        {order.items?.map((item: any, i: number) => {
-          // Calculate item total with options
-          const itemAddonsTotal =
-            item.selected_options?.reduce(
-              (sum: number, opt: any) => sum + (opt.price_modifier || 0),
-              0
-            ) || 0;
-          
-          const itemBasePrice = item.base_price || item.price || 0;
-          const itemFinalPrice = itemBasePrice + itemAddonsTotal;
-          const itemQty = item.quantity || item.qty || 1;
-          const itemTotal = itemFinalPrice * itemQty;
+        {/* ITEMS */}
+        <div className="p-4 space-y-3">
+          {order.items?.map((item: any, i: number) => {
+            const itemAddonsTotal =
+              item.selected_options?.reduce(
+                (sum: number, opt: any) => sum + (opt.price_modifier || 0),
+                0
+              ) || 0;
+            
+            const itemBasePrice = item.base_price || item.price || 0;
+            const itemFinalPrice = itemBasePrice + itemAddonsTotal;
+            const itemQty = item.quantity || item.qty || 1;
+            const itemTotal = itemFinalPrice * itemQty;
 
-          return (
-            <div key={i} className="border-b border-slate-100 pb-3 last:border-b-0">
-              {/* Item Name & Quantity */}
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-900">{item.name}</p>
-                  <p className="text-xs text-slate-500">
-                    ₱{itemBasePrice.toFixed(2)}
-                  </p>
+            return (
+              <div key={i} className="border-b border-slate-100 pb-3 last:border-b-0">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-900">{item.name}</p>
+                    <p className="text-xs text-slate-500">
+                      ₱{itemBasePrice.toFixed(2)}
+                    </p>
+                  </div>
+                  <span className="ml-2 text-xs font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">
+                    x{itemQty}
+                  </span>
                 </div>
-                <span className="ml-2 text-xs font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">
-                  x{itemQty}
-                </span>
-              </div>
 
-              {/* Selected Options */}
-              {item.selected_options && item.selected_options.length > 0 && (
-                <div className="ml-3 space-y-1 mb-2">
-                  {item.selected_options.map((opt: any, optIdx: number) => (
-                    <div
-                      key={optIdx}
-                      className="flex justify-between text-xs text-slate-600"
-                    >
-                      <span>
-                        {opt.group_name}: <span className="text-slate-700 font-medium">{opt.option_name}</span>
-                      </span>
-                      {opt.price_modifier > 0 && (
-                        <span className="text-slate-700 font-medium">
-                          +₱{opt.price_modifier.toFixed(2)}
+                {item.selected_options && item.selected_options.length > 0 && (
+                  <div className="ml-3 space-y-1 mb-2">
+                    {item.selected_options.map((opt: any, optIdx: number) => (
+                      <div key={optIdx} className="flex justify-between text-xs text-slate-600">
+                        <span>
+                          {opt.group_name}: <span className="text-slate-700 font-medium">{opt.option_name}</span>
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        {opt.price_modifier > 0 && (
+                          <span className="text-slate-700 font-medium">
+                            +₱{opt.price_modifier.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-end text-sm font-semibold text-slate-900">
+                  ₱{itemTotal.toFixed(2)}
                 </div>
-              )}
-
-              {/* Item Total */}
-              <div className="flex justify-end text-sm font-semibold text-slate-900">
-                ₱{itemTotal.toFixed(2)}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* ACTIONS (NO IF STATEMENTS) */}
-      <div className="p-4 flex flex-wrap gap-2">
-        {(actions[status as keyof typeof actions] ?? []).map((btn, idx) => (
-          <button
-            key={idx}
-            onClick={btn.action}
-            disabled={btn.disabled}
-            className={`${btn.className} text-white px-3 py-2 rounded-full text-xs disabled:opacity-50`}
-          >
-            {btn.label}
-          </button>
-        ))}
-      </div>
+        {/* ACTIONS */}
+        <div className="p-4 flex flex-wrap gap-2">
+          {(actions[status as keyof typeof actions] ?? []).map((btn, idx) => (
+            <button
+              key={idx}
+              onClick={btn.action}
+              disabled={btn.disabled}
+              className={`${btn.className} text-white px-3 py-2 rounded-full text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
 
       </div>
     </>

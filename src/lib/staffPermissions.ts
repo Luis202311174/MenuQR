@@ -111,9 +111,7 @@ export const staffModules: StaffModuleConfig[] = [
     description: "Inventory actions",
     actions: [
       { key: "can_view", label: "Can view inventory" },
-      { key: "can_create", label: "Can add inventory" },
       { key: "can_edit", label: "Can edit inventory" },
-      { key: "can_delete", label: "Can update stock" },
     ],
   },
   {
@@ -123,9 +121,7 @@ export const staffModules: StaffModuleConfig[] = [
     description: "Order actions",
     actions: [
       { key: "can_view", label: "Can view orders" },
-      { key: "can_create", label: "Can create orders" },
       { key: "can_edit", label: "Can update order status" },
-      { key: "can_delete", label: "Can cancel orders" },
     ],
   },
   {
@@ -141,18 +137,6 @@ export const staffModules: StaffModuleConfig[] = [
     ],
   },
   {
-    module: "reports",
-    label: "Reports",
-    path: "/business/reports",
-    description: "Reports actions",
-    actions: [
-      { key: "can_view", label: "Can view reports" },
-      { key: "can_create", label: "Can export reports" },
-      { key: "can_edit", label: "Can edit reports" },
-      { key: "can_delete", label: "Can delete reports" },
-    ],
-  },
-  {
     module: "tableqr",
     label: "Table QR",
     path: "/business/tableqr",
@@ -160,20 +144,7 @@ export const staffModules: StaffModuleConfig[] = [
     actions: [
       { key: "can_view", label: "Can access Table QR" },
       { key: "can_create", label: "Can generate QR" },
-      { key: "can_edit", label: "Can edit QR tables" },
       { key: "can_delete", label: "Can delete QR tables" },
-    ],
-  },
-  {
-    module: "settings",
-    label: "Settings",
-    path: "/business/settings",
-    description: "Settings actions",
-    actions: [
-      { key: "can_view", label: "Can access settings" },
-      { key: "can_create", label: "Can manage staff accounts" },
-      { key: "can_edit", label: "Can manage system settings" },
-      { key: "can_delete", label: "Can delete settings" },
     ],
   },
 ];
@@ -190,12 +161,12 @@ export const defaultPermissionsByRole: Record<string, StaffPermissionRow[]> = {
   cashier: [
     { ...ZERO_PERMISSIONS, module_name: "dashboard", can_view: true },
     { ...ZERO_PERMISSIONS, module_name: "menu", can_view: true },
-    { ...ZERO_PERMISSIONS, module_name: "orders", can_view: true, can_create: true },
+    { ...ZERO_PERMISSIONS, module_name: "orders", can_view: true },
   ],
   waiter: [
     { ...ZERO_PERMISSIONS, module_name: "dashboard", can_view: true },
     { ...ZERO_PERMISSIONS, module_name: "menu", can_view: true },
-    { ...ZERO_PERMISSIONS, module_name: "orders", can_view: true, can_create: true, can_edit: true },
+    { ...ZERO_PERMISSIONS, module_name: "orders", can_view: true, can_edit: true },
     { ...ZERO_PERMISSIONS, module_name: "tableqr", can_view: true },
   ],
   "kitchen staff": [
@@ -204,22 +175,24 @@ export const defaultPermissionsByRole: Record<string, StaffPermissionRow[]> = {
   ],
   "inventory staff": [
     { ...ZERO_PERMISSIONS, module_name: "dashboard", can_view: true },
-    { ...ZERO_PERMISSIONS, module_name: "inventory", can_view: true, can_create: true, can_edit: true, can_delete: true },
+    { ...ZERO_PERMISSIONS, module_name: "inventory", can_view: true, can_edit: true },
   ],
   manager: [
-    ...staffModules.map((module) => ({
-      ...ZERO_PERMISSIONS,
-      module_name: module.module,
-      can_view: true,
-      can_create: true,
-      can_edit: true,
-      can_delete: true,
-    })),
+    { ...ZERO_PERMISSIONS, module_name: "dashboard", can_view: true },
+    { ...ZERO_PERMISSIONS, module_name: "menu", can_view: true, can_create: true, can_edit: true, can_delete: true },
+    { ...ZERO_PERMISSIONS, module_name: "inventory", can_view: true, can_edit: true },
+    { ...ZERO_PERMISSIONS, module_name: "orders", can_view: true, can_edit: true },
+    { ...ZERO_PERMISSIONS, module_name: "promotions", can_view: true, can_create: true, can_edit: true, can_delete: true },
+    { ...ZERO_PERMISSIONS, module_name: "tableqr", can_view: true, can_create: true, can_delete: true },
   ],
-  custom: staffModules.map((module) => ({
-    ...ZERO_PERMISSIONS,
-    module_name: module.module,
-  })),
+  custom: [
+    { ...ZERO_PERMISSIONS, module_name: "dashboard" },
+    { ...ZERO_PERMISSIONS, module_name: "menu" },
+    { ...ZERO_PERMISSIONS, module_name: "inventory" },
+    { ...ZERO_PERMISSIONS, module_name: "orders" },
+    { ...ZERO_PERMISSIONS, module_name: "promotions" },
+    { ...ZERO_PERMISSIONS, module_name: "tableqr" },
+  ],
 };
 
 export function getDefaultPermissionsForRole(role: string): StaffPermissionRow[] {
@@ -234,42 +207,33 @@ export function normalizeModuleName(value: string): StaffModuleKey {
 }
 
 export function hasStaffPermission(
-  staffSession: StaffSessionData | null,
+  staffSession: StaffSessionData,
   module: StaffModuleKey,
   action: StaffPermissionAction
 ): boolean {
-  if (!staffSession) return false;
+  const permission = staffSession.permissions?.find((p) => p.module_name === module);
+  if (!permission) return false;
 
-  // Be tolerant of DB casing/spacing mismatches.
-  const normalizedTargetModule = normalizeModuleName(module);
-  const row = staffSession.permissions.find(
-    (permission) => normalizeModuleName(String(permission.module_name)) === normalizedTargetModule
-  );
-  if (!row) return false;
-
-
-  switch (action) {
-    case "view":
-      return row.can_view;
-    case "access":
-      return row.can_view;
-    case "create":
-      return row.can_create;
-    case "edit":
-      return row.can_edit;
-    case "delete":
-      return row.can_delete;
-    case "export":
-      return row.can_create;
-    case "generate":
-      return row.can_create;
-    case "manageStaff":
-      return row.can_create;
-    case "manageSystem":
-      return row.can_edit;
-    default:
-      return false;
+  // If checking general access/viewing rights, ANY permission flags qualify
+  if (action === "view" || action === "access") {
+    return !!(permission.can_view || permission.can_create || permission.can_edit || permission.can_delete);
   }
+
+  // 🟢 STRICT SEPARATION: 'create' requires explicit creation permission
+  if (action === "create") {
+    return !!permission.can_create;
+  }
+
+  // 🟢 STRICT SEPARATION: 'edit' requires explicit edit permission
+  if (action === "edit") {
+    return !!permission.can_edit;
+  }
+
+  if (action === "delete") {
+    return !!permission.can_delete;
+  }
+
+  return false;
 }
 
 export function getRedirectPathForRole(role: string): string {

@@ -3,7 +3,6 @@
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
-    "baseUrl": ".",
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
@@ -29,7 +28,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
-, "src/app/signup-auth/page.jsx"  ],
+    "**/*.mts",
+    "src/app/signup-auth/page.jsx"
+  ],
   "exclude": ["node_modules"]
 }
