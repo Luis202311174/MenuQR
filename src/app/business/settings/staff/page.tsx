@@ -32,6 +32,7 @@ const statusOptions = ["active", "suspended", "disabled"];
 export default function StaffManagementPage() {
   const router = useRouter();
   const auth = useBusinessAuth("settings", "access");
+
   const [accounts, setAccounts] = useState<StaffAccount[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -62,6 +63,14 @@ export default function StaffManagementPage() {
   const [selectedOrderLogs, setSelectedOrderLogs] = useState<Array<any>>([]);
   const [orderLogsLoading, setOrderLogsLoading] = useState(false);
   const [orderLogsError, setOrderLogsError] = useState<string | null>(null);
+  const [ownerLogModalOpen, setOwnerLogModalOpen] = useState(false);
+  const [ownerLogs, setOwnerLogs] = useState<any[]>([]);
+  const [ownerLogsLoading, setOwnerLogsLoading] = useState(false);
+  const [ownerLogsError, setOwnerLogsError] = useState<string | null>(null);
+  const [selectedOwnerLogDate, setSelectedOwnerLogDate] = useState<string | null>(null);
+  const [currentOwnerLogPage, setCurrentOwnerLogPage] = useState(1);
+  const [selectedOwnerOrder, setSelectedOwnerOrder] = useState<any | null>(null);
+  const [ownerOrdersForDate, setOwnerOrdersForDate] = useState<Array<any>>([]);
   const [editingAccount, setEditingAccount] = useState<StaffAccount | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -346,6 +355,135 @@ export default function StaffManagementPage() {
     return records.reverse();
   }, [selectedDateLogs]);
 
+  const ownerLogDateGroups = useMemo(() => {
+    const groups = new Map<string, { date: string; logs: Array<any> }>();
+
+    const sortedLogs = [...ownerLogs].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    for (const log of sortedLogs) {
+      const date = new Date(log.created_at);
+      if (Number.isNaN(date.getTime())) continue;
+
+      const dateKey = date.toLocaleDateString("en-US");
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, { date: dateKey, logs: [] });
+      }
+
+      groups.get(dateKey)?.logs.push(log);
+    }
+
+    return Array.from(groups.values());
+  }, [ownerLogs]);
+
+  const ownerOrdersForSelectedDate = useMemo(() => {
+    if (!selectedOwnerLogDate) return [];
+
+    const selectedDateLogs =
+      ownerLogDateGroups.find((group) => group.date === selectedOwnerLogDate)?.logs ?? [];
+
+    const grouped = new Map<
+      string,
+      {
+        order_id: string;
+        count: number;
+        logs: Array<any>;
+      }
+    >();
+
+    for (const log of selectedDateLogs) {
+      const orderId = log.order_id ?? "Unknown order";
+
+      if (!grouped.has(orderId)) {
+        grouped.set(orderId, {
+          order_id: orderId,
+          count: 0,
+          logs: [],
+        });
+      }
+
+      grouped.get(orderId)!.count += 1;
+      grouped.get(orderId)!.logs.push(log);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
+  }, [ownerLogDateGroups, selectedOwnerLogDate]);
+
+  const selectedOwnerLogRows = useMemo(() => {
+    if (!selectedOwnerOrder) return [];
+    return (
+      ownerOrdersForSelectedDate.find((order) => order.order_id === selectedOwnerOrder.order_id)
+        ?.logs ?? []
+    );
+  }, [ownerOrdersForSelectedDate, selectedOwnerOrder]);
+
+  const isUuid = (value?: string | null) => {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  };
+
+  const formatActorLabel = (value?: string | null) => {
+    if (!value) return "Owner";
+    if (isUuid(value)) return "Owner";
+    return value;
+  };
+
+  const getByLabel = (log: any) => {
+    if (log?.owner_id) return "Owner";
+
+    return formatActorLabel(log?.actor_name ?? log?.actor_id);
+  };
+
+  const fetchOwnerLogs = async () => {
+    setOwnerLogsLoading(true);
+    setOwnerLogsError(null);
+    setOwnerLogs([]);
+    try {
+      const sessionData = await supabase.auth.getSession();
+      const accessToken = sessionData.data.session?.access_token;
+      const response = await fetch(`/api/staff/owner/logs`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        const errorBody = contentType.includes("application/json")
+          ? await response.json()
+          : { error: await response.text() };
+        throw new Error(errorBody?.error || "Unable to load owner logs.");
+      }
+
+      const logs = await response.json();
+      setOwnerLogs(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      console.error(err);
+      setOwnerLogsError((err as Error).message || "Unable to load owner logs.");
+    } finally {
+      setOwnerLogsLoading(false);
+    }
+  };
+  
+  const openOwnerLogsModal = async () => {
+    setSelectedOwnerLogDate(null);
+    setSelectedOwnerOrder(null);
+    setCurrentOwnerLogPage(1);
+    setOwnerLogModalOpen(true);
+    await fetchOwnerLogs();
+  };
+
+  const closeOwnerLogsModal = () => {
+    setOwnerLogModalOpen(false);
+    setSelectedOwnerLogDate(null);
+    setSelectedOwnerOrder(null);
+    setCurrentOwnerLogPage(1);
+    setOwnerLogs([]);
+    setOwnerLogsError(null);
+    setSelectedOrderLogs([]);
+  };
+
   const fetchStaffLogs = async (staffId: string) => {
     setLogsLoading(true);
     setLogsError(null);
@@ -566,6 +704,32 @@ export default function StaffManagementPage() {
             </p>
           </div>
         </div>
+
+        {auth.owner && (
+          <section className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] font-semibold text-amber-700">
+                  Owner logs
+                </p>
+                <h2 className="mt-2 text-lg font-bold text-slate-900">
+                  Business activity for owners
+                </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Review owner-level activity directly from the staff management screen.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={openOwnerLogsModal}
+                className="inline-flex items-center justify-center rounded-full bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-700"
+              >
+                View owner logs
+              </button>
+            </div>
+          </section>
+        )}
 
         {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{error}</div>}
         {toast && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">{toast}</div>}
@@ -1114,7 +1278,7 @@ export default function StaffManagementPage() {
                           <tr key={`${log.id ?? idx}`}>
                             <td className="px-4 py-4 text-slate-900">{log.created_at ? new Date(log.created_at).toLocaleString() : "—"}</td>
                             <td className="px-4 py-4 text-slate-700">{log.action}</td>
-                            <td className="px-4 py-4 text-slate-700">{log.actor_name ?? log.actor_id ?? "—"}</td>
+                            <td className="px-4 py-4 text-slate-700">{formatActorLabel(log.actor_name ?? log.actor_id)}</td>
                             <td className="px-4 py-4 text-slate-700">{log.notes ?? ""}</td>
                           </tr>
                         ))}
@@ -1241,6 +1405,219 @@ export default function StaffManagementPage() {
                         Next
                       </button>
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {ownerLogModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 px-4 py-8">
+          <div className="w-full max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-900 px-6 py-5">
+              <div>
+                <h2 className="text-2xl font-semibold text-white">Owner logs</h2>
+                <p className="mt-1 text-sm text-slate-300">
+                  Review owner activity for this business.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {selectedOwnerOrder && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOwnerOrder(null);
+                      setCurrentOwnerLogPage(1);
+                      setSelectedOrderLogs([]);
+                    }}
+                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                )}
+                {selectedOwnerLogDate && !selectedOwnerOrder && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOwnerLogDate(null);
+                      setCurrentOwnerLogPage(1);
+                    }}
+                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeOwnerLogsModal}
+                  className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[calc(100vh-18rem)] overflow-y-auto px-6 py-6">
+              {ownerLogsLoading || orderLogsLoading ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+                  Loading owner logs…
+                </div>
+              ) : ownerLogsError ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-900">
+                  {ownerLogsError}
+                </div>
+              ) : ownerLogs.length === 0 ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+                  No owner logs found.
+                </div>
+              ) : selectedOwnerOrder ? (
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Order #{selectedOwnerOrder.order_id}
+                    </h3>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {selectedOrderLogs.length} activity record
+                      {selectedOrderLogs.length === 1 ? "" : "s"} for this order.
+                    </p>
+                  </div>
+
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Time</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Action</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">By</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {selectedOrderLogs
+                          .slice((currentOwnerLogPage - 1) * LOGS_PER_PAGE, currentOwnerLogPage * LOGS_PER_PAGE)
+                          .map((log: any, idx: number) => {
+                            const createdAt = log.created_at ? new Date(log.created_at) : null;
+                            const formattedTime =
+                              createdAt && !Number.isNaN(createdAt.getTime())
+                                ? createdAt.toLocaleString()
+                                : "—";
+                            return (
+                              <tr key={log.id ?? idx}>
+                                <td className="px-4 py-4 text-slate-900">{formattedTime}</td>
+                                <td className="px-4 py-4 text-slate-700">{log.action}</td>
+                                <td className="px-4 py-4 text-slate-700">{getByLabel(log)}</td>
+                                <td className="px-4 py-4 text-slate-700">{log.notes ?? ""}</td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+                    <div>
+                      Showing {Math.min((currentOwnerLogPage - 1) * LOGS_PER_PAGE + 1, selectedOrderLogs.length)} to{" "}
+                      {Math.min(currentOwnerLogPage * LOGS_PER_PAGE, selectedOrderLogs.length)} of {selectedOrderLogs.length} logs
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={currentOwnerLogPage === 1}
+                        onClick={() => setCurrentOwnerLogPage((page) => Math.max(1, page - 1))}
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-sm text-slate-600">
+                        Page {currentOwnerLogPage} of {Math.max(1, Math.ceil(selectedOrderLogs.length / LOGS_PER_PAGE))}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={currentOwnerLogPage >= Math.ceil(selectedOrderLogs.length / LOGS_PER_PAGE)}
+                        onClick={() =>
+                          setCurrentOwnerLogPage((page) =>
+                            Math.min(Math.ceil(selectedOrderLogs.length / LOGS_PER_PAGE), page + 1)
+                          )
+                        }
+                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedOwnerLogDate ? (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Order</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Activity count</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {ownerOrdersForSelectedDate.map((order) => (
+                          <tr key={order.order_id}>
+                            <td className="px-4 py-4 text-slate-900">Order #{order.order_id}</td>
+                            <td className="px-4 py-4 text-slate-700">{order.count}</td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setSelectedOwnerOrder(order);
+                                  await fetchOrderLogs(order.order_id);
+                                  setCurrentOwnerLogPage(1);
+                                }}
+                                className="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-amber-700"
+                              >
+                                View activity
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Orders</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {ownerLogDateGroups.map((group) => (
+                          <tr key={group.date}>
+                            <td className="px-4 py-4 text-slate-900">{group.date}</td>
+                            <td className="px-4 py-4 text-slate-700">
+                              {new Set(group.logs.map((log) => log.order_id ?? "Unknown order")).size}
+                            </td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedOwnerLogDate(group.date);
+                                  setSelectedOwnerOrder(null);
+                                  setCurrentOwnerLogPage(1);
+                                }}
+                                className="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-amber-700"
+                              >
+                                View orders
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}

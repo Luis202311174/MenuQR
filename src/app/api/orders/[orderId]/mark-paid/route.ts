@@ -13,7 +13,10 @@ export async function POST(req: NextRequest, context: any) {
   try {
     const { data, error } = await supabase
       .from("orders")
-      .update({ status: "paid", is_paid: true })
+      .update({
+        status: "paid",
+        is_paid: true,
+      })
       .eq("id", orderId)
       .select()
       .maybeSingle();
@@ -25,17 +28,24 @@ export async function POST(req: NextRequest, context: any) {
 
     if (!data) return new NextResponse("Order not found", { status: 404 });
 
-    // insert activity log
     const { error: logError } = await supabase.from("order_activity_logs").insert([
       {
         order_id: orderId,
         business_id: data.business_id,
         staff_id: null,
+        owner_id: owner.id,
         action: "paid",
         actor_name: owner.email || owner.id,
+        metadata: {
+          status: "paid",
+          is_paid: true,
+        },
       },
     ]);
-    if (logError) console.warn("Failed to insert order activity log (owner)", logError);
+
+    if (logError) {
+      console.warn("Failed to insert order activity log (owner)", logError);
+    }
 
     return NextResponse.json(data);
   } catch (err: any) {

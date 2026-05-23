@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseAdminClient, getOwnerUserFromRequest } from "@/lib/serverSupabase";
 
 export async function POST(req: NextRequest, context: any) {
-  const orderId = context?.params?.orderId || req.nextUrl.pathname.split("/").filter(Boolean).slice(-2, -1)[0];
-  if (!orderId) return new NextResponse("Order ID required", { status: 400 });
+  const { orderId } = await context.params;
+
+  if (!orderId) {
+    return new NextResponse("Order ID required", { status: 400 });
+  }
 
   const owner = await getOwnerUserFromRequest(req);
-  if (!owner) return new NextResponse("Unauthorized", { status: 401 });
+  if (!owner) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 
   let body: any;
   try {
@@ -41,21 +46,34 @@ export async function POST(req: NextRequest, context: any) {
       return new NextResponse(error.message || "Failed to update order", { status: 500 });
     }
 
-    if (!data) return new NextResponse("Order not found", { status: 404 });
+    if (!data) {
+      return new NextResponse("Order not found", { status: 404 });
+    }
 
-    // insert activity log
-    const action = updates.status || (updates.is_paid ? "paid" : updates.discount_approved ? "discount_approved" : "updated");
+    const action =
+      typeof updates.status === "string"
+        ? updates.status
+        : updates.is_paid
+          ? "paid"
+          : updates.discount_approved
+            ? "discount_approved"
+            : "updated";
+
     const { error: logError } = await supabase.from("order_activity_logs").insert([
       {
         order_id: orderId,
         business_id: data.business_id,
         staff_id: null,
+        owner_id: owner.id,
         action,
         actor_name: owner.email || owner.id,
         metadata: updates,
       },
     ]);
-    if (logError) console.warn("Failed to insert order activity log (owner)", logError);
+
+    if (logError) {
+      console.warn("Failed to insert order activity log (owner)", logError);
+    }
 
     return NextResponse.json(data);
   } catch (err: any) {

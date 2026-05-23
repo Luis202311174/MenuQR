@@ -18,6 +18,8 @@ export interface OrderStatusTransition {
   newStatus: OrderStatus;
 }
 
+type ActorType = "staff" | "owner";
+
 /* =========================================================
    ORDER STATUS UPDATE
    Frontend ONLY calls the RPC
@@ -26,14 +28,16 @@ export interface OrderStatusTransition {
 export async function updateOrderStatus(
   orderId: string,
   newStatus: OrderStatus,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
   const { data, error } = await supabase.rpc(
-    "update_order_status_with_staff_id",
+    "update_order_status_with_actor",
     {
       p_order_id: orderId,
       p_new_status: newStatus,
-      p_staff_id: staffId,
+      p_actor_type: actorType,
+      p_actor_id: actorId,
     }
   );
 
@@ -50,68 +54,50 @@ export async function updateOrderStatus(
 
 export async function confirmOrderReceived(
   orderId: string,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
-  return updateOrderStatus(
-    orderId,
-    "received",
-    staffId
-  );
+  return updateOrderStatus(orderId, "received", actorType, actorId);
 }
 
 export async function confirmOrderPaid(
   orderId: string,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
-  return updateOrderStatus(
-    orderId,
-    "paid",
-    staffId
-  );
+  return updateOrderStatus(orderId, "paid", actorType, actorId);
 }
 
 export async function markOrderPreparing(
   orderId: string,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
-  return updateOrderStatus(
-    orderId,
-    "preparing",
-    staffId
-  );
+  return updateOrderStatus(orderId, "preparing", actorType, actorId);
 }
 
 export async function markOrderReady(
   orderId: string,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
-  return updateOrderStatus(
-    orderId,
-    "ready",
-    staffId
-  );
+  return updateOrderStatus(orderId, "ready", actorType, actorId);
 }
 
 export async function markOrderServed(
   orderId: string,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
-  return updateOrderStatus(
-    orderId,
-    "served",
-    staffId
-  );
+  return updateOrderStatus(orderId, "served", actorType, actorId);
 }
 
 export async function markOrderCompleted(
   orderId: string,
-  staffId: string
+  actorType: ActorType,
+  actorId: string
 ) {
-  return updateOrderStatus(
-    orderId,
-    "completed",
-    staffId
-  );
+  return updateOrderStatus(orderId, "completed", actorType, actorId);
 }
 
 /* =========================================================
@@ -164,21 +150,13 @@ export function getNextStatuses(
 ): OrderStatus[] {
   const transitions: Record<OrderStatus, OrderStatus[]> = {
     pending: ["received", "cancelled"],
-
     pending_payment: ["paid", "cancelled"],
-
     received: ["preparing", "paid", "cancelled"],
-
     paid: ["preparing", "cancelled"],
-
     preparing: ["ready", "cancelled"],
-
     ready: ["served", "cancelled"],
-
     served: ["completed"],
-
     completed: [],
-
     cancelled: [],
   };
 

@@ -47,6 +47,7 @@ type Order = {
 export default function BusinessOrdersPage() {
   const router = useRouter();
   const auth = useBusinessAuth("orders", "view");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
   const { staffSession } = useStaffSession();
   const staffId = staffSession?.staffId || auth.staffSession?.staffId;
   const isOwner = auth.owner;
@@ -159,6 +160,8 @@ export default function BusinessOrdersPage() {
         const { data } = await supabase.auth.getSession();
         const sess = data.session;
         if (!sess?.user) return;
+
+        setOwnerId(sess.user.id);
 
         const { data: bizData } = await supabase
           .from("businesses")
@@ -363,70 +366,104 @@ export default function BusinessOrdersPage() {
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    // 🔐 ENFORCE STAFF EDIT PERMISSIONS
     if (!canManageOrders) {
-      setNotification({ 
-        message: "Access Denied: You do not have permission to modify order statuses.", 
-        type: "error" 
+      setNotification({
+        message: "Access Denied: You do not have permission to modify order statuses.",
+        type: "error",
       });
       return;
     }
 
     try {
       setProcessingOrderId(orderId);
-      const order = orders.find(o => o.id === orderId);
+      const order = orders.find((o) => o.id === orderId);
       const tableNumber = order?.table?.table_number || "Unknown";
 
       switch (newStatus) {
-        case "pending_payment":
-        break;
         case "received":
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await confirmOrderReceived(orderId, staffId || "system");
+            if (!ownerId) {
+              throw new Error("Missing owner ID for owner status update");
+            }
+            await confirmOrderReceived(orderId, "owner", ownerId);
           }
-          setNotification({ message: `Table ${tableNumber} Order accepted successfully`, type: "success" });
+          setNotification({
+            message: `Table ${tableNumber} Order accepted successfully`,
+            type: "success",
+          });
           break;
+
         case "paid":
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await confirmOrderPaid(orderId, staffId || "system");
+            if (!ownerId) {
+              throw new Error("Missing owner ID for owner status update");
+            }
+            await confirmOrderPaid(orderId, "owner", ownerId);
           }
-          setNotification({ message: `Table ${tableNumber} Order marked as paid`, type: "success" });
+          setNotification({
+            message: `Table ${tableNumber} Order marked as paid`,
+            type: "success",
+          });
           break;
+
         case "preparing":
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await markOrderPreparing(orderId, staffId || "system");
+            if (!ownerId) {
+              throw new Error("Missing owner ID for owner status update");
+            }
+            await markOrderPreparing(orderId, "owner", ownerId);
           }
-          setNotification({ message: `Table ${tableNumber} Order now preparing`, type: "success" });
+          setNotification({
+            message: `Table ${tableNumber} Order now preparing`,
+            type: "success",
+          });
           break;
+
         case "ready":
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await markOrderReady(orderId, staffId || "system");
+            if (!ownerId) {
+              throw new Error("Missing owner ID for owner status update");
+            }
+            await markOrderReady(orderId, "owner", ownerId);
           }
-          setNotification({ message: `Table ${tableNumber} Order ready for pickup`, type: "success" });
+          setNotification({
+            message: `Table ${tableNumber} Order ready for pickup`,
+            type: "success",
+          });
           break;
+
         case "served":
           if (auth.staffSession) {
             await staffUpdateOrderStatus(orderId, newStatus);
           } else {
-            await markOrderServed(orderId, staffId || "system");
+            if (!ownerId) {
+              throw new Error("Missing owner ID for owner status update");
+            }
+            await markOrderServed(orderId, "owner", ownerId);
           }
-          setNotification({ message: `Table ${tableNumber} Order served`, type: "success" });
+          setNotification({
+            message: `Table ${tableNumber} Order served`,
+            type: "success",
+          });
           break;
+
         default:
           break;
       }
     } catch (error: any) {
       console.error("Error updating order status:", error);
-      const msg = error?.message || String(error);
-      setNotification({ message: `Failed to update order status: ${msg}`, type: "error" });
+      setNotification({
+        message: `Failed to update: ${error?.message || String(error)}`,
+        type: "error",
+      });
     } finally {
       setProcessingOrderId(null);
     }
@@ -487,13 +524,11 @@ export default function BusinessOrdersPage() {
     }
   };
 
-  // ✅ Complete order
   const completeOrder = async (order: Order) => {
-    // 🔐 ENFORCE STAFF EDIT PERMISSIONS
     if (!canManageOrders) {
-      setNotification({ 
-        message: "Access Denied: You do not have permission to modify order statuses.", 
-        type: "error" 
+      setNotification({
+        message: "Access Denied: You do not have permission to modify order statuses.",
+        type: "error",
       });
       return;
     }
@@ -506,8 +541,10 @@ export default function BusinessOrdersPage() {
       if (auth.staffSession) {
         await staffUpdateOrderStatus(order.id, "completed");
       } else {
-        // FIX: Pass order.id, then staffName, then businessId
-        await markOrderCompleted(order.id, staffId || "system");
+        if (!ownerId) {
+          throw new Error("Missing owner ID for owner status update");
+        }
+        await markOrderCompleted(order.id, "owner", ownerId);
       }
 
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
