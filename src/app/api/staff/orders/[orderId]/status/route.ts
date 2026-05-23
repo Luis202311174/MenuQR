@@ -79,16 +79,34 @@ export async function POST(req: NextRequest, context: any) {
   }
 
   try {
-    // record activity
+    const { data: staffNameData, error: staffNameError } = await supabase
+      .from("staff_accounts")
+      .select("full_name")
+      .eq("id", staffSession.staffId)
+      .maybeSingle();
+
+    if (staffNameError) {
+      console.warn("Failed to load staff name for activity log", staffNameError);
+    }
+
+    const actorName =
+      staffNameData?.full_name?.trim() ||
+      "Unknown Staff";
+
     const { error: logError } = await supabase.from("order_activity_logs").insert([
       {
         order_id: orderId,
         business_id: staffSession.businessId,
         staff_id: staffSession.staffId,
         action: status,
-        actor_name: null,
+        actor_name: actorName,
+        metadata: {
+          payment_method: payment_method ?? null,
+          reference_numb: reference_numb ?? null,
+        },
       },
     ]);
+
     if (logError) {
       console.warn("Failed to insert order activity log", logError);
     }

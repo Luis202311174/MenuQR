@@ -31,10 +31,10 @@ export async function GET(req: NextRequest) {
       }
       staffId = staffIdFromQuery;
     } else {
-      if (staffIdFromQuery && staffIdFromQuery !== staffSession.staffId) {
+      if (staffIdFromQuery && staffIdFromQuery !== staffSession!.staffId) {
         return createJsonError('Forbidden', 403);
       }
-      staffId = staffSession.staffId;
+      staffId = staffSession!.staffId;
     }
 
     const supabase = createServerSupabaseAdminClient();
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
             .limit(1)
             .maybeSingle()
         ).data?.id
-      : staffSession.businessId;
+      : staffSession!.businessId;
 
     if (!businessId || staffRecord.business_id !== businessId) {
       return createJsonError('Forbidden', 403, 'Staff does not belong to this business.');

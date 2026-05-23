@@ -60,6 +60,10 @@ export async function loadBusinessPageData(
       menuItems,
       sessionId,
       tableInvalid: false,
+      notification: {
+        message: "Table connected",
+        type: "success",
+      },
     };
   } catch (error) {
     console.error("Session error:", error);

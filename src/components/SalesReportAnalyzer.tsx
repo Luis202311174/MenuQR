@@ -25,7 +25,12 @@ interface SalesReportAnalyzerSummary {
   averageOrderValue: number;
   bestSellers: { name: string; count: number }[];
   leastSellers: { name: string; count: number }[];
-  suggestions: Array<{ items: string[]; count: number; text: string; type: 'combo' | 'promotion' }>;
+  suggestions: Array<{
+    items: [string] | [string, string];
+    count: number;
+    text: string;
+    type: 'combo' | 'promotion';
+  }>;
 }
 
 interface SalesReportAnalyzerProps {
@@ -105,12 +110,13 @@ export default function SalesReportAnalyzer({
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
-      let suggestions = frequentPairs.map(pair => ({
-        items: pair.items,
-        count: pair.count,
-        text: `"${pair.items[0]}" + "${pair.items[1]}"`,
-        type: 'combo',
-      }));
+      let suggestions: SalesReportAnalyzerSummary["suggestions"] =
+        frequentPairs.map(pair => ({
+          items: pair.items as [string, string],
+          count: pair.count,
+          text: `"${pair.items[0]}" + "${pair.items[1]}"`,
+          type: 'combo' as const,
+        }));
 
       if (suggestions.length === 0 && Object.values(itemPairCounts).length > 0) {
         const fallbackPairs = Object.values(itemPairCounts)
@@ -118,51 +124,51 @@ export default function SalesReportAnalyzer({
           .slice(0, 5);
 
         suggestions = fallbackPairs.map(pair => ({
-          items: pair.items,
+          items: pair.items as [string, string],
           count: pair.count,
           text: `"${pair.items[0]}" + "${pair.items[1]}"`,
-          type: 'combo',
+          type: 'combo' as const,
         }));
       }
 
       // Generate promotional suggestions when no combo patterns are found
       if (suggestions.length === 0 && bestSellers.length > 0) {
-        const promotionalSuggestions = [];
+        const promotionalSuggestions: SalesReportAnalyzerSummary["suggestions"] = [];
         
         // Buy 1 Take 1 on top seller
         promotionalSuggestions.push({
-          items: [bestSellers[0].name],
+          items: [bestSellers[0].name] as [string],
           count: bestSellers[0].count,
           text: `Buy 1 Take 1 promotion on "${bestSellers[0].name}"`,
-          type: 'promotion',
+          type: 'promotion' as const,
         });
 
         // Bundle best sellers
         if (bestSellers.length >= 2) {
           promotionalSuggestions.push({
-            items: [bestSellers[0].name, bestSellers[1].name],
+            items: [bestSellers[0].name, bestSellers[1].name] as [string, string],
             count: 0,
             text: `Bundle "${bestSellers[0].name}" with "${bestSellers[1].name}" at a discounted price`,
-            type: 'promotion',
+            type: 'promotion' as const,
           });
         }
 
         // Promote low sellers with top seller
         if (leastSellers.length > 0) {
           promotionalSuggestions.push({
-            items: [bestSellers[0].name, leastSellers[0].name],
+            items: [bestSellers[0].name, leastSellers[0].name] as [string, string],
             count: 0,
             text: `Create a combo: Buy "${bestSellers[0].name}" get "${leastSellers[0].name}" at 50% off`,
-            type: 'promotion',
+            type: 'promotion' as const,
           });
         }
 
         // Quantity discount on top seller
         promotionalSuggestions.push({
-          items: [bestSellers[0].name],
+          items: [bestSellers[0].name] as [string],
           count: 0,
           text: `Offer quantity discounts on "${bestSellers[0].name}" (e.g., Buy 2 Get 10% Off)`,
-          type: 'promotion',
+          type: 'promotion' as const,
         });
 
         suggestions = promotionalSuggestions;

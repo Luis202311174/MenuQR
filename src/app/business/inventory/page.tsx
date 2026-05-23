@@ -53,8 +53,8 @@ export default function BusinessInventoryPage() {
   const router = useRouter();
   const auth = useBusinessAuth("inventory", "view");
   const isOwner = auth.owner;
-  const canManageInventory = isOwner || (auth.staffSession && 
-    hasStaffPermission(auth.staffSession, "inventory", "edit"));
+  const canManageInventory = !!(isOwner || (auth.staffSession && 
+    hasStaffPermission(auth.staffSession, "inventory", "edit")));
   const [business, setBusiness] = useState<Business | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);

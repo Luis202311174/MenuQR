@@ -27,7 +27,6 @@ export const handleTableSession = async (tableId: string) => {
     return null;
   }
 
-  // 2. If table already has a session, validate it
   if (table.current_session_id) {
     const { data: session, error: sessionError } = await supabase
       .from("table_sessions")
@@ -37,21 +36,39 @@ export const handleTableSession = async (tableId: string) => {
 
     if (sessionError || !session) {
       console.warn(
-        "Table session: failed to load session",
+        "Table session: stale session reference detected",
         table.current_session_id,
         sessionError?.message
       );
-      return null;
-    }
 
-    // Active session → reuse it
-    if (session.active) {
+      await supabase
+        .from("tables")
+        .update({
+          current_session_id: null,
+          status: "available",
+          last_session_ended_at: new Date().toISOString(),
+        })
+        .eq("id", table.id);
+
+      // continue and create a fresh session
+    } else if (session.active) {
       return session.id;
-    }
+    } else {
+      console.log(
+        "Table session is inactive. Resetting stale session and creating a new one."
+      );
 
-    // Inactive session → block access
-    console.log("Table session is inactive. Blocking access.");
-    return null;
+      await supabase
+        .from("tables")
+        .update({
+          current_session_id: null,
+          status: "available",
+          last_session_ended_at: new Date().toISOString(),
+        })
+        .eq("id", table.id);
+
+      // continue and create a fresh session
+    }
   }
 
   // 3. Optional cooldown after last session ended

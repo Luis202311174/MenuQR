@@ -6,8 +6,15 @@ import {
   hasStaffManagePermissions,
 } from "@/lib/serverSupabase";
 
-function createJsonError(message: string, status = 500, details?: string) {
-  return NextResponse.json({ error: message, details }, { status });
+function createJsonError(
+  message: string,
+  status = 500,
+  details?: string
+) {
+  return NextResponse.json(
+    { error: message, details },
+    { status }
+  );
 }
 
 export async function GET(
@@ -15,9 +22,11 @@ export async function GET(
   {
     params,
   }: {
-    params: { staffId: string };
+    params: Promise<{ staffId: string }>;
   }
 ) {
+  const { staffId: routeStaffId } = await params;
+
   const owner = await getOwnerUserFromRequest(req);
   const staffSession = await getStaffSessionFromRequest(req);
 
@@ -30,7 +39,10 @@ export async function GET(
   }
 
   const url = new URL(req.url);
-  const staffId = params?.staffId || url.searchParams.get("staffId");
+
+  const staffId =
+    routeStaffId || url.searchParams.get("staffId");
+
   if (!staffId) {
     return createJsonError("Staff ID is required", 400);
   }
@@ -56,13 +68,14 @@ export async function GET(
     );
   }
 
-  const { data: staffRecord, error: staffError } = await supabase
-    .from("staff_accounts")
-    .select("id")
-    .eq("id", staffId)
-    .eq("business_id", businessId)
-    .limit(1)
-    .maybeSingle();
+  const { data: staffRecord, error: staffError } =
+    await supabase
+      .from("staff_accounts")
+      .select("id")
+      .eq("id", staffId)
+      .eq("business_id", businessId)
+      .limit(1)
+      .maybeSingle();
 
   if (staffError || !staffRecord) {
     return createJsonError(
@@ -81,8 +94,16 @@ export async function GET(
     .limit(200);
 
   if (error) {
-    console.error("[GET /api/staff/shift/logs/[staffId]]", error);
-    return createJsonError("Unable to load staff logs", 500, error.message);
+    console.error(
+      "[GET /api/staff/shift/logs/[staffId]]",
+      error
+    );
+
+    return createJsonError(
+      "Unable to load staff logs",
+      500,
+      error.message
+    );
   }
 
   return NextResponse.json(data || []);
