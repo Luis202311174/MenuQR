@@ -234,7 +234,7 @@ export default function StaffManagementPage() {
           ? await response.json()
           : { error: await response.text() };
         const errorMessage =
-          errorBody?.error || errorBody?.message || errorBody?.details || "Unable to save staff account";
+          errorBody?.details || errorBody?.error || errorBody?.message || "Unable to save staff account";
         throw new Error(errorMessage);
       }
 

@@ -198,6 +198,32 @@ export async function POST(req: NextRequest) {
 
   let authUserId: string | null = null;
   let authErrorMessage: string | null = null;
+  let authUserCreated = false;
+
+  // Prevent duplicate staff accounts by email before creating the auth user.
+  const { data: existingStaffAccount, error: existingStaffError } = await supabase
+    .from("staff_accounts")
+    .select("id")
+    .eq("email", email)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingStaffError) {
+    console.error("[POST /api/staff/accounts] existing staff lookup error", existingStaffError);
+    return createJsonError(
+      "Unable to verify staff account email",
+      500,
+      existingStaffError.message
+    );
+  }
+
+  if (existingStaffAccount?.id) {
+    return createJsonError(
+      "A staff account with this email already exists.",
+      409,
+      "duplicate_staff_email"
+    );
+  }
 
   const createResult = await adminSupabase.auth.admin.createUser({
     email,
@@ -214,13 +240,11 @@ export async function POST(req: NextRequest) {
     authErrorMessage = createResult.error.message;
     console.error("[POST /api/staff/accounts] auth.admin.createUser error", createResult.error);
 
-    // If the auth user already exists, use the existing auth user.
     if (
       authErrorMessage.includes("User already registered") ||
       authErrorMessage.includes("duplicate key") ||
       authErrorMessage.includes("already exists")
     ) {
-      // Try to find an existing auth profile in the `users` table as a fallback
       const { data: existingUserRecord, error: userFetchError } = await adminSupabase
         .from("users")
         .select("id")
@@ -228,7 +252,7 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .maybeSingle();
 
-      if (userFetchError || !existingUserRecord?.id) {
+      if (userFetchError) {
         console.error("[POST /api/staff/accounts] unable to locate existing auth user by email", userFetchError);
         return createJsonError(
           "Unable to create staff authentication user",
@@ -237,7 +261,15 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      authUserId = existingUserRecord.id;
+      if (existingUserRecord?.id) {
+        authUserId = existingUserRecord.id;
+      } else {
+        return createJsonError(
+          "A user with this email already exists.",
+          409,
+          authErrorMessage
+        );
+      }
     } else {
       return createJsonError(
         "Unable to create staff authentication user",
@@ -247,6 +279,7 @@ export async function POST(req: NextRequest) {
     }
   } else {
     authUserId = createResult.data?.user?.id ?? null;
+    authUserCreated = true;
   }
 
   if (!authUserId) {
@@ -265,7 +298,9 @@ export async function POST(req: NextRequest) {
     );
 
   if (authProfileError) {
-    await adminSupabase.auth.admin.deleteUser(authUserId).catch(() => null);
+    if (authUserCreated) {
+      await adminSupabase.auth.admin.deleteUser(authUserId).catch(() => null);
+    }
     return createJsonError(
       "Unable to create staff auth profile",
       500,
@@ -290,7 +325,9 @@ export async function POST(req: NextRequest) {
       .single();
 
   if (createError || !createdStaff?.id) {
-    await cleanupAuthUser(authUserId);
+    if (authUserCreated) {
+      await cleanupAuthUser(authUserId);
+    }
     return createJsonError(
       "Unable to create staff account",
       500,
