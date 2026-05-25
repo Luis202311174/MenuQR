@@ -170,33 +170,6 @@ export default function StaffLoginPage() {
           </button>
           {error && <div style={{ color: COLORS.error, marginTop: 4, textAlign: 'center', fontWeight: 500 }}>{error}</div>}
         </form>
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          style={{
-            width: '100%',
-            background: '#fff',
-            color: COLORS.darkBlue,
-            border: `1.5px solid ${COLORS.inputBorder}`,
-            borderRadius: 8,
-            padding: '0.85rem 1rem',
-            fontWeight: 600,
-            fontSize: 16,
-            marginTop: 10,
-            marginBottom: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            boxShadow: '0 2px 8px #1a73e811',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background 0.2s',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          <img src="/google.svg" alt="Google" style={{ width: 22, height: 22, marginRight: 6, objectFit: 'contain' }} />
-          Sign in with Google
-        </button>
         <div style={{ color: COLORS.error, fontSize: 14, marginTop: 10, textAlign: 'center', fontWeight: 500 }}>
           Staff only: Only authorized staff can log in to this page.
         </div>
