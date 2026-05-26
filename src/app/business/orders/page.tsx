@@ -22,7 +22,32 @@ import {
 } from "@/utils/orderStatusManager";
 import { hasStaffPermission } from "@/lib/staffPermissions";
 import { useStaffSession } from "@/hooks/useStaffSession";
+import { storeNotification } from "@/utils/notificationManager";
 
+function getOrderStatusNotification(order: Order) {
+  const tableNumber = order.table?.table_number || "N/A";
+  const statusLabel = order.status === "pending_payment"
+    ? "pending payment"
+    : order.status === "pending"
+    ? "received"
+    : order.status === "preparing"
+    ? "now preparing"
+    : order.status === "ready"
+    ? "ready"
+    : order.status === "served"
+    ? "served"
+    : order.status === "paid"
+    ? "paid"
+    : order.status === "completed"
+    ? "completed"
+    : order.status;
+
+  return {
+    title: `Table ${tableNumber} order ${statusLabel}`,
+    message: `Order ${statusLabel} for Table ${tableNumber}`,
+    href: "/business/orders",
+  };
+}
 
 type Order = {
   id: string;
@@ -83,6 +108,16 @@ export default function BusinessOrdersPage() {
   } | null>(null);
 
   const [notification, setNotification] = useState<{ message: string; type?: "success" | "error" } | null>(null);
+
+  const queueNotification = (notification: any) => {
+    if (typeof window === "undefined") {
+      storeNotification(notification);
+      return;
+    }
+    setTimeout(() => {
+      storeNotification(notification);
+    }, 0);
+  };
 
   const openDiscountVerification = (orderId: string, orderNumber: string) => {
     setDiscountVerificationModal({ orderId, orderNumber });
@@ -308,13 +343,36 @@ export default function BusinessOrdersPage() {
             }
 
             if (exists) {
+              const oldOrder = prev.find((o) => o.id === order.id);
+              if (oldOrder && oldOrder.status !== order.status) {
+                const statusInfo = getOrderStatusNotification(order);
+                queueNotification({
+                  id: `order-status-${order.id}-${order.status}`,
+                  type: "order",
+                  title: statusInfo.title,
+                  message: statusInfo.message,
+                  href: "/business/orders",
+                  timestamp: new Date().toISOString(),
+                  data: { orderId: order.id, status: order.status },
+                });
+              }
               return prev.map((o) => (o.id === order.id ? { ...o, ...order } : o));
             }
 
             playNewOrderSound();
+            const message = `New order received from Table ${order.table?.table_number || "N/A"}`;
             setNotification({
-              message: `New order received from Table ${order.table?.table_number || "N/A"}`,
+              message,
               type: "success",
+            });
+            queueNotification({
+              id: `order-received-${order.id}`,
+              type: "order",
+              title: "New order received",
+              message,
+              href: "/business/orders",
+              timestamp: new Date().toISOString(),
+              data: { orderId: order.id, tableNumber: order.table?.table_number },
             });
 
             return [...prev, order];

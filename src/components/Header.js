@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import { getStoredReceipts, clearStoredReceipts } from "@/utils/receiptManager";
+import { clearStoredLowStockNotifications } from "@/utils/lowStockNotifications";
+import {
+  getStoredNotifications,
+  clearStoredNotifications,
+} from "@/utils/notificationManager";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useStaffSession } from "@/hooks/useStaffSession";
 
 
@@ -18,7 +23,9 @@ export default function Header() {
   const [roleChecked, setRoleChecked] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const [unreadReceipts, setUnreadReceipts] = useState(0);
+  const [storedNotifications, setStoredNotifications] = useState([]);
   const [showBell, setShowBell] = useState(false);
   const [notifierMuted, setNotifierMuted] = useState(false);
 
@@ -85,13 +92,25 @@ export default function Header() {
   }, [pathname]);
 
   useEffect(() => {
-    // load unread receipts from localStorage
-    try {
-      const receipts = getStoredReceipts();
-      setUnreadReceipts(Array.isArray(receipts) ? receipts.length : 0);
-    } catch (e) {
-      setUnreadReceipts(0);
-    }
+    const loadReceiptCount = () => {
+      try {
+        const receipts = getStoredReceipts();
+        setUnreadReceipts(Array.isArray(receipts) ? receipts.length : 0);
+      } catch (e) {
+        setUnreadReceipts(0);
+      }
+    };
+
+    const loadNotifications = () => {
+      try {
+        setStoredNotifications(getStoredNotifications());
+      } catch (e) {
+        setStoredNotifications([]);
+      }
+    };
+
+    loadReceiptCount();
+    loadNotifications();
 
     try {
       const muted = typeof window !== 'undefined' && localStorage.getItem('notifierMuted') === 'true';
@@ -99,6 +118,20 @@ export default function Header() {
     } catch (e) {
       setNotifierMuted(false);
     }
+
+    const receiptHandler = () => setTimeout(loadReceiptCount, 0);
+    const lowStockHandler = () => setTimeout(loadNotifications, 0);
+    const genericHandler = () => setTimeout(loadNotifications, 0);
+
+    window.addEventListener('receiptNotificationsUpdated', receiptHandler);
+    window.addEventListener('lowStockNotificationsUpdated', lowStockHandler);
+    window.addEventListener('notificationsUpdated', genericHandler);
+
+    return () => {
+      window.removeEventListener('receiptNotificationsUpdated', receiptHandler);
+      window.removeEventListener('lowStockNotificationsUpdated', lowStockHandler);
+      window.removeEventListener('notificationsUpdated', genericHandler);
+    };
   }, []);
 
   const handleSelectRole = (role) => {
@@ -106,9 +139,17 @@ export default function Header() {
     setShowModal(false);
   };
 
+  const handleNotificationClick = (notification) => {
+    setShowBell(false);
+    if (!notification?.href) return;
+    router.push(notification.href);
+  };
+
   const homeHref = "/";
   const dashboardHref = isStaff || role === "owner" ? "/business/dashboard" : "/user-home";
   const dashboardLabel = isStaff || role === "owner" ? "My Dashboard" : "Menu Dashboard";
+  const storedReceipts = getStoredReceipts();
+  const notificationCount = storedReceipts.length + storedNotifications.length;
 
   return (
     <>
@@ -196,8 +237,8 @@ export default function Header() {
                   <svg className="h-5 w-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5" />
                   </svg>
-                  {unreadReceipts > 0 && (
-                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5">{unreadReceipts}</span>
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5">{notificationCount}</span>
                   )}
                 </button>
 
@@ -208,7 +249,10 @@ export default function Header() {
                       <button
                         onClick={() => {
                           clearStoredReceipts();
+                          clearStoredLowStockNotifications();
+                          clearStoredNotifications();
                           setUnreadReceipts(0);
+                          setStoredNotifications([]);
                           setShowBell(false);
                         }}
                         className="text-xs text-slate-500 hover:underline"
@@ -217,16 +261,42 @@ export default function Header() {
                       </button>
                     </div>
                     <div className="max-h-60 overflow-y-auto">
-                      {getStoredReceipts().length === 0 ? (
+                      {storedNotifications.length === 0 && storedReceipts.length === 0 ? (
                         <p className="text-xs text-slate-500">No notifications</p>
                       ) : (
-                        getStoredReceipts().slice().reverse().map((r, idx) => (
-                          <div key={r.id || idx} className="py-2 border-b last:border-b-0">
-                            <div className="text-sm font-medium">Receipt: {r.id}</div>
-                            <div className="text-xs text-slate-500">Total: ₱{Number(r.total_amount).toFixed(2)}</div>
-                            <div className="text-xs text-slate-400">{new Date(r.timestamp).toLocaleString()}</div>
-                          </div>
-                        ))
+                        <>
+                          {storedNotifications.length > 0 && (
+                            <div className="space-y-2">
+                              {storedNotifications.slice().reverse().map((notif) => (
+                                <button
+                                  key={notif.id}
+                                  onClick={() => handleNotificationClick(notif)}
+                                  className="w-full text-left py-2 border-b last:border-b-0"
+                                >
+                                  <div className="text-sm font-medium">{notif.title}</div>
+                                  <div className="text-xs text-slate-500">{notif.message}</div>
+                                  <div className="text-xs text-slate-400">{new Date(notif.timestamp).toLocaleString()}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {storedReceipts.length > 0 && (
+                            <div className={storedNotifications.length > 0 ? 'mt-3' : ''}>
+                              {storedReceipts.slice().reverse().map((r, idx) => (
+                                <button
+                                  key={r.id || idx}
+                                  onClick={() => handleNotificationClick({ href: dashboardHref })}
+                                  className="w-full text-left py-2 border-b last:border-b-0"
+                                >
+                                  <div className="text-sm font-medium">Receipt: {r.id}</div>
+                                  <div className="text-xs text-slate-500">Total: ₱{Number(r.total_amount).toFixed(2)}</div>
+                                  <div className="text-xs text-slate-400">{new Date(r.timestamp).toLocaleString()}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     <div className="mt-3 flex items-center justify-between">

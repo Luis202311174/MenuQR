@@ -38,6 +38,11 @@ export default function OrderRatingModal({
   const submitRating = async () => {
     if (selected === null) return;
 
+    if (!orderId || !businessId) {
+      alert("Unable to submit rating: missing order or business information.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -46,14 +51,46 @@ export default function OrderRatingModal({
         rating: Number(selected),
       };
 
-      const { data, error } = await supabase.from("order_ratings").insert(payload);
+      const { data, error } = await supabase
+        .from("order_ratings")
+        .upsert([payload], { onConflict: "order_id" })
+        .select("*")
+        .maybeSingle();
 
       setSubmitting(false);
 
       if (error) {
-        console.error("Failed inserting order rating:", error);
-        alert(`Failed to submit rating: ${error.message || JSON.stringify(error)}`);
+        const errorMessage =
+          error?.message ||
+          error?.hint ||
+          error?.details ||
+          error?.toString?.() ||
+          (error && JSON.stringify(error, Object.getOwnPropertyNames(error), 2)) ||
+          "Unknown error inserting rating.";
+
+        console.error(
+          "Failed inserting order rating:",
+          {
+            errorMessage,
+            error,
+            payload,
+            rawError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
+          }
+        );
+
+        if (error?.code === "23505" || errorMessage.toLowerCase().includes("unique")) {
+          alert("You have already rated this order.");
+        } else {
+          alert(`Failed to submit rating: ${errorMessage}`);
+        }
         return;
+      }
+
+      if (!data) {
+        console.warn(
+          "Order rating inserted successfully but server returned no response data.",
+          { payload }
+        );
       }
 
       onRated?.();

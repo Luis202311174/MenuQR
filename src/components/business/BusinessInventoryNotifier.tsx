@@ -3,16 +3,24 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
+import {
+  getStoredLowStockNotifications,
+  storeLowStockNotification,
+  clearStoredLowStockNotifications,
+  removeLowStockNotification,
+} from "@/utils/lowStockNotifications";
+import { storeNotification } from "@/utils/notificationManager";
 
 type Notif = {
   id: string;
   name: string;
   current_stock: number;
+  timestamp: string;
 };
 
 export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThreshold?: number }) {
   const { checked, businessId } = useBusinessAuth();
-  const [notifs, setNotifs] = useState<Notif[]>([]);
+  const [notifs, setNotifs] = useState<Notif[]>(() => getStoredLowStockNotifications());
   const [isOpen, setIsOpen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -34,9 +42,22 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
           .filter((it) => it.is_trackable && Number(it.current_stock ?? 0) <= lowThreshold)
           .map((it) => ({ id: it.id, name: it.name, current_stock: Number(it.current_stock ?? 0) }));
         if (low.length > 0) {
+          const timestamp = new Date().toISOString();
+          low.forEach((item) => {
+            storeLowStockNotification({ ...item, timestamp });
+            storeNotification({
+              id: `low-stock-${item.id}`,
+              type: "inventory",
+              title: "Low stock alert",
+              message: `${item.name} is low: ${item.current_stock} left`,
+              href: "/business/inventory",
+              timestamp,
+              data: { itemId: item.id, current_stock: item.current_stock },
+            });
+          });
           setNotifs((prev) => {
             const ids = new Set(prev.map((p) => p.id));
-            return [...prev, ...low.filter((l: Notif) => !ids.has(l.id))];
+            return [...low.filter((l: Notif) => !ids.has(l.id)), ...prev];
           });
           setIsOpen(true);
           try {
@@ -65,7 +86,22 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
 
             // If transitioned from above threshold to <= threshold, notify
             if ((payload.new as any)?.is_trackable && newStock <= lowThreshold && oldStock > lowThreshold) {
-              const notif: Notif = { id: (payload.new as any).id, name: (payload.new as any).name, current_stock: newStock };
+              const notif: Notif = {
+                id: (payload.new as any).id,
+                name: (payload.new as any).name,
+                current_stock: newStock,
+                timestamp: new Date().toISOString(),
+              };
+              storeLowStockNotification(notif);
+              storeNotification({
+                id: `low-stock-${notif.id}`,
+                type: "inventory",
+                title: "Low stock alert",
+                message: `${notif.name} is low: ${notif.current_stock} left`,
+                href: "/business/inventory",
+                timestamp: notif.timestamp,
+                data: { itemId: notif.id, current_stock: notif.current_stock },
+              });
               setNotifs((prev) => {
                 if (prev.some((p) => p.id === notif.id)) return prev;
                 return [notif, ...prev];
@@ -121,6 +157,7 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
                 </button>
                 <button
                   onClick={() => {
+                    clearStoredLowStockNotifications();
                     setNotifs([]);
                     setIsOpen(false);
                   }}
@@ -145,7 +182,10 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setNotifs((prev) => prev.filter((p) => p.id !== n.id))}
+                      onClick={() => {
+                        setNotifs((prev) => prev.filter((p) => p.id !== n.id));
+                        removeLowStockNotification(n.id);
+                      }}
                       className="rounded-md px-3 py-1 text-sm text-red-600 hover:bg-red-50"
                     >
                       Dismiss

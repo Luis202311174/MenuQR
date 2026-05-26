@@ -15,6 +15,7 @@
   import { endTableSession } from "@/utils/endTableSession";
   import { loadOfflineMenu, persistOfflineMenu } from "@/utils/offlineMenuCache";
   import { supabase } from "@/lib/supabaseClient";
+  import { storeNotification } from "@/utils/notificationManager";
   import { trackBusinessViewOnce } from "@/utils/trackBusinessView";
   import CheckoutModal from "@/components/CheckoutModal";
   import CraveBotV2 from "@/components/CraveBotV2";
@@ -692,6 +693,15 @@ export default function BusinessPage() {
         );
         setShowOrderMoreModal(false);
         setNotification({ message: "Order submitted successfully! Waiting for payment confirmation and discounts.", type: "success" });
+        storeNotification({
+          id: `order-submitted-${order.id}`,
+          type: "order",
+          title: "Order submitted",
+          message: "Your order was placed successfully and is now with the restaurant.",
+          href: "/user-home",
+          timestamp: new Date().toISOString(),
+          data: { orderId: order.id },
+        });
 
         // Reload session orders - with proper error handling
         if (sessionId) {
@@ -737,6 +747,15 @@ export default function BusinessPage() {
         setUnpaidOrders(unpaidSessionOrders);
 
         setNotification({ message: "Payment processed successfully!", type: "success" });
+        storeNotification({
+          id: `payment-processed-${sessionId}-${Date.now()}`,
+          type: "payment",
+          title: "Payment processed",
+          message: "Your payment was processed successfully.",
+          href: `/${slug}`,
+          timestamp: new Date().toISOString(),
+          data: { sessionId },
+        });
         setShowOrderMoreModal(false);
 
       } catch (error: any) {
@@ -824,6 +843,15 @@ export default function BusinessPage() {
                 message: "❌ Your order has been cancelled by the restaurant", 
                 type: "error" 
               });
+              storeNotification({
+                id: `order-cancelled-${newOrder.id}`,
+                type: "order",
+                title: "Order cancelled",
+                message: "Your order has been cancelled by the restaurant.",
+                href: `/${slug}`,
+                timestamp: new Date().toISOString(),
+                data: { orderId: newOrder.id, status: newOrder.status },
+              });
               if (newOrder.id === currentOrderIdRef.current) {
                 setCurrentOrder(null);
                 setCurrentOrderId(null);
@@ -842,11 +870,29 @@ export default function BusinessPage() {
                   message: "Payment selected. Waiting for restaurant confirmation.",
                   type: "success",
                 });
+                storeNotification({
+                  id: `order-pending-payment-${newOrder.id}`,
+                  type: "order",
+                  title: "Payment pending",
+                  message: "Your selected payment method is waiting for confirmation.",
+                  href: `/${slug}`,
+                  timestamp: new Date().toISOString(),
+                  data: { orderId: newOrder.id, status: newOrder.status },
+                });
               }
               if (newOrder.status === "paid") {
                 setNotification({
                   message: "Payment confirmed!",
                   type: "success",
+                });
+                storeNotification({
+                  id: `order-paid-${newOrder.id}`,
+                  type: "order",
+                  title: "Payment confirmed",
+                  message: "Your payment has been confirmed.",
+                  href: `/${slug}`,
+                  timestamp: new Date().toISOString(),
+                  data: { orderId: newOrder.id, status: newOrder.status },
                 });
               }
             }

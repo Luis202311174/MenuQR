@@ -48,6 +48,7 @@ export async function storeSessionReceipt(sessionId: string, businessId: string)
     const receipts = JSON.parse(localStorage.getItem("sessionReceipts") || "[]");
     receipts.push(receipt);
     localStorage.setItem("sessionReceipts", JSON.stringify(receipts));
+    dispatchReceiptNotificationsUpdated();
   }
 
   return receipt;
@@ -72,7 +73,16 @@ export function getStoredReceipts(): SessionReceipt[] {
 export function clearStoredReceipts() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("sessionReceipts");
+    dispatchReceiptNotificationsUpdated();
   }
+}
+
+export function dispatchReceiptNotificationsUpdated() {
+  if (typeof window === "undefined") return;
+  setTimeout(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("receiptNotificationsUpdated"));
+  }, 0);
 }
 
 /**
