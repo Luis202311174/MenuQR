@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
@@ -120,12 +120,24 @@ export default function BusinessMenuPage() {
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
 
+  const searchParams = useSearchParams();
   const [showInventoryModal, setShowInventoryModal] = useState(false);
 
   useEffect(() => {
     if (!businessId) return;
     setOrdersCount(0);
   }, [businessId]);
+
+  useEffect(() => {
+    if (!auth.checked || !businessId) return;
+
+    const suggestedName = searchParams.get("aiSuggestionName");
+    if (!suggestedName) return;
+
+    setMenuName(suggestedName);
+    setShowAddModal(true);
+    router.replace("/business/menu");
+  }, [auth.checked, businessId, searchParams, router]);
 
   const fetchMenuItems = async (): Promise<void> => {
     if (!businessId) return;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { faChartLine, faLightbulb, faStar, faChartBar, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -216,6 +217,8 @@ export default function SalesReportAnalyzer({
   }, [orders, suggestionThreshold, selectedMonth]);
 
   // Get the data to display based on analysisType
+  const router = useRouter();
+
   const currentAnalysis = useMemo(() => {
     switch (analysisType) {
       case 'selected':
@@ -230,6 +233,24 @@ export default function SalesReportAnalyzer({
         return analysis.overall;
     }
   }, [analysis, analysisType]);
+
+  const buildSuggestedMenuName = (suggestion: SalesReportAnalyzerSummary['suggestions'][number]) => {
+    if (suggestion.type === 'combo' && suggestion.items.length === 2) {
+      return `${suggestion.items[0]} + ${suggestion.items[1]} Combo`;
+    }
+    if (suggestion.type === 'promotion' && suggestion.items.length === 2) {
+      return `${suggestion.items[0]} & ${suggestion.items[1]} Deal`;
+    }
+    if (suggestion.items.length === 1) {
+      return `${suggestion.items[0]} Special`;
+    }
+    return 'Menu Combo';
+  };
+
+  const handleCreateMenu = (suggestion: SalesReportAnalyzerSummary['suggestions'][number]) => {
+    const menuName = buildSuggestedMenuName(suggestion);
+    router.push(`/business/menu?aiSuggestionName=${encodeURIComponent(menuName)}`);
+  };
 
   if (!orders || orders.length === 0) {
     return (
@@ -417,6 +438,15 @@ export default function SalesReportAnalyzer({
                         ? 'This promotional strategy can help increase sales and customer engagement.'
                         : 'Implement this strategy to boost revenue.'}
                     </p>
+                  </div>
+                  <div className="flex shrink-0 items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleCreateMenu(suggestion)}
+                      className="ml-4 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                    >
+                      Create Menu
+                    </button>
                   </div>
                 </div>
               </div>
