@@ -117,6 +117,10 @@ export default function BusinessMenuPage() {
   const [selectedAllergenOption, setSelectedAllergenOption] = useState("");
   const [allergenOptions, setAllergenOptions] = useState<string[]>(COMMON_ALLERGENS);
 
+  const [nutritionLoading, setNutritionLoading] = useState(false);
+  const [nutritionError, setNutritionError] = useState<string | null>(null);
+  const [nutritionStatus, setNutritionStatus] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
 
@@ -178,12 +182,79 @@ export default function BusinessMenuPage() {
     };
   }, [businessId]);
 
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Unable to read image file."));
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleAutoGenerateNutrition = async () => {
+    setNutritionError(null);
+    setNutritionStatus(null);
+
+    if (!menuName.trim()) {
+      setNutritionError("Please enter the menu item name before generating nutrition facts.");
+      return;
+    }
+
+    setNutritionLoading(true);
+    try {
+      const payload: Record<string, string> = {
+        name: menuName.trim(),
+      };
+
+      if (imageFile) {
+        payload.imageBase64 = await readFileAsDataUrl(imageFile);
+      }
+
+      const response = await fetch("/api/ai/nutrition", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to generate nutrition facts.");
+      }
+
+      const data = await response.json();
+      setServingSize(data.servingSize || "");
+      setCalories(data.calories?.toString() ?? "");
+      setProtein(data.protein?.toString() ?? "");
+      setCarbs(data.carbs?.toString() ?? "");
+      setFat(data.fat?.toString() ?? "");
+      setFiber(data.fiber?.toString() ?? "");
+      setSugar(data.sugar?.toString() ?? "");
+      setSodium(data.sodium?.toString() ?? "");
+
+      setNutritionStatus(data.source
+        ? `Nutrition facts auto-generated from ${data.source}. Please verify before saving.`
+        : "Nutrition facts auto-generated. Please verify before saving.");
+    } catch (error: any) {
+      setNutritionError(error.message || "Could not generate nutrition facts.");
+    } finally {
+      setNutritionLoading(false);
+    }
   };
 
   const handleAddNewOptionGroup = () => {
@@ -511,8 +582,30 @@ export default function BusinessMenuPage() {
                     </label>
 
                     <div className="rounded-3xl border border-gray-200 bg-slate-50 p-5">
-                      <h3 className="text-base font-semibold text-slate-900">Nutrition Facts</h3>
-                      <p className="text-sm text-gray-500 mt-1">Optional details for customers with dietary needs.</p>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-900">Nutrition Facts</h3>
+                          <p className="text-sm text-gray-500 mt-1">Optional details for customers with dietary needs.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAutoGenerateNutrition}
+                          disabled={nutritionLoading}
+                          className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {nutritionLoading ? "Generating..." : "Auto-generate nutrition"}
+                        </button>
+                      </div>
+                      {nutritionError ? (
+                        <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {nutritionError}
+                        </p>
+                      ) : null}
+                      {nutritionStatus ? (
+                        <p className="mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                          {nutritionStatus}
+                        </p>
+                      ) : null}
                       <div className="grid gap-4 sm:grid-cols-2 mt-4">
                         <label className="block text-sm font-semibold text-gray-700">
                           Serving Size
