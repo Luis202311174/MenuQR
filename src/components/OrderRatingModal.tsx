@@ -68,15 +68,12 @@ export default function OrderRatingModal({
           (error && JSON.stringify(error, Object.getOwnPropertyNames(error), 2)) ||
           "Unknown error inserting rating.";
 
-        console.error(
-          "Failed inserting order rating:",
-          {
-            errorMessage,
-            error,
-            payload,
-            rawError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
-          }
-        );
+        console.error("Failed inserting order rating:", {
+          error,
+          errorMessage,
+          payload,
+          errorProps: error ? Object.getOwnPropertyNames(error) : [],
+        });
 
         if (error?.code === "23505" || errorMessage.toLowerCase().includes("unique")) {
           alert("You have already rated this order.");

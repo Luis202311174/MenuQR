@@ -72,13 +72,45 @@ const OrdersButton: React.FC<OrdersButtonProps> = ({
   } | null>(null);
 
   useEffect(() => {
-    if (orderCompleteModal && completedOrder) {
-      setRatedOrder(completedOrder);
-      setShowRatingModal(true);
-    } else if (!orderCompleteModal) {
-      setShowRatingModal(false);
-      setRatedOrder(null);
-    }
+    let mounted = true;
+
+    const checkExistingRating = async () => {
+      if (orderCompleteModal && completedOrder?.id) {
+        const { data, error } = await supabase
+          .from("order_ratings")
+          .select("id")
+          .eq("order_id", completedOrder.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        if (error) {
+          console.error("Error checking existing order rating:", error);
+          setShowRatingModal(true);
+          setRatedOrder(completedOrder);
+          return;
+        }
+
+        if (data) {
+          // Order already has a rating, don’t show the rating modal again.
+          setShowRatingModal(false);
+          setRatedOrder(null);
+          return;
+        }
+
+        setRatedOrder(completedOrder);
+        setShowRatingModal(true);
+      } else {
+        setShowRatingModal(false);
+        setRatedOrder(null);
+      }
+    };
+
+    checkExistingRating();
+
+    return () => {
+      mounted = false;
+    };
   }, [orderCompleteModal, completedOrder]);
 
   const handleRatingModalClose = () => {
