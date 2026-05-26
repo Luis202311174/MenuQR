@@ -114,6 +114,9 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(item.image_url || null);
   const [editImagePosition, setEditImagePosition] = useState<string>(item.image_position || "center");
+  const [editNutritionLoading, setEditNutritionLoading] = useState(false);
+  const [editNutritionError, setEditNutritionError] = useState<string | null>(null);
+  const [editNutritionStatus, setEditNutritionStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -184,6 +187,75 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
     if (!file) return;
     setEditImageFile(file);
     setEditImagePreview(URL.createObjectURL(file));
+  };
+
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Unable to read image file."));
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAutoGenerateNutritionEdit = async () => {
+    setEditNutritionError(null);
+    setEditNutritionStatus(null);
+
+    if (!editName.trim()) {
+      setEditNutritionError("Please enter the menu item name before generating nutrition facts.");
+      return;
+    }
+
+    setEditNutritionLoading(true);
+    try {
+      const payload: Record<string, string> = {
+        name: editName.trim(),
+      };
+
+      if (editImageFile) {
+        payload.imageBase64 = await readFileAsDataUrl(editImageFile);
+      }
+
+      const response = await fetch("/api/ai/nutrition", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to generate nutrition facts.");
+      }
+
+      const data = await response.json();
+      setEditServingSize(data.servingSize || "");
+      setEditCalories(data.calories?.toString() ?? "");
+      setEditProtein(data.protein?.toString() ?? "");
+      setEditCarbs(data.carbs?.toString() ?? "");
+      setEditFat(data.fat?.toString() ?? "");
+      setEditFiber(data.fiber?.toString() ?? "");
+      setEditSugar(data.sugar?.toString() ?? "");
+      setEditSodium(data.sodium?.toString() ?? "");
+
+      setEditNutritionStatus(
+        data.source
+          ? `Nutrition facts auto-generated from ${data.source}. Please verify before saving.`
+          : "Nutrition facts auto-generated. Please verify before saving."
+      );
+    } catch (error: any) {
+      setEditNutritionError(error?.message || "Could not generate nutrition facts.");
+    } finally {
+      setEditNutritionLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -523,7 +595,27 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                       </label>
 
                       <div className="rounded-3xl border border-gray-200 bg-slate-50 p-4">
-                        <h3 className="text-sm font-semibold text-slate-900">Nutrition Facts</h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-slate-900">Nutrition Facts</h3>
+                          <button
+                            type="button"
+                            onClick={handleAutoGenerateNutritionEdit}
+                            disabled={editNutritionLoading}
+                            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {editNutritionLoading ? "Generating..." : "Auto-generate nutrition"}
+                          </button>
+                        </div>
+                        {editNutritionError ? (
+                          <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {editNutritionError}
+                          </p>
+                        ) : null}
+                        {editNutritionStatus ? (
+                          <p className="mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                            {editNutritionStatus}
+                          </p>
+                        ) : null}
                         <div className="grid gap-4 sm:grid-cols-2 mt-3">
                           <label className="block text-sm font-semibold text-gray-700">
                             Serving Size

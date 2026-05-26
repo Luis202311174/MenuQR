@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { getStoredReceipts, clearStoredReceipts } from "@/utils/receiptManager";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +18,9 @@ export default function Header() {
   const [roleChecked, setRoleChecked] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const pathname = usePathname();
+  const [unreadReceipts, setUnreadReceipts] = useState(0);
+  const [showBell, setShowBell] = useState(false);
+  const [notifierMuted, setNotifierMuted] = useState(false);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -79,6 +83,23 @@ export default function Header() {
 
     return () => listener.subscription.unsubscribe();
   }, [pathname]);
+
+  useEffect(() => {
+    // load unread receipts from localStorage
+    try {
+      const receipts = getStoredReceipts();
+      setUnreadReceipts(Array.isArray(receipts) ? receipts.length : 0);
+    } catch (e) {
+      setUnreadReceipts(0);
+    }
+
+    try {
+      const muted = typeof window !== 'undefined' && localStorage.getItem('notifierMuted') === 'true';
+      setNotifierMuted(Boolean(muted));
+    } catch (e) {
+      setNotifierMuted(false);
+    }
+  }, []);
 
   const handleSelectRole = (role) => {
     sessionStorage.setItem("selectedRole", role);
@@ -164,6 +185,66 @@ export default function Header() {
                   </Link>
                 </div>
               )}
+
+              {/* Notifications bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowBell((s) => !s)}
+                  className="relative inline-flex items-center justify-center rounded-full p-2 hover:bg-slate-100"
+                  aria-label="Notifications"
+                >
+                  <svg className="h-5 w-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5" />
+                  </svg>
+                  {unreadReceipts > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5">{unreadReceipts}</span>
+                  )}
+                </button>
+
+                {showBell && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white border border-slate-200 shadow-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold">Notifications</h4>
+                      <button
+                        onClick={() => {
+                          clearStoredReceipts();
+                          setUnreadReceipts(0);
+                          setShowBell(false);
+                        }}
+                        className="text-xs text-slate-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {getStoredReceipts().length === 0 ? (
+                        <p className="text-xs text-slate-500">No notifications</p>
+                      ) : (
+                        getStoredReceipts().slice().reverse().map((r, idx) => (
+                          <div key={r.id || idx} className="py-2 border-b last:border-b-0">
+                            <div className="text-sm font-medium">Receipt: {r.id}</div>
+                            <div className="text-xs text-slate-500">Total: ₱{Number(r.total_amount).toFixed(2)}</div>
+                            <div className="text-xs text-slate-400">{new Date(r.timestamp).toLocaleString()}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="text-xs text-slate-600">Sound</div>
+                      <button
+                        onClick={() => {
+                          const next = !notifierMuted;
+                          setNotifierMuted(next);
+                          try { localStorage.setItem('notifierMuted', next ? 'true' : 'false'); } catch (e) {}
+                        }}
+                        className={`px-3 py-1 rounded-xl text-sm ${notifierMuted ? 'bg-slate-100' : 'bg-emerald-600 text-white'}`}
+                      >
+                        {notifierMuted ? 'Muted' : 'On'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </nav>
 

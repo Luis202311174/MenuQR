@@ -17,7 +17,9 @@ interface Order {
   id: string;
   createdAt: string; // or Date
   items: OrderItem[];
-  total: number;
+  total?: number;
+  total_amount?: number;
+  amount_received?: number;
 }
 
 interface SalesReportAnalyzerSummary {
@@ -68,7 +70,12 @@ export default function SalesReportAnalyzer({
         };
       }
 
-      const totalRevenue = orderList.reduce((sum, order) => sum + order.total, 0);
+      const totalRevenue = orderList.reduce((sum, order) => {
+        const revenue = (order.amount_received != null)
+          ? Number(order.amount_received)
+          : (order.total != null ? Number(order.total) : Number(order.total_amount ?? 0));
+        return sum + revenue;
+      }, 0);
       const totalOrders = orderList.length;
       const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 

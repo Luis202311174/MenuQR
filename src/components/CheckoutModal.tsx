@@ -47,6 +47,8 @@ type SubmittedOrderDetails = {
   finalAmount: number;
   promoCode?: string;
   rewardEligible?: boolean;
+  amountReceived?: number;
+  changeAmount?: number;
 };
 
 interface CheckoutModalProps {
@@ -85,6 +87,8 @@ interface CheckoutModalProps {
     paymentMethod: "cash" | "gcash";
     promoCode?: string;
     couponId?: string;
+    amountReceived?: number;
+    changeAmount?: number;
   }) => Promise<void>;
   onRemoveCartItem: (index: number) => void;
   isSubmitting?: boolean;
@@ -241,6 +245,7 @@ export default function CheckoutModal({
   }
 
   const finalTotal = Math.max(0, cartTotal - discountAmount);
+  
 
   const handleBack = () => {
     const steps: CheckoutStep[] = [
@@ -326,12 +331,13 @@ export default function CheckoutModal({
       // Reward coupons are issued after order completion and should not be auto-applied here.
       // The user can still enter a valid promo/coupon code in the discount step.
 
-      await onSubmitOrder({
+        await onSubmitOrder({
         discountType: effectiveDiscountType,
         totalGuests,
         seniorCount: seniorCountValue,
         discountAmount,
         paymentMethod,
+        // amount_received and change are only entered by staff/business side
         promoCode: promoCodeValue,
         couponId: couponIdValue,
       });
@@ -475,6 +481,18 @@ export default function CheckoutModal({
               <span>Total</span>
               <span>₱{submittedOrderDetails.finalAmount.toFixed(2)}</span>
             </div>
+            {submittedOrderDetails.amountReceived != null && (
+              <div className="flex justify-between mt-2 text-sm">
+                <span>Received</span>
+                <span className="font-semibold">₱{submittedOrderDetails.amountReceived.toFixed(2)}</span>
+              </div>
+            )}
+            {submittedOrderDetails.changeAmount != null && (
+              <div className="flex justify-between text-sm">
+                <span>Change</span>
+                <span className="font-semibold">₱{submittedOrderDetails.changeAmount.toFixed(2)}</span>
+              </div>
+            )}
             {submittedOrderDetails.rewardEligible ? (
               <div className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-900">
                 <p className="text-xs font-semibold">Reward coupon pending</p>
@@ -851,6 +869,7 @@ export default function CheckoutModal({
                   </div>
                 </button>
               ))}
+              {/* Cash received is handled by business/staff when confirming payment; removed from customer flow */}
             </div>
           )}
 

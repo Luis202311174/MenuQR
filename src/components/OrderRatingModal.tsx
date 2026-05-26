@@ -36,25 +36,33 @@ export default function OrderRatingModal({
   if (!open) return null;
 
   const submitRating = async () => {
-    if (!selected) return;
+    if (selected === null) return;
 
     setSubmitting(true);
+    try {
+      const payload = {
+        order_id: orderId,
+        business_id: businessId,
+        rating: Number(selected),
+      };
 
-    const { error } = await supabase.from("order_ratings").insert({
-      order_id: orderId,
-      business_id: businessId,
-      rating: selected,
-    });
+      const { data, error } = await supabase.from("order_ratings").insert(payload);
 
-    setSubmitting(false);
+      setSubmitting(false);
 
-    if (error) {
-      console.error(error);
-      return;
+      if (error) {
+        console.error("Failed inserting order rating:", error);
+        alert(`Failed to submit rating: ${error.message || JSON.stringify(error)}`);
+        return;
+      }
+
+      onRated?.();
+      onClose();
+    } catch (err: any) {
+      setSubmitting(false);
+      console.error("Unexpected error submitting rating:", err);
+      alert(`Unexpected error submitting rating: ${err?.message || String(err)}`);
     }
-
-    onRated?.();
-    onClose();
   };
 
   return (

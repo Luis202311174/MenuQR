@@ -31,6 +31,10 @@ export async function POST(req: NextRequest, context: any) {
 
   const payment_method = body.payment_method ? String(body.payment_method) : undefined;
   const reference_numb = body.reference_numb ? String(body.reference_numb) : undefined;
+  const amount_received_raw = body.amount_received;
+  const change_amount_raw = body.change_amount;
+  const amount_received = amount_received_raw != null && amount_received_raw !== "" ? Number(amount_received_raw) : undefined;
+  const change_amount = change_amount_raw != null && change_amount_raw !== "" ? Number(change_amount_raw) : undefined;
 
   console.log("[POST /api/staff/orders/:orderId/status] incoming", { orderId, status, payment_method, reference_numb });
   const staffSession = await getStaffSessionFromRequest(req);
@@ -57,6 +61,8 @@ export async function POST(req: NextRequest, context: any) {
 
   if (payment_method) updatePayload.payment_method = payment_method;
   if (reference_numb) updatePayload.reference_numb = reference_numb;
+  if (amount_received !== undefined) updatePayload.amount_received = amount_received;
+  if (change_amount !== undefined) updatePayload.change_amount = change_amount;
 
   const { data, error } = await supabase
     .from("orders")
@@ -76,6 +82,35 @@ export async function POST(req: NextRequest, context: any) {
 
   if (!data) {
     return new NextResponse("Order not found or not accessible", { status: 404 });
+  }
+
+  // If payment info was provided, attempt to record a payments row (non-blocking)
+  try {
+    if ((amount_received !== undefined && amount_received !== null) || payment_method) {
+      const paymentAmount = amount_received ?? (Number(data.total_amount || 0) - Number(data.discount_amount || 0));
+      const paymentRow: Record<string, any> = {
+        business_id: staffSession.businessId,
+        order_id: orderId,
+        amount: paymentAmount,
+        currency: 'PHP',
+        method: payment_method ?? data.payment_method ?? null,
+        provider: payment_method === 'gcash' ? 'gcash' : null,
+        reference_numb: reference_numb ?? null,
+        status: 'completed',
+        metadata: {
+          recorded_by: staffSession.staffId,
+        },
+      };
+
+      const { data: paymentInsert, error: paymentError } = await supabase.from('payments').insert(paymentRow).select().maybeSingle();
+      if (paymentError) {
+        console.warn('[POST /api/staff/orders/:orderId/status] failed to insert payments row', paymentError.message || paymentError);
+      } else {
+        console.log('[POST /api/staff/orders/:orderId/status] inserted payments row', { paymentInsert });
+      }
+    }
+  } catch (err) {
+    console.warn('[POST /api/staff/orders/:orderId/status] payments insert error (non-fatal)', err);
   }
 
   try {
@@ -103,6 +138,8 @@ export async function POST(req: NextRequest, context: any) {
         metadata: {
           payment_method: payment_method ?? null,
           reference_numb: reference_numb ?? null,
+          amount_received: amount_received ?? null,
+          change_amount: change_amount ?? null,
         },
       },
     ]);

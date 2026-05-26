@@ -96,6 +96,14 @@ export default function OrderTileModals({
 }: Props) {
   const [selectedMarkPaidMethod, setSelectedMarkPaidMethod] = useState<"cash" | "gcash">("cash");
   const [markPaidReference, setMarkPaidReference] = useState<string>("");
+  const [amountReceived, setAmountReceived] = useState<string>("");
+
+  const [markPaidStep, setMarkPaidStep] = useState<"input" | "review">("input");
+
+  useEffect(() => {
+    setAmountReceived("");
+    setMarkPaidStep("input");
+  }, [markPaidModal]);
 
   useEffect(() => {
     if (!markPaidModal) return;
@@ -170,9 +178,19 @@ export default function OrderTileModals({
         payment_method: selectedMarkPaidMethod,
       };
 
-      if (selectedMarkPaidMethod === "gcash") {
-        updates.reference_numb = markPaidReference;
-      }
+        // include received/change amounts when provided for cash
+        if (selectedMarkPaidMethod === "cash") {
+          const order = orders.find(o => o.id === markPaidModal.orderId);
+          const total = Number(order?.total_amount ?? 0) - Number(order?.discount_amount ?? 0);
+          const parsed = Number(amountReceived || 0);
+          const change = Math.max(0, parsed - total);
+          updates.amount_received = parsed || null;
+          updates.change_amount = parsed ? change : null;
+        }
+
+        if (selectedMarkPaidMethod === "gcash") {
+          updates.reference_numb = markPaidReference;
+        }
 
       if (staffSession) {
         if (!markPaidModal.orderId) {
@@ -183,13 +201,27 @@ export default function OrderTileModals({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "paid", payment_method: selectedMarkPaidMethod, reference_numb: updates.reference_numb }),
+          body: JSON.stringify(updates),
         });
 
         if (!res.ok) {
           const text = await res.text();
           throw new Error(text || "Failed to mark as paid");
         }
+        // Optimistically update local orders so receipt/print shows amounts immediately
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === markPaidModal.orderId
+              ? {
+                  ...o,
+                  is_paid: true,
+                  payment_method: selectedMarkPaidMethod,
+                  amount_received: updates.amount_received ?? o.amount_received ?? null,
+                  change_amount: updates.change_amount ?? o.change_amount ?? null,
+                }
+              : o,
+          ),
+        );
       } else {
         const sessionData = await supabase.auth.getSession();
         const accessToken = sessionData.data.session?.access_token;
@@ -206,6 +238,20 @@ export default function OrderTileModals({
           const text = await res.text();
           throw new Error(text || "Failed to mark as paid");
         }
+        // Optimistic update for owner path as well
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === markPaidModal.orderId
+              ? {
+                  ...o,
+                  is_paid: true,
+                  payment_method: selectedMarkPaidMethod,
+                  amount_received: updates.amount_received ?? o.amount_received ?? null,
+                  change_amount: updates.change_amount ?? o.change_amount ?? null,
+                }
+              : o,
+          ),
+        );
       }
 
       setMarkPaidModal(null);
@@ -521,53 +567,124 @@ export default function OrderTileModals({
             <div className="bg-[#E23838] px-6 py-4 text-center">
               <h3 className="text-2xl font-bold text-white">Mark Order as Paid</h3>
             </div>
-            <div className="p-8 space-y-5">
+            <div className="p-8">
               <p className="text-sm text-slate-600">Order #{markPaidModal.orderNumber}</p>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Payment method</label>
-                <select
-                  value={selectedMarkPaidMethod}
-                  onChange={(e) => setSelectedMarkPaidMethod(e.target.value as "cash" | "gcash")}
-                  className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#E23838] focus:bg-white"
-                >
-                  {paymentSettings.cash && <option value="cash">Cash</option>}
-                  {paymentSettings.gcash && <option value="gcash">GCash</option>}
-                </select>
-              </div>
 
-              {selectedMarkPaidMethod === "gcash" && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">GCash reference number</label>
-                  <input
-                    type="text"
-                    placeholder="Reference number"
-                    value={markPaidReference}
-                    onChange={(e) => setMarkPaidReference(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#E23838] focus:bg-white"
-                  />
+              {markPaidStep === "input" ? (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Payment method</label>
+                    <select
+                      value={selectedMarkPaidMethod}
+                      onChange={(e) => setSelectedMarkPaidMethod(e.target.value as "cash" | "gcash")}
+                      className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#E23838] focus:bg-white"
+                    >
+                      {paymentSettings.cash && <option value="cash">Cash</option>}
+                      {paymentSettings.gcash && <option value="gcash">GCash</option>}
+                    </select>
+                  </div>
+
+                  {selectedMarkPaidMethod === "gcash" && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">GCash reference number</label>
+                      <input
+                        type="text"
+                        placeholder="Reference number"
+                        value={markPaidReference}
+                        onChange={(e) => setMarkPaidReference(e.target.value)}
+                        className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#E23838] focus:bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {selectedMarkPaidMethod === "cash" && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Amount received</label>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-2 rounded-l-xl bg-slate-50 border border-slate-300">₱</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={amountReceived}
+                          onChange={(e) => setAmountReceived(e.target.value)}
+                          placeholder="0.00"
+                          className="flex-1 rounded-r-xl border border-slate-300 px-4 py-2 text-sm outline-none"
+                        />
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">Change: <span className="font-semibold">₱{(() => {
+                        const order = orders.find(o => o.id === markPaidModal.orderId);
+                        const total = Number(order?.total_amount ?? 0) - Number(order?.discount_amount ?? 0);
+                        const parsed = Number(amountReceived || 0);
+                        const change = Math.max(0, parsed - total);
+                        return change.toFixed(2);
+                      })()}</span></p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setMarkPaidStep("review")}
+                      disabled={processingOrderId === markPaidModal.orderId}
+                      className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Next: Review
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMarkPaidModal(null)}
+                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Review step
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold">Review Payment</h4>
+                  {(() => {
+                    const order = orders.find(o => o.id === markPaidModal.orderId);
+                    if (!order) return <p className="text-sm text-red-600">Order data not found.</p>;
+                    const subtotal = (order.items || []).reduce((sum: number, it: any) => sum + ((Number(it.price) || 0) * (it.quantity || it.qty || 1)), 0);
+                    const discount = Number(order.discount_amount || 0);
+                    const total = Math.max(0, subtotal - discount);
+                    const parsed = Number(amountReceived || 0);
+                    const change = Math.max(0, parsed - total);
+                    return (
+                      <div className="text-sm space-y-2">
+                        <div className="flex justify-between"><span>Subtotal</span><span>₱{subtotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span>Discount</span><span>₱{discount.toFixed(2)}</span></div>
+                        <div className="flex justify-between font-bold"><span>Total</span><span>₱{total.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span>Amount received</span><span>₱{(parsed || 0).toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span>Change</span><span>₱{change.toFixed(2)}</span></div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={handleConfirmMarkPaid}
+                      disabled={
+                        processingOrderId === markPaidModal.orderId ||
+                        (selectedMarkPaidMethod === "gcash" && !markPaidReference.trim())
+                      }
+                      className="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Confirm Payment
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMarkPaidStep("input")}
+                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                    >
+                      Back
+                    </button>
+                  </div>
                 </div>
               )}
-
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleConfirmMarkPaid}
-                  disabled={
-                    processingOrderId === markPaidModal.orderId ||
-                    (selectedMarkPaidMethod === "gcash" && !markPaidReference.trim())
-                  }
-                  className="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Confirm Payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMarkPaidModal(null)}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           </div>
         </div>

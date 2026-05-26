@@ -23,6 +23,8 @@ export type ReceiptData = {
   total: number;
   paymentMethod?: string;
   isPaid?: boolean;
+  amountReceived?: number;
+  changeAmount?: number;
 };
 
 export function generateReceiptPDF(data: ReceiptData): void {
@@ -215,6 +217,23 @@ export function generateReceiptPDF(data: ReceiptData): void {
       yPosition,
       { align: "center" }
     );
+    yPosition += 4;
+  }
+
+  // Amount Received / Change (if present)
+  if (data.amountReceived !== undefined && data.amountReceived !== null) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Received:", leftMargin, yPosition);
+    addRightAlignedText(formatPeso(data.amountReceived), pageWidth - rightMargin, yPosition);
+    yPosition += 4;
+  }
+
+  if (data.changeAmount !== undefined && data.changeAmount !== null) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Change:", leftMargin, yPosition);
+    addRightAlignedText(formatPeso(data.changeAmount), pageWidth - rightMargin, yPosition);
     yPosition += 4;
   }
 

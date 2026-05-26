@@ -71,6 +71,8 @@ type SubmittedCheckoutData = {
   finalAmount: number;
   promoCode?: string;
   couponId?: string;
+  amountReceived?: number;
+  changeAmount?: number;
   rewardEligible?: boolean;
 };
 
@@ -600,6 +602,8 @@ export default function BusinessPage() {
       paymentMethod: "cash" | "gcash";
       promoCode?: string;
       couponId?: string;
+      amountReceived?: number;
+      changeAmount?: number;
     }) => {
       if (!cartItems.length) return alert("Cart is empty");
       if (!business || !tableId || !sessionId) {
@@ -617,6 +621,9 @@ export default function BusinessPage() {
         const userId = sessionData?.session?.user?.id;
 
         // Create order with discount and guest information
+        // Customer-side orders should not include cashier-entered amounts; mark unpaid by default
+        const isPaid = false;
+
         const order = await createOrder({
           businessId: business.id,
           cartItems,
@@ -624,7 +631,7 @@ export default function BusinessPage() {
           tableId,
           sessionId,
           userId: userId ?? undefined,
-          isPaid: false,
+          isPaid: isPaid,
           totalGuests: orderData.totalGuests,
           seniorPwdCount: orderData.seniorCount,
           discountAmount: orderData.discountAmount,
@@ -672,6 +679,7 @@ export default function BusinessPage() {
           paymentMethod: orderData.paymentMethod,
           cartTotal,
           finalAmount: cartTotal - orderData.discountAmount,
+          // amountReceived/changeAmount are set by staff when confirming payment
           promoCode: orderData.promoCode,
           couponId: orderData.couponId,
           rewardEligible,

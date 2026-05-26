@@ -591,7 +591,7 @@ export default function BusinessMenuPage() {
                           type="button"
                           onClick={handleAutoGenerateNutrition}
                           disabled={nutritionLoading}
-                          className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {nutritionLoading ? "Generating..." : "Auto-generate nutrition"}
                         </button>

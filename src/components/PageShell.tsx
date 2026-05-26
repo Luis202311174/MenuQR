@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import BusinessInventoryNotifier from "@/components/business/BusinessInventoryNotifier";
 
 interface PageShellProps {
   title?: string;
@@ -20,6 +21,7 @@ export default function PageShell({
 }: PageShellProps) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      <BusinessInventoryNotifier />
       <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-8">
         <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
           {(title || subtitle || action || backHref) && (

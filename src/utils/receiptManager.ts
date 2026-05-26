@@ -11,6 +11,8 @@ export interface SessionReceipt {
     discount_amount?: number;
     status: string;
     is_paid: boolean;
+    amount_received?: number | null;
+    change_amount?: number | null;
   }[];
   total_amount: number;
   timestamp: string;
@@ -131,6 +133,12 @@ export function formatReceiptForDisplay(receipt: SessionReceipt): string {
         lines.push(`Discount: -₱${Number(order.discount_amount).toFixed(2)}`);
       }
       lines.push(`Subtotal: ₱${subtotal.toFixed(2)}`);
+      if ((order as any).amount_received != null) {
+        lines.push(`Received: ₱${Number((order as any).amount_received).toFixed(2)}`);
+      }
+      if ((order as any).change_amount != null) {
+        lines.push(`Change: ₱${Number((order as any).change_amount).toFixed(2)}`);
+      }
       lines.push("");
     });
   lines.push("=".repeat(40));
@@ -200,6 +208,18 @@ export function generateReceiptHTML(receipt: SessionReceipt): string {
           <span>Subtotal:</span>
           <span>₱${subtotal.toFixed(2)}</span>
         </div>
+        ${(order as any).amount_received != null ? `
+          <div class="item-line">
+            <span>Received:</span>
+            <span>₱${Number((order as any).amount_received).toFixed(2)}</span>
+          </div>
+        ` : ""}
+        ${(order as any).change_amount != null ? `
+          <div class="item-line">
+            <span>Change:</span>
+            <span>₱${Number((order as any).change_amount).toFixed(2)}</span>
+          </div>
+        ` : ""}
       </div>
     `;
   });

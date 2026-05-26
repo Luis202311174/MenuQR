@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPrint, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { generateReceiptPDF, ReceiptData } from "@/utils/generateReceiptPDF";
@@ -21,12 +21,51 @@ export default function ReceiptPrintModal({
   onClose,
 }: Props) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [freshOrder, setFreshOrder] = useState<any | null>(null);
+
+  // prefer freshOrder when available
+  const usedOrder = freshOrder ?? order;
+
+  useEffect(() => {
+    if (!isOpen || !order?.id) {
+      setFreshOrder(null);
+      return;
+    }
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/staff/orders/${encodeURIComponent(order.id)}/details`, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          const message = await res.text();
+          console.warn("Failed to fetch fresh order for receipt preview", message);
+          return;
+        }
+
+        const data = await res.json();
+        if (mounted && data) {
+          setFreshOrder(data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch fresh order for receipt preview", err);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, order?.id]);
 
   if (!isOpen || !order) return null;
 
   const handlePrintPDF = () => {
     // Calculate subtotal (total of all items)
-    const subtotal = order.items.reduce((sum: number, item: any) => {
+    const subtotal = usedOrder.items.reduce((sum: number, item: any) => {
       const itemAddonsTotal =
         item.selected_options?.reduce(
           (sum: number, opt: any) => sum + (opt.price_modifier || 0),
@@ -38,10 +77,10 @@ export default function ReceiptPrintModal({
       return sum + itemFinalPrice * itemQty;
     }, 0);
 
-    const discount = order.discount_amount || 0;
-    const discountLabel = order.coupon_id
+      const discount = usedOrder.discount_amount || 0;
+      const discountLabel = usedOrder.coupon_id
       ? "Coupon Discount"
-      : order.senior_pwd_count
+      : usedOrder.senior_pwd_count
       ? "Senior/PWD Discount"
       : "Discount";
     const total = subtotal - discount;
@@ -49,10 +88,10 @@ export default function ReceiptPrintModal({
     const receiptData: ReceiptData = {
       businessName,
       businessAddress,
-      orderNumber: order.id.slice(0, 8).toUpperCase(),
-      tableNumber: order.table?.table_number || "N/A",
-      dateTime: new Date(order.created_at),
-      items: order.items.map((item: any) => {
+      orderNumber: usedOrder.id.slice(0, 8).toUpperCase(),
+      tableNumber: usedOrder.table?.table_number || "N/A",
+      dateTime: new Date(usedOrder.created_at),
+      items: usedOrder.items.map((item: any) => {
         const itemAddonsTotal =
           item.selected_options?.reduce(
             (sum: number, opt: any) => sum + (opt.price_modifier || 0),
@@ -77,8 +116,10 @@ export default function ReceiptPrintModal({
       discount,
       discountLabel,
       total,
-      paymentMethod: order.payment_method,
-      isPaid: order.is_paid,
+      paymentMethod: usedOrder.payment_method,
+      isPaid: usedOrder.is_paid,
+      amountReceived: (usedOrder as any).amount_received ?? (usedOrder as any).amountReceived ?? null,
+      changeAmount: (usedOrder as any).change_amount ?? (usedOrder as any).changeAmount ?? null,
     };
 
     generateReceiptPDF(receiptData);
@@ -88,8 +129,8 @@ export default function ReceiptPrintModal({
     window.print();
   };
 
-  // Calculate totals for display
-  const subtotal = order.items.reduce((sum: number, item: any) => {
+  // Calculate totals for display (use freshest order available)
+  const subtotal = usedOrder.items.reduce((sum: number, item: any) => {
     const itemAddonsTotal =
       item.selected_options?.reduce(
         (sum: number, opt: any) => sum + (opt.price_modifier || 0),
@@ -101,10 +142,10 @@ export default function ReceiptPrintModal({
     return sum + itemFinalPrice * itemQty;
   }, 0);
 
-  const discount = order.discount_amount || 0;
-  const discountLabel = order.coupon_id
+  const discount = usedOrder.discount_amount || 0;
+  const discountLabel = usedOrder.coupon_id
     ? "Coupon Discount"
-    : order.senior_pwd_count
+    : usedOrder.senior_pwd_count
     ? "Senior/PWD Discount"
     : "Discount";
   const total = subtotal - discount;
@@ -140,9 +181,9 @@ export default function ReceiptPrintModal({
               style={{ width: "80mm", fontFamily: "monospace" }}
             >
               {/* Business Name */}
-              <div className="text-center mb-3 font-bold text-sm">
-                {businessName}
-              </div>
+                      <div className="text-center mb-3 font-bold text-sm">
+                        {businessName}
+                      </div>
 
               {/* Business Address */}
               {businessAddress && (
@@ -158,20 +199,20 @@ export default function ReceiptPrintModal({
               <div className="text-xs mb-3 space-y-1">
                 <div className="flex justify-between">
                   <span>Order:</span>
-                  <span className="font-bold">{order.id.slice(0, 8).toUpperCase()}</span>
+                  <span className="font-bold">{usedOrder.id.slice(0, 8).toUpperCase()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Table:</span>
-                  <span className="font-bold">{order.table?.table_number || "N/A"}</span>
+                  <span className="font-bold">{usedOrder.table?.table_number || "N/A"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Date:</span>
-                  <span>{new Date(order.created_at).toLocaleDateString()}</span>
+                  <span>{new Date(usedOrder.created_at).toLocaleDateString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Time:</span>
                   <span>
-                    {new Date(order.created_at).toLocaleTimeString([], {
+                    {new Date(usedOrder.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -192,7 +233,7 @@ export default function ReceiptPrintModal({
 
               {/* Items */}
               <div className="text-xs space-y-3 mb-3">
-                {order.items.map((item: any, idx: number) => {
+                {usedOrder.items.map((item: any, idx: number) => {
                   const itemAddonsTotal =
                     item.selected_options?.reduce(
                       (sum: number, opt: any) => sum + (opt.price_modifier || 0),
@@ -260,10 +301,18 @@ export default function ReceiptPrintModal({
               {/* Payment Status */}
               <div className="text-xs text-center mb-3">
                 <span className="font-bold">
-                  {order.is_paid ? "PAID" : "UNPAID"}
+                  {usedOrder.is_paid ? "PAID" : "UNPAID"}
                 </span>
-                {order.payment_method && (
-                  <span> - {order.payment_method.toUpperCase()}</span>
+                {usedOrder.payment_method && (
+                  <span> - {usedOrder.payment_method.toUpperCase()}</span>
+                )}
+                {((usedOrder as any).amount_received != null || (usedOrder as any).amountReceived != null) && (
+                  <div className="mt-2 text-xs">
+                    <div>Received: <span className="font-semibold">₱{Number((usedOrder as any).amount_received ?? (usedOrder as any).amountReceived).toFixed(2)}</span></div>
+                    {((usedOrder as any).change_amount != null || (usedOrder as any).changeAmount != null) && (
+                      <div>Change: <span className="font-semibold">₱{Number((usedOrder as any).change_amount ?? (usedOrder as any).changeAmount).toFixed(2)}</span></div>
+                    )}
+                  </div>
                 )}
               </div>
 

@@ -25,6 +25,8 @@ export type CreateOrderParams = {
   discountAmount?: number;
   couponId?: string;
   promoCode?: string;
+  amountReceived?: number;
+  changeAmount?: number;
 };
 
 export async function createOrder({
@@ -40,6 +42,8 @@ export async function createOrder({
   discountAmount,
   couponId,
   promoCode,
+  amountReceived,
+  changeAmount,
 }: CreateOrderParams) {
   const qtyByMenuItemId = cartItems.reduce<Record<string, number>>((acc, item) => {
     const qty = Number(item.qty || 1);
@@ -131,6 +135,8 @@ export async function createOrder({
       total_guests: totalGuests ?? 0,
       senior_pwd_count: seniorPwdCount ?? 0,
       discount_amount: discountAmount ?? 0,
+      amount_received: amountReceived ?? null,
+      change_amount: changeAmount ?? null,
       ...(userId ? { user_id: userId } : {}),
       ...(couponId ? { coupon_id: couponId } : {}),
     };
