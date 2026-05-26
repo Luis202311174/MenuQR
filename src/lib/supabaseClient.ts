@@ -10,3 +10,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+const rawGetSession = supabase.auth.getSession.bind(supabase.auth) as typeof supabase.auth.getSession;
+
+supabase.auth.getSession = async (...args) => {
+  try {
+    return await rawGetSession(...args);
+  } catch (error) {
+    console.warn("Supabase auth.getSession failed:", error);
+    return { data: { session: null }, error } as Awaited<ReturnType<typeof rawGetSession>>;
+  }
+}

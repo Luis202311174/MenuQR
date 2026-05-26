@@ -8,8 +8,13 @@ export default function DynamicGreeting() {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user ?? null);
+      try {
+        const { data } = await supabase.auth.getSession();
+        setUser(data.session?.user ?? null);
+      } catch (error) {
+        console.warn("DynamicGreeting auth session failed:", error);
+        setUser(null);
+      }
     };
     getSession();
 

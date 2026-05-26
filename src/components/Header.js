@@ -20,20 +20,29 @@ export default function Header() {
 
   useEffect(() => {
     const loadSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      try {
+        const { data } = await supabase.auth.getSession();
 
-      setSession(data.session);
-      setUser(data.session?.user);
+        setSession(data.session);
+        setUser(data.session?.user);
 
-      if (data.session?.user) {
-        const { data: u } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", data.session.user.id)
-          .single();
+        if (data.session?.user) {
+          const { data: u } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", data.session.user.id)
+            .single();
 
-        setRole(u?.role || null);
-      } setRoleChecked(true);
+          setRole(u?.role || null);
+        }
+      } catch (error) {
+        console.warn("Header supabase auth session failed:", error);
+        setSession(null);
+        setUser(null);
+        setRole(null);
+      } finally {
+        setRoleChecked(true);
+      }
 
       try {
         const resp = await fetch("/api/staff/session", {

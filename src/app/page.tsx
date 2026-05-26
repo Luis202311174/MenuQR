@@ -22,21 +22,27 @@ export default function Home() {
 
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      if (data.session?.user) {
-        // check user role
-        const { data: user } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", data.session.user.id)
-          .single();
-        if (user?.role === "owner") {
-          router.push("/business");
-          return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+        if (data.session?.user) {
+          // check user role
+          const { data: user } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", data.session.user.id)
+            .single();
+          if (user?.role === "owner") {
+            router.push("/business");
+            return;
+          }
+          setUserName(data.session.user.user_metadata?.full_name || data.session.user.email);
+        } else {
+          setUserName(null);
         }
-        setUserName(data.session.user.user_metadata?.full_name || data.session.user.email);
-      } else {
+      } catch (error) {
+        console.warn("Home auth session failed:", error);
+        setSession(null);
         setUserName(null);
       }
     };
