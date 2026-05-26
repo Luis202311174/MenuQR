@@ -13,12 +13,27 @@ export async function trackBusinessViewOnce(businessId: string) {
 
   localStorage.setItem(key, now.toString());
 
-  const { error } = await supabase.rpc("increment_business_view", {
-    bid: businessId,
-  });
+  // If offline, skip the RPC silently and keep the local marker
+  if (typeof window !== "undefined" && !navigator.onLine) return;
 
-  if (error) {
-    console.error("RPC failed:", error.message);
+  try {
+    const { error } = await supabase.rpc("increment_business_view", {
+      bid: businessId,
+    });
+
+    if (error) {
+      throw error;
+    }
+  } catch (e: any) {
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      return;
+    }
+
+    console.error(
+      "trackBusinessViewOnce RPC failed:",
+      e instanceof Error ? e.message : e,
+      { businessId }
+    );
     localStorage.removeItem(key);
   }
 }

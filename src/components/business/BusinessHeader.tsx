@@ -61,21 +61,46 @@ export default function BusinessHeader({ business }: { business: Business }) {
     if (!business.id) return;
 
     const fetchRatings = async () => {
-      const { data, error } = await supabase
-        .from("order_ratings")
-        .select("rating")
-        .eq("business_id", business.id);
+      try {
+        const { data, error } = await supabase
+          .from("order_ratings")
+          .select("rating")
+          .eq("business_id", business.id);
 
-      if (error) {
-        console.error("Error fetching ratings:", error);
-        return;
-      }
+        if (error) {
+          // Likely offline/network issue — avoid noisy console errors in that case
+          if (typeof window !== "undefined" && !navigator.onLine) {
+            setAverageRating(null);
+            setTotalRatings(0);
+            return;
+          }
 
-      if (data && data.length > 0) {
-        const sum = data.reduce((acc, r) => acc + r.rating, 0);
-        setAverageRating(sum / data.length);
-        setTotalRatings(data.length);
-      } else {
+          // Log only meaningful server errors when online
+          if (typeof window !== "undefined" && navigator.onLine) {
+            const msg = error?.message ?? error ?? "Unknown rating error";
+            console.error("Error fetching ratings:", msg);
+          }
+
+          setAverageRating(null);
+          setTotalRatings(0);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const sum = data.reduce((acc, r) => acc + r.rating, 0);
+          setAverageRating(sum / data.length);
+          setTotalRatings(data.length);
+        } else {
+          setAverageRating(null);
+          setTotalRatings(0);
+        }
+      } catch (e) {
+        if (typeof window !== "undefined" && !navigator.onLine) {
+          setAverageRating(null);
+          setTotalRatings(0);
+          return;
+        }
+        console.error("Unexpected error fetching ratings:", e);
         setAverageRating(null);
         setTotalRatings(0);
       }

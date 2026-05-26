@@ -7,7 +7,12 @@ export async function fetchBusinessBySlug(slug: string) {
     .eq("slug", slug);
 
   if (error) {
-    console.error("Error fetching business:", error.message);
+    // If offline or network failure, avoid noisy console errors — caller will handle null.
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      return null;
+    }
+
+    console.error("Error fetching business:", error.message ?? error);
     return null;
   }
 

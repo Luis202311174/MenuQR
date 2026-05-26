@@ -13,6 +13,7 @@
   import { fetchMenuItems } from "@/utils/fetchMenuItems";
   import { createOrder } from "@/utils/createOrder";
   import { endTableSession } from "@/utils/endTableSession";
+  import { loadOfflineMenu, persistOfflineMenu } from "@/utils/offlineMenuCache";
   import { supabase } from "@/lib/supabaseClient";
   import { trackBusinessViewOnce } from "@/utils/trackBusinessView";
   import CheckoutModal from "@/components/CheckoutModal";
@@ -84,6 +85,7 @@ export default function BusinessPage() {
 
     const [business, setBusiness] = useState<Business | null>(null);
     const [menuItems, setMenuItems] = useState<any[]>([]);
+    const [offlineMode, setOfflineMode] = useState(false);
     const [categoryFilter, setCategoryFilter] = useState<string[]>(["All"]);
     const [searchFilter, setSearchFilter] = useState("");
     const [cartItems, setCartItems] = useState<any[]>([]);
@@ -282,30 +284,70 @@ export default function BusinessPage() {
       if (!slug) return;
 
       const loadPage = async () => {
-        const result = await loadBusinessPageData(slug as string, tableId);
+        try {
+          const result = await loadBusinessPageData(slug as string, tableId);
 
-        const normalizedItems = (result.menuItems || []).map((item: any) => ({
-          ...item,
-          description: item.description || item.menu_desc || null,
-        }));
+          // If the API returned no business (likely offline or 404), try cached snapshot
+          if (!result.business) {
+            const cached = loadOfflineMenu(slug as string);
+            if (cached) {
+              setOfflineMode(true);
+              setBusiness(cached.business);
+              setMenuItems(cached.menuItems || []);
+              setSessionId(null);
+              setTableInvalid(false);
+              setNotification({ message: "Offline mode: showing last saved menu.", type: "success" });
+              return;
+            }
 
-        setBusiness(result.business);
-        setMenuItems(normalizedItems);
+            // No cached menu available — invalidate session and notify
+            invalidateSession(result.notification?.message);
+            setBusiness(null);
+            setMenuItems([]);
+            return;
+          }
 
-        if (!result.sessionId) {
-          invalidateSession(result.notification?.message);
-          return;
-        }
+          const normalizedItems = (result.menuItems || []).map((item: any) => ({
+            ...item,
+            description: item.description || item.menu_desc || null,
+          }));
 
-        setSessionId(result.sessionId);
-        setTableInvalid(result.tableInvalid);
+          setOfflineMode(false);
+          setBusiness(result.business);
+          setMenuItems(normalizedItems);
+          persistOfflineMenu(slug as string, result.business, normalizedItems);
 
-        if (result.notification) {
-          setNotification(result.notification);
-        }
+          setSessionId(result.sessionId);
+          setTableInvalid(result.tableInvalid);
+
+          if (result.notification) {
+            setNotification(result.notification);
+          }
  
-        if (result.tableInvalid || !result.sessionId) {
-          setSessionId(null);
+          if (result.tableInvalid || !result.sessionId) {
+            setSessionId(null);
+          }
+        } catch (error) {
+          console.warn("Offline menu load failed:", error);
+          const cached = loadOfflineMenu(slug as string);
+
+          if (cached) {
+            setOfflineMode(true);
+            setBusiness(cached.business);
+            setMenuItems(cached.menuItems || []);
+            setSessionId(null);
+            setTableInvalid(false);
+            setNotification({
+              message: "Offline mode: showing last saved menu.",
+              type: "success",
+            });
+            return;
+          }
+
+          setNotification({
+            message: "Unable to load menu offline. Please connect to the internet.",
+            type: "error",
+          });
         }
       };
 
@@ -421,12 +463,14 @@ export default function BusinessPage() {
     const refreshMenuItems = async () => {
       if (!business?.id) return;
       const latestMenuItems = await fetchMenuItems(business.id);
-      setMenuItems(
-        (latestMenuItems || []).map((item: any) => ({
-          ...item,
-          description: item.description || item.menu_desc || null,
-        }))
-      );
+      const normalizedItems = (latestMenuItems || []).map((item: any) => ({
+        ...item,
+        description: item.description || item.menu_desc || null,
+      }));
+      setMenuItems(normalizedItems);
+      if (business.slug) {
+        persistOfflineMenu(business.slug, business, normalizedItems);
+      }
     };
 
     const cartTotal = cartItems.reduce(
