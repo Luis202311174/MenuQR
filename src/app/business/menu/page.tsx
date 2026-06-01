@@ -206,6 +206,7 @@ export default function BusinessMenuPage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
+
   const handleAutoGenerateNutrition = async () => {
     setNutritionError(null);
     setNutritionStatus(null);
@@ -857,12 +858,14 @@ export default function BusinessMenuPage() {
                       </div>
 
                       <div className="mt-5 grid gap-4">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
-                        />
+                        <div className="flex flex-col gap-3">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
+                          />
+                        </div>
 
                         <label className="block text-sm font-semibold text-gray-700">
                           Image Position

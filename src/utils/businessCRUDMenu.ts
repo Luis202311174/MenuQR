@@ -61,13 +61,34 @@ export async function fetchMenuItems(businessId: string) {
   return data || [];
 }
 
+const imageMimeToExtension: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+  "image/avif": "avif",
+  "image/heic": "heic",
+  "image/heif": "heif",
+};
+
+const getImageExtension = (file: File) => {
+  const rawExt = file.name.split(".").pop()?.toLowerCase() || "";
+  if (rawExt && /^[a-z0-9]+$/.test(rawExt)) {
+    return rawExt;
+  }
+  return imageMimeToExtension[file.type] || "png";
+};
+
 export async function uploadMenuImage(file: File) {
-  const fileExt = file.name.split(".").pop();
+  const fileExt = getImageExtension(file);
   const fileName = `${Date.now()}.${fileExt}`;
+  const contentType = file.type || `image/${fileExt}`;
 
   const { error } = await supabase.storage
     .from("menu-images")
-    .upload(fileName, file);
+    .upload(fileName, file, { contentType });
 
   if (error) {
     throw error;

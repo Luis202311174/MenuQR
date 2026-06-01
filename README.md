@@ -19,10 +19,19 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 ### Environment variables
-This project requires Supabase environment variables to connect to your Supabase project.
+This project requires environment variables to connect to your Supabase project and AI services.
 
 1. Copy `.env.example` to `.env.local`.
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` with your Supabase project URL / anon key.
+2. Set the required values:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SITE_URL`
+   - `OPENAI_API_KEY`
+
+Optional keys:
+   - `NUTRITION_API_NINJAS_KEY` (for nutrition estimates)
+   - `REDIS_URL`
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
