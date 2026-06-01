@@ -90,6 +90,45 @@ export default function StaffManagementPage() {
 
   const canManageStaff = auth.owner || (auth.staffSession ? hasStaffPermission(auth.staffSession, "settings", "manageStaff") : false);
 
+  const formatDateTime = (value?: string | null) =>
+    value ? new Date(value).toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never";
+
+  const getStatusClasses = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "active":
+        return "bg-emerald-100 text-emerald-700";
+      case "suspended":
+        return "bg-amber-100 text-amber-700";
+      case "disabled":
+        return "bg-rose-100 text-rose-700";
+      default:
+        return "bg-slate-100 text-slate-700";
+    }
+  };
+
+  const fetchWithAuth = async (endpoint: string, opts: RequestInit = {}) => {
+    const sessionData = await supabase.auth.getSession();
+    const accessToken = sessionData.data.session?.access_token;
+    const response = await fetch(endpoint, {
+      credentials: "include",
+      headers: {
+        ...(opts.headers ?? {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      ...opts,
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      const errorBody = contentType.includes("application/json")
+        ? await response.json()
+        : { error: await response.text() };
+      throw new Error(errorBody?.error || errorBody?.message || "API request failed.");
+    }
+
+    return response.json();
+  };
+
   const loadAccounts = async () => {
     setLoading(true);
     setError(null);
@@ -101,36 +140,17 @@ export default function StaffManagementPage() {
     }
 
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (roleFilter) params.set("role", roleFilter.toLowerCase());
-      const response = await fetch(`/api/staff/accounts?${params.toString()}`, {
+      const data = (await fetchWithAuth(`/api/staff/accounts?${params.toString()}`, {
         cache: "no-store",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      });
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        const errorBody = contentType.includes("application/json")
-          ? await response.json()
-          : { error: await response.text() };
-        // Easier debugging: log full response body for copy/paste
-        console.error("/api/staff/accounts errorBody:", errorBody);
-
-        const errorMessage =
-          errorBody?.error ||
-          errorBody?.message ||
-          errorBody?.details ||
-          "Unable to load staff accounts";
-        throw new Error(errorMessage);
-      }
-      const data = (await response.json()) as StaffAccount[];
-      setAccounts(data);
+        method: "GET",
+      })) as StaffAccount[];
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
-      setError("Unable to load staff accounts. Refresh the page.");
+      setError((err as Error).message || "Unable to load staff accounts. Refresh the page.");
     } finally {
       setLoading(false);
     }
@@ -146,6 +166,17 @@ export default function StaffManagementPage() {
     // reset page when accounts or filters change
     setCurrentPage(1);
   }, [accounts.length, search, roleFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(accounts.length / ITEMS_PER_PAGE));
+  const paginatedAccounts = useMemo(
+    () => accounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [accounts, currentPage]
+  );
+
+  const roleLabel = (role: string) => {
+    const found = roleOptions.find((option) => option.value === role.toLowerCase());
+    return found ? found.label : role;
+  };
 
   const openCreateModal = () => {
     setEditingAccount(null);
@@ -262,21 +293,9 @@ export default function StaffManagementPage() {
     if (!confirm(`Disable ${account.full_name}?`)) return;
     setLoading(true);
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
-      const response = await fetch(`/api/staff/accounts/${account.id}`, {
+      await fetchWithAuth(`/api/staff/accounts/${account.id}`, {
         method: "DELETE",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       });
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        const errorBody = contentType.includes("application/json")
-          ? await response.json()
-          : { error: await response.text() };
-        const errorMessage = errorBody?.error || errorBody?.message || "Unable to disable account";
-        throw new Error(errorMessage);
-      }
       setToast("Staff account disabled.");
       loadAccounts();
     } catch (err) {
@@ -440,23 +459,10 @@ export default function StaffManagementPage() {
     setOwnerLogsError(null);
     setOwnerLogs([]);
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
-      const response = await fetch(`/api/staff/owner/logs`, {
+      const logs = await fetchWithAuth(`/api/staff/owner/logs`, {
         cache: "no-store",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        method: "GET",
       });
-
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        const errorBody = contentType.includes("application/json")
-          ? await response.json()
-          : { error: await response.text() };
-        throw new Error(errorBody?.error || "Unable to load owner logs.");
-      }
-
-      const logs = await response.json();
       setOwnerLogs(Array.isArray(logs) ? logs : []);
     } catch (err) {
       console.error(err);
@@ -489,21 +495,10 @@ export default function StaffManagementPage() {
     setLogsError(null);
     setStaffLogs([]);
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
-      const response = await fetch(`/api/staff/shift/logs?staffId=${encodeURIComponent(staffId)}`, {
+      const logs = await fetchWithAuth(`/api/staff/shift/logs?staffId=${encodeURIComponent(staffId)}`, {
         cache: "no-store",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        method: "GET",
       });
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        const errorBody = contentType.includes("application/json")
-          ? await response.json()
-          : { error: await response.text() };
-        throw new Error(errorBody?.error || "Unable to load staff logs.");
-      }
-      const logs = await response.json();
       setStaffLogs(Array.isArray(logs) ? logs : []);
     } catch (err) {
       console.error(err);
@@ -519,19 +514,10 @@ export default function StaffManagementPage() {
     setOrderDatesError(null);
     setOrderDates([]);
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
-      const res = await fetch(`/api/staff/order/dates?staffId=${encodeURIComponent(staffId)}`, {
+      const data = await fetchWithAuth(`/api/staff/order/dates?staffId=${encodeURIComponent(staffId)}`, {
         cache: "no-store",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        method: "GET",
       });
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        const errBody = contentType.includes("application/json") ? await res.json() : { error: await res.text() };
-        throw new Error(errBody?.error || "Unable to load order dates.");
-      }
-      const data = await res.json();
       // expected: [{date: 'MM/DD/YYYY', count: number}, ...]
       setOrderDates(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -547,19 +533,10 @@ export default function StaffManagementPage() {
     setOrdersError(null);
     setOrdersForDate([]);
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
-      const res = await fetch(`/api/staff/orders?staffId=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`, {
+      const data = await fetchWithAuth(`/api/staff/orders?staffId=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`, {
         cache: "no-store",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        method: "GET",
       });
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        const errBody = contentType.includes("application/json") ? await res.json() : { error: await res.text() };
-        throw new Error(errBody?.error || "Unable to load orders for date.");
-      }
-      const data = await res.json();
       setOrdersForDate(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
@@ -574,19 +551,10 @@ export default function StaffManagementPage() {
     setOrderLogsError(null);
     setSelectedOrderLogs([]);
     try {
-      const sessionData = await supabase.auth.getSession();
-      const accessToken = sessionData.data.session?.access_token;
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/logs`, {
+      const data = await fetchWithAuth(`/api/orders/${encodeURIComponent(orderId)}/logs`, {
         cache: "no-store",
-        credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        method: "GET",
       });
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        const errBody = contentType.includes("application/json") ? await res.json() : { error: await res.text() };
-        throw new Error(errBody?.error || "Unable to load order logs.");
-      }
-      const data = await res.json();
       setSelectedOrderLogs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
@@ -760,17 +728,17 @@ export default function StaffManagementPage() {
                   </td>
                 </tr>
               ) : (
-                (() => {
-                  const totalPages = Math.max(1, Math.ceil(accounts.length / ITEMS_PER_PAGE));
-                  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-                  const paginated = accounts.slice(startIdx, startIdx + ITEMS_PER_PAGE);
-                  return paginated.map((account) => (
+                paginatedAccounts.map((account) => (
                   <tr key={account.id}>
                     <td className="px-4 py-4 text-slate-900">{account.full_name}</td>
                     <td className="px-4 py-4 text-slate-700">{account.email}</td>
-                    <td className="px-4 py-4 text-slate-700 capitalize">{account.role}</td>
-                    <td className="px-4 py-4 text-slate-700 capitalize">{account.status}</td>
-                    <td className="px-4 py-4 text-slate-700">{account.last_login_at ? new Date(account.last_login_at).toLocaleString() : "Never"}</td>
+                    <td className="px-4 py-4 text-slate-700">{roleLabel(account.role)}</td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(account.status)}`}>
+                        {account.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-slate-700">{formatDateTime(account.last_login_at)}</td>
                     <td className="px-4 py-4 text-slate-700">
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -804,29 +772,28 @@ export default function StaffManagementPage() {
                       </div>
                     </td>
                   </tr>
-                  ));
-                })()
+                ))
               )}
             </tbody>
           </table>
           <div className="border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-slate-600">
-                Showing <span className="font-medium">{Math.min((currentPage-1)*ITEMS_PER_PAGE+1, accounts.length || 0)}</span> to <span className="font-medium">{Math.min(currentPage*ITEMS_PER_PAGE, accounts.length)}</span> of <span className="font-medium">{accounts.length}</span> results
+                Showing <span className="font-medium">{accounts.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, accounts.length)}</span> of <span className="font-medium">{accounts.length}</span> staff members
               </div>
               <div className="flex items-center gap-2">
                 <button
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p-1))}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Prev
                 </button>
-                <div className="text-sm text-slate-700">Page {currentPage} / {Math.max(1, Math.ceil(accounts.length / ITEMS_PER_PAGE))}</div>
+                <div className="text-sm text-slate-700">Page {currentPage} / {totalPages}</div>
                 <button
-                  disabled={currentPage >= Math.ceil(accounts.length / ITEMS_PER_PAGE)}
-                  onClick={() => setCurrentPage((p) => Math.min(Math.ceil(accounts.length / ITEMS_PER_PAGE), p+1))}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Next
                 </button>
