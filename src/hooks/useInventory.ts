@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { InventoryManager, StockUpdate } from "@/utils/inventoryManager";
+import { lazyResetInventoryForBusiness } from "@/utils/businessCRUDMenu";
 
 export interface UseInventoryOptions {
   businessId?: string;
@@ -36,16 +37,33 @@ export function useInventory(options: UseInventoryOptions = {}) {
   useEffect(() => {
     if (!enabled || !businessId) return;
 
-    setLoading(true);
+    let isMounted = true;
+    let unsubscribe = () => {};
 
-    const unsubscribe = InventoryManager.subscribeToBusinessInventory(
-      businessId,
-      handleUpdate
-    );
+    const init = async () => {
+      setLoading(true);
+      try {
+        await lazyResetInventoryForBusiness(businessId);
+      } catch (err) {
+        console.warn("Failed to auto-reset inventory:", err);
+      }
 
-    setLoading(false);
+      if (!isMounted) return;
+
+      unsubscribe = InventoryManager.subscribeToBusinessInventory(
+        businessId,
+        handleUpdate
+      );
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    init();
 
     return () => {
+      isMounted = false;
       unsubscribe();
     };
   }, [businessId, enabled, handleUpdate]);

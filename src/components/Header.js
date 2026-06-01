@@ -9,6 +9,7 @@ import {
   getStoredNotifications,
   clearStoredNotifications,
 } from "@/utils/notificationManager";
+import { cleanupStaleNotifications } from "@/utils/notificationCleanup";
 import Image from "next/image";
 import Link from "next/link";
 import { useStaffSession } from "@/hooks/useStaffSession";
@@ -101,10 +102,14 @@ export default function Header() {
       }
     };
 
-    const loadNotifications = () => {
+    const loadNotifications = async () => {
       try {
+        // Clean up stale notifications first
+        await cleanupStaleNotifications();
+        // Then load the fresh list
         setStoredNotifications(getStoredNotifications());
       } catch (e) {
+        console.error("Error loading notifications:", e);
         setStoredNotifications([]);
       }
     };

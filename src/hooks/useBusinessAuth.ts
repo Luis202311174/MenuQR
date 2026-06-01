@@ -29,36 +29,6 @@ export function useBusinessAuth(
     let canceled = false;
 
     const resolveAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-
-      if (session?.user) {
-        const { data: user } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", session.user.id)
-          .single();
-
-        if (user?.role === "owner") {
-          // Fetch the business ID for this owner
-          const { data: business } = await supabase
-            .from("businesses")
-            .select("id")
-            .eq("owner_id", session.user.id)
-            .single();
-
-          if (!canceled) {
-            setAuthState({
-              checked: true,
-              owner: true,
-              staffSession: null,
-              businessId: business?.id || null,
-            });
-          }
-          return;
-        }
-      }
-
       try {
         const response = await fetch("/api/staff/session", {
           method: "GET",
@@ -80,6 +50,40 @@ export function useBusinessAuth(
         }
       } catch (error) {
         console.error("Failed to resolve staff session:", error);
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
+
+        if (session?.user) {
+          const { data: user } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", session.user.id)
+            .single();
+
+          if (user?.role === "owner") {
+            // Fetch the business ID for this owner
+            const { data: business } = await supabase
+              .from("businesses")
+              .select("id")
+              .eq("owner_id", session.user.id)
+              .single();
+
+            if (!canceled) {
+              setAuthState({
+                checked: true,
+                owner: true,
+                staffSession: null,
+                businessId: business?.id || null,
+              });
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Owner auth session failed:", error);
       }
 
       if (!canceled) {

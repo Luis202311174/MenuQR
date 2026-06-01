@@ -9,7 +9,7 @@ import {
   clearStoredLowStockNotifications,
   removeLowStockNotification,
 } from "@/utils/lowStockNotifications";
-import { storeNotification } from "@/utils/notificationManager";
+import { storeNotification, removeNotification } from "@/utils/notificationManager";
 
 type Notif = {
   id: string;
@@ -23,6 +23,12 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
   const [notifs, setNotifs] = useState<Notif[]>(() => getStoredLowStockNotifications());
   const [isOpen, setIsOpen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const clearLowStockAlerts = (itemId: string) => {
+    removeLowStockNotification(itemId);
+    removeNotification(`low-stock-${itemId}`);
+    setNotifs((prev) => prev.filter((n) => n.id !== itemId));
+  };
 
   useEffect(() => {
     if (!checked || !businessId) return;
@@ -41,6 +47,19 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
         const low = (items as any[])
           .filter((it) => it.is_trackable && Number(it.current_stock ?? 0) <= lowThreshold)
           .map((it) => ({ id: it.id, name: it.name, current_stock: Number(it.current_stock ?? 0) }));
+        const existingLow = getStoredLowStockNotifications();
+        const currentLowIds = new Set(low.map((item) => item.id));
+
+        // Remove any stale low-stock alerts that are no longer low.
+        existingLow.forEach((stored) => {
+          if (!currentLowIds.has(stored.id)) {
+            removeLowStockNotification(stored.id);
+            removeNotification(`low-stock-${stored.id}`);
+          }
+        });
+
+        setNotifs((prev) => prev.filter((notif) => currentLowIds.has(notif.id)));
+
         if (low.length > 0) {
           const timestamp = new Date().toISOString();
           low.forEach((item) => {
@@ -83,11 +102,16 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
           try {
             const oldStock = Number((payload.old as any)?.current_stock ?? 0);
             const newStock = Number((payload.new as any)?.current_stock ?? 0);
+            const oldTrackable = Boolean((payload.old as any)?.is_trackable);
+            const newTrackable = Boolean((payload.new as any)?.is_trackable);
+            const itemId = (payload.new as any)?.id || (payload.old as any)?.id;
+
+            if (!itemId) return;
 
             // If transitioned from above threshold to <= threshold, notify
-            if ((payload.new as any)?.is_trackable && newStock <= lowThreshold && oldStock > lowThreshold) {
+            if (newTrackable && newStock <= lowThreshold && oldStock > lowThreshold) {
               const notif: Notif = {
-                id: (payload.new as any).id,
+                id: itemId,
                 name: (payload.new as any).name,
                 current_stock: newStock,
                 timestamp: new Date().toISOString(),
@@ -112,6 +136,11 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
               } catch (err) {
                 /* no-op */
               }
+            }
+
+            // If restocked above threshold or tracking disabled, clear the low stock alert
+            if ((oldTrackable && oldStock <= lowThreshold && newStock > lowThreshold) || (oldTrackable && !newTrackable)) {
+              clearLowStockAlerts(itemId);
             }
           } catch (err) {
             console.error("Inventory notif error", err);
@@ -157,8 +186,7 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
                 </button>
                 <button
                   onClick={() => {
-                    clearStoredLowStockNotifications();
-                    setNotifs([]);
+                    getStoredLowStockNotifications().forEach((stored) => clearLowStockAlerts(stored.id));
                     setIsOpen(false);
                   }}
                   className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
@@ -183,8 +211,7 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
-                        setNotifs((prev) => prev.filter((p) => p.id !== n.id));
-                        removeLowStockNotification(n.id);
+                        clearLowStockAlerts(n.id);
                       }}
                       className="rounded-md px-3 py-1 text-sm text-red-600 hover:bg-red-50"
                     >

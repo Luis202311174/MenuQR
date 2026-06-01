@@ -7,7 +7,7 @@ import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import { useInventory } from "@/hooks/useInventory";
-import { getBusinessByOwner } from "@/utils/businessCRUDMenu";
+import { getBusinessByOwner, lazyResetInventoryForBusiness } from "@/utils/businessCRUDMenu";
 import { hasStaffPermission } from "@/lib/staffPermissions";
 
 type Business = {
@@ -98,6 +98,12 @@ export default function BusinessInventoryPage() {
 
         if (!resolvedBusiness) {
           return;
+        }
+
+        try {
+          await lazyResetInventoryForBusiness(resolvedBusiness.id);
+        } catch (error) {
+          console.warn("Auto-reset inventory failed:", error);
         }
 
         const { data: items, error } = await supabase

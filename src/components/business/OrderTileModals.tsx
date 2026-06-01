@@ -111,6 +111,30 @@ export default function OrderTileModals({
     setMarkPaidReference("");
   }, [markPaidModal]);
 
+  const currentMarkPaidOrder = markPaidModal ? orders.find((o) => o.id === markPaidModal.orderId) : null;
+  const calculateOrderTotal = (order: Order | null) => {
+    if (!order) return 0;
+    const baseTotal = Number(order.total_amount ?? 0);
+    const discount = Number(order.discount_amount ?? 0);
+    if (baseTotal > 0) return Math.max(0, baseTotal - discount);
+    const subtotal = (order.items || []).reduce(
+      (sum: number, item: any) => sum + ((Number(item.price) || 0) * (item.quantity || item.qty || 1)),
+      0,
+    );
+    return Math.max(0, subtotal - discount);
+  };
+  const markPaidOrderTotal = calculateOrderTotal(currentMarkPaidOrder);
+  const parsedAmountReceived = Number(amountReceived.trim() || 0);
+  const isCashPaymentAmountValid =
+    selectedMarkPaidMethod !== "cash" || (!Number.isNaN(parsedAmountReceived) && parsedAmountReceived >= markPaidOrderTotal);
+  const canProceedToReview =
+    selectedMarkPaidMethod !== "cash" ||
+    (amountReceived.trim() !== "" && !Number.isNaN(parsedAmountReceived) && parsedAmountReceived >= markPaidOrderTotal);
+  const amountReceivedError =
+    selectedMarkPaidMethod === "cash" && !Number.isNaN(parsedAmountReceived) && parsedAmountReceived < markPaidOrderTotal
+      ? `Amount received must be at least ₱${markPaidOrderTotal.toFixed(2)}.`
+      : "";
+
   const handlePaymentStatus = async (orderId: string, isPaid: boolean) => {
     if (!businessId) return;
     try {
@@ -180,12 +204,17 @@ export default function OrderTileModals({
 
         // include received/change amounts when provided for cash
         if (selectedMarkPaidMethod === "cash") {
-          const order = orders.find(o => o.id === markPaidModal.orderId);
-          const total = Number(order?.total_amount ?? 0) - Number(order?.discount_amount ?? 0);
-          const parsed = Number(amountReceived || 0);
+          const order = orders.find((o) => o.id === markPaidModal.orderId);
+          const total = calculateOrderTotal(order);
+          const parsed = Number(amountReceived.trim() || 0);
+
+          if (Number.isNaN(parsed) || parsed < total) {
+            throw new Error(`Amount received must be at least ₱${total.toFixed(2)}.`);
+          }
+
           const change = Math.max(0, parsed - total);
-          updates.amount_received = parsed || null;
-          updates.change_amount = parsed ? change : null;
+          updates.amount_received = parsed;
+          updates.change_amount = change;
         }
 
         if (selectedMarkPaidMethod === "gcash") {
@@ -619,6 +648,9 @@ export default function OrderTileModals({
                         const change = Math.max(0, parsed - total);
                         return change.toFixed(2);
                       })()}</span></p>
+                      {amountReceivedError ? (
+                        <p className="mt-2 text-sm text-red-600">{amountReceivedError}</p>
+                      ) : null}
                     </div>
                   )}
 
@@ -626,7 +658,7 @@ export default function OrderTileModals({
                     <button
                       type="button"
                       onClick={() => setMarkPaidStep("review")}
-                      disabled={processingOrderId === markPaidModal.orderId}
+                      disabled={processingOrderId === markPaidModal.orderId || !canProceedToReview}
                       className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Next: Review
@@ -641,7 +673,6 @@ export default function OrderTileModals({
                   </div>
                 </div>
               ) : (
-                // Review step
                 <div className="space-y-4">
                   <h4 className="text-sm font-semibold">Review Payment</h4>
                   {(() => {
@@ -669,7 +700,8 @@ export default function OrderTileModals({
                       onClick={handleConfirmMarkPaid}
                       disabled={
                         processingOrderId === markPaidModal.orderId ||
-                        (selectedMarkPaidMethod === "gcash" && !markPaidReference.trim())
+                        (selectedMarkPaidMethod === "gcash" && !markPaidReference.trim()) ||
+                        (selectedMarkPaidMethod === "cash" && !isCashPaymentAmountValid)
                       }
                       className="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
