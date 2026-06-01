@@ -436,72 +436,77 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition">
-      <div className="w-full h-36 bg-gray-100 overflow-hidden">
-        {item.image_url ? (
-          <img
-            src={item.image_url}
-            alt={item.name}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: item.image_position || "center" }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-            No image
-          </div>
-        )}
-      </div>
-      <div className="p-4 flex flex-col gap-2 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-sm text-gray-900 leading-snug line-clamp-2">
-            {item.name}
-          </h3>
-
-          <span
-            className={`shrink-0 text-[10px] px-2 py-1 rounded-full font-medium ${
-              item.availability
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
-            }`}
-          >
-            {item.availability ? "Active" : "Sold out"}
-          </span>
-        </div>
-
-        <p className="text-xs text-gray-500 line-clamp-2">
-          {item.menu_desc || "No description"}
-        </p>
-        <div className="mt-auto pt-2">
-          <p className="text-blue-600 font-bold text-base">
-            ₱{item.price ?? "0.00"}
-          </p>
-          {item.calories != null && (
-            <p className="text-xs text-gray-500 mt-1">
-              ~{item.calories} cal
-            </p>
+      <div className="group bg-white rounded-[28px] border border-slate-200 shadow-sm overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
+        <div className="relative h-40 bg-slate-100 overflow-hidden">
+          {item.image_url ? (
+            <img
+              src={item.image_url}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: item.image_position || "center" }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
+              No image available
+            </div>
           )}
-        </div>
-        <div className="flex gap-2 pt-2">
-          <button
-            onClick={openEdit}
-            disabled={!canEditThisMenuItem}
-            className="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-semibold active:scale-[0.98] transition disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Edit
-          </button>
 
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            disabled={!canDeleteThisMenuItem}
-            className="px-3 py-2 rounded-xl text-xs font-semibold border border-blue-200 text-blue-600 active:scale-[0.98] transition disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Delete
-          </button>
-
+          <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-sm">
+            {item.category || "Other"}
+          </div>
         </div>
 
+        <div className="p-4 flex flex-col gap-3 h-full">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-slate-900 leading-tight line-clamp-2">
+                  {item.name}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 line-clamp-3">
+                  {item.menu_desc || "No description"}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                    item.availability
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                  }`}>
+                  {item.availability ? "Active" : "Sold out"}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={openEdit}
+                    disabled={!canEditThisMenuItem}
+                    className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    disabled={!canDeleteThisMenuItem}
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-center justify-between gap-3">
+              <div>
+                <p className="text-lg font-bold text-slate-900">₱{item.price != null ? Number(item.price).toFixed(2) : "0.00"}</p>
+                {item.calories != null && (
+                  <p className="text-xs text-slate-500">~{item.calories} cal</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

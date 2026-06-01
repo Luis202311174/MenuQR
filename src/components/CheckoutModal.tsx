@@ -215,6 +215,12 @@ export default function CheckoutModal({
   const effectiveSeniorCount = Math.min(Math.max(0, seniorCount), totalGuests);
   const perGuestShare = cartTotal / Math.max(1, totalGuests);
   const hasCartItems = cartItems.length > 0;
+  const isGuestTotalInvalid =
+    currentStep === "guests" && guestError === "Enter the number of guests.";
+  const isSeniorCountInvalid =
+    currentStep === "guests" &&
+    (discountType === "senior" || discountType === "pwd") &&
+    guestError?.includes("Senior");
   const rewardThreshold =
     business?.target_min_spend ??
     business?.reward_coupon_redemption_minimum ??
@@ -732,14 +738,17 @@ export default function CheckoutModal({
           {/* Guests Step */}
           {currentStep === "guests" && (
             <div className="space-y-3 lg:space-y-5">
-              <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-5 shadow-sm">
-                <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">
+              <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-4 shadow-sm">
+                <p className="text-xs lg:text-sm text-slate-600 mb-2">
                   How many guests will dine?
                 </p>
-                <div className="flex items-center justify-center gap-3 lg:gap-4">
+                <div className="flex items-center justify-center gap-2 lg:gap-3">
                   <button
-                    onClick={() => setTotalGuests(Math.max(1, totalGuests - 1))}
-                    className="flex h-11 lg:h-14 w-11 lg:w-14 items-center justify-center rounded-full bg-slate-100 text-lg lg:text-2xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
+                    onClick={() => {
+                      setTotalGuests(Math.max(1, totalGuests - 1));
+                      if (guestError) setGuestError(null);
+                    }}
+                    className="flex h-9 lg:h-10 w-9 lg:w-10 items-center justify-center rounded-full bg-slate-100 text-base lg:text-xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
                   >
                     −
                   </button>
@@ -754,33 +763,40 @@ export default function CheckoutModal({
                       setTotalGuests(
                         Number.isNaN(value) ? 1 : Math.max(1, value),
                       );
+                      if (guestError) setGuestError(null);
                     }}
-                    className="h-14 lg:h-16 w-24 lg:w-28 rounded-[24px] lg:rounded-[28px] border border-slate-200 bg-slate-50 text-center text-2xl lg:text-3xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`h-12 lg:h-14 w-20 lg:w-24 rounded-[22px] lg:rounded-[24px] border ${
+                      isGuestTotalInvalid
+                        ? "border-red-300 focus:ring-red-400"
+                        : "border-slate-200 focus:ring-blue-500"
+                    } bg-slate-50 text-center text-2xl lg:text-2xl font-semibold text-slate-900 focus:outline-none focus:ring-2`}
                   />
                   <button
-                    onClick={() => setTotalGuests(totalGuests + 1)}
-                    className="flex h-11 lg:h-14 w-11 lg:w-14 items-center justify-center rounded-full bg-slate-100 text-lg lg:text-2xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
+                    onClick={() => {
+                      setTotalGuests(totalGuests + 1);
+                      if (guestError) setGuestError(null);
+                    }}
+                    className="flex h-9 lg:h-10 w-9 lg:w-10 items-center justify-center rounded-full bg-slate-100 text-base lg:text-xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
                   >
                     +
                   </button>
                 </div>
-                <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">
+                <p className="mt-2 text-center text-xs lg:text-sm text-slate-500">
                   Guest(s)
                 </p>
               </div>
 
               {(discountType === "senior" || discountType === "pwd") && (
-                <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-5 shadow-sm">
-                  <p className="text-xs lg:text-sm text-slate-600 mb-3 lg:mb-4">
-                    How many {discountType === "senior" ? "Senior" : "PWD"}{" "}
-                    guests?
+                <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-4 shadow-sm">
+                  <p className="text-xs lg:text-sm text-slate-600 mb-2">
+                    How many {discountType === "senior" ? "Senior" : "PWD"} guests?
                   </p>
-                  <div className="flex items-center justify-center gap-3 lg:gap-4">
+                  <div className="flex items-center justify-center gap-2 lg:gap-3">
                     <button
                       onClick={() =>
                         setSeniorCount(Math.max(0, seniorCount - 1))
                       }
-                      className="flex h-11 lg:h-14 w-11 lg:w-14 items-center justify-center rounded-full bg-slate-100 text-lg lg:text-2xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
+                      className="flex h-9 lg:h-10 w-9 lg:w-10 items-center justify-center rounded-full bg-slate-100 text-base lg:text-xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
                     >
                       −
                     </button>
@@ -798,19 +814,24 @@ export default function CheckoutModal({
                             ? 0
                             : Math.min(totalGuests, Math.max(0, value)),
                         );
+                        if (guestError) setGuestError(null);
                       }}
-                      className="h-14 lg:h-16 w-24 lg:w-28 rounded-[24px] lg:rounded-[28px] border border-slate-200 bg-slate-50 text-center text-2xl lg:text-3xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`h-12 lg:h-14 w-20 lg:w-24 rounded-[22px] lg:rounded-[24px] border ${
+                        isSeniorCountInvalid
+                          ? "border-red-300 focus:ring-red-400"
+                          : "border-slate-200 focus:ring-blue-500"
+                      } bg-slate-50 text-center text-2xl lg:text-2xl font-semibold text-slate-900 focus:outline-none focus:ring-2`}
                     />
                     <button
                       onClick={() =>
                         setSeniorCount(Math.min(totalGuests, seniorCount + 1))
                       }
-                      className="flex h-11 lg:h-14 w-11 lg:w-14 items-center justify-center rounded-full bg-slate-100 text-lg lg:text-2xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
+                      className="flex h-9 lg:h-10 w-9 lg:w-10 items-center justify-center rounded-full bg-slate-100 text-base lg:text-xl font-bold text-slate-700 shadow-sm hover:bg-slate-200"
                     >
                       +
                     </button>
                   </div>
-                  <p className="mt-3 lg:mt-4 text-center text-xs lg:text-sm text-slate-500">
+                  <p className="mt-2 text-center text-xs lg:text-sm text-slate-500">
                     {discountType === "senior" ? "Senior" : "PWD"} guest(s)
                   </p>
                 </div>

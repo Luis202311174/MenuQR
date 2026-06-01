@@ -64,6 +64,7 @@ export default function MenuItemModal({
   const [qty, setQty] = useState(1);
   const [qtyInput, setQtyInput] = useState("1");
   const [showNutritionMobile, setShowNutritionMobile] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
 
   const requestIdRef = useRef(0);
 
@@ -106,6 +107,7 @@ export default function MenuItemModal({
 
   useEffect(() => {
     setShowNutritionMobile(false);
+    setShowFullDescription(false);
   }, [viewItem]);
 
   const handleOptionSelect = (
@@ -429,15 +431,40 @@ export default function MenuItemModal({
               </div>
             </div>
 
-            <div className="mt-2 sm:mt-4">
+            <div
+              className="mt-2 sm:mt-4 cursor-pointer"
+              onClick={() => setShowFullDescription((current) => !current)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowFullDescription((current) => !current);
+                }
+              }}
+            >
               <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                 Description
               </p>
               <p className="text-xs sm:text-base text-gray-700 leading-4 sm:leading-6 mt-1 sm:mt-2">
-                {viewItem.description ||
-                  viewItem.menu_desc ||
-                  "No description available."}
+                {(() => {
+                  const description =
+                    viewItem.description ||
+                    viewItem.menu_desc ||
+                    "No description available.";
+                  const formatted = showFullDescription
+                    ? description
+                    : description.length > 180
+                    ? `${description.slice(0, 180).trim()}...`
+                    : description;
+                  return formatted;
+                })()}
               </p>
+              {((viewItem.description || viewItem.menu_desc) ?? "").length > 180 ? (
+                <p className="mt-2 text-sm font-semibold text-blue-600 hover:text-blue-800">
+                  {showFullDescription ? "Show less" : "See more"}
+                </p>
+              ) : null}
             </div>
           </div>
 

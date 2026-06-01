@@ -376,12 +376,15 @@ export default function BusinessMenuPage() {
 
         <div className="grid gap-8">
           <main className="space-y-8">
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+          <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-              <h2 className="text-2xl font-bold w-full">Menu Items</h2>
+              <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-bold text-slate-900">Menu Items</h2>
+                <p className="text-sm text-slate-500">{menuItems.length} total items</p>
+              </div>
 
               <div className="w-full">
-                <label className="hidden text-sm text-gray-700 sm:block">
+                <label className="hidden text-sm text-slate-600 sm:block">
                   Search items
                 </label>
                 <input
@@ -389,19 +392,19 @@ export default function BusinessMenuPage() {
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
                   placeholder="Search by name..."
-                  className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                  className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
                 />
               </div>
 
               <div className="flex flex-wrap items-end gap-3 w-full">
                 <div className="w-[140px] min-w-[140px] sm:w-[200px]">
-                  <label className="hidden text-sm text-gray-700 sm:block">
+                  <label className="hidden text-sm text-slate-600 sm:block">
                     Category
                   </label>
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                    className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
                   >
                     <option value="All">All Categories</option>
                     <option value="Meals">Meals</option>
@@ -413,13 +416,13 @@ export default function BusinessMenuPage() {
                 </div>
 
                 <div className="w-[140px] min-w-[140px] sm:w-[200px]">
-                  <label className="hidden text-sm text-gray-700 sm:block">
+                  <label className="hidden text-sm text-slate-600 sm:block">
                     Availability
                   </label>
                   <select
                     value={availabilityFilter}
                     onChange={(e) => setAvailabilityFilter(e.target.value)}
-                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                    className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
                   >
                     <option value="All">All Items</option>
                     <option value="Available">Available</option>
@@ -434,7 +437,7 @@ export default function BusinessMenuPage() {
                   }}
                   disabled={!canCreateMenu}
                   aria-disabled={!canCreateMenu}
-                  className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-[24px] bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   + Add Item
                 </button>
