@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useStaffSession } from "@/hooks/useStaffSession";
 import { showSystemNotification } from "@/utils/notificationService";
+import { storeNotification } from "@/utils/notificationManager";
 
 type BusinessOrdersNotifierProps = {
   businessId?: string | null;
@@ -162,15 +163,18 @@ export default function BusinessOrdersNotifier({
 
             // Only show system (OS) notifications for newly inserted orders.
             if (payload.eventType === "INSERT") {
-              void showSystemNotification({
+              const notification = {
                 id: `new-order-${order.id}`,
-                type: "order",
+                type: "order" as const,
                 title: "New order received",
                 message: `Table ${order.table?.table_number || "N/A"} placed a new order.`,
                 href: "/business/orders",
                 timestamp: new Date().toISOString(),
                 data: { orderId: order.id, tableNumber: order.table?.table_number },
-              });
+              };
+
+              storeNotification(notification);
+              void showSystemNotification(notification);
             }
           }
 

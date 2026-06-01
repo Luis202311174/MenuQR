@@ -908,21 +908,25 @@ export default function BusinessReportsPage() {
     icon: any;
     color: string;
   }) => (
-    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">{title}</p>
-          <p className="text-xl sm:text-2xl font-bold text-slate-900">{value}</p>
-          <div className={`flex items-center mt-2 text-xs sm:text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+    <div className="bg-white rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-200 hover:shadow-lg transition-shadow min-h-[120px]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1 leading-4 break-words">
+            {title}
+          </p>
+          <p className="text-xl sm:text-2xl font-semibold text-slate-900 leading-tight break-words">
+            {value}
+          </p>
+          <div className={`flex items-center gap-1 mt-2 text-[10px] sm:text-[11px] ${change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
             <FontAwesomeIcon
               icon={change >= 0 ? faArrowUp : faArrowDown}
-              className="mr-1 text-[10px] sm:text-sm"
+              className="text-[10px] sm:text-xs"
             />
-            {formatPercentage(change)} from last period
+            <span className="break-words">{formatPercentage(change)} from last period</span>
           </div>
         </div>
-        <div className={`p-2 sm:p-3 rounded-lg ${color}`}>
-          <FontAwesomeIcon icon={icon} className="text-white text-lg sm:text-xl" />
+        <div className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl ${color}`}>
+          <FontAwesomeIcon icon={icon} className="text-white text-sm sm:text-base" />
         </div>
       </div>
     </div>
@@ -1089,7 +1093,7 @@ export default function BusinessReportsPage() {
               ) : (
                 <>
                   {/* Metrics Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
                     <MetricCard
                       title="Total Revenue"
                       value={formatCurrency(metrics.totalRevenue)}

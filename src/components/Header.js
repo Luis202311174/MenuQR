@@ -9,6 +9,7 @@ import {
   getStoredNotifications,
   clearStoredNotifications,
   acknowledgeNotification,
+  acknowledgeAllNotifications,
   isAcknowledgedToday,
 } from "@/utils/notificationManager";
 import { cleanupStaleNotifications } from "@/utils/notificationCleanup";
@@ -277,17 +278,13 @@ export default function Header() {
                       <h4 className="font-semibold">Notifications</h4>
                       <button
                         onClick={() => {
-                          // Acknowledge visible notifications before clearing
                           try {
-                            visibleNotifications.forEach((n) => {
-                              if (n && n.id) acknowledgeNotification(n.id);
-                            });
+                            acknowledgeAllNotifications();
                           } catch (e) {}
                           clearStoredReceipts();
                           clearStoredLowStockNotifications();
-                          clearStoredNotifications();
                           setUnreadReceipts(0);
-                          setStoredNotifications([]);
+                          setStoredNotifications(getStoredNotifications());
                           setShowBell(false);
                         }}
                         className="text-xs text-slate-500 hover:underline"

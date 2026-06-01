@@ -1,4 +1,10 @@
-import type { AppNotification } from "@/utils/notificationManager";
+import {
+  type AppNotification,
+  getStoredNotifications,
+  markNotificationShown,
+  isAcknowledgedToday,
+  isShownToday,
+} from "@/utils/notificationManager";
 
 const DEFAULT_ICON = "/logo.png";
 
@@ -21,6 +27,9 @@ export async function showSystemNotification(notification: AppNotification) {
   if (!isBrowserNotificationSupported()) return;
   if (Notification.permission !== "granted") return;
 
+  const existing = getStoredNotifications().find((n) => n.id === notification.id);
+  if (existing && (isAcknowledgedToday(existing) || isShownToday(existing))) return;
+
   const options: NotificationOptions = {
     body: notification.message,
     icon: DEFAULT_ICON,
@@ -30,6 +39,7 @@ export async function showSystemNotification(notification: AppNotification) {
       type: notification.type,
       timestamp: notification.timestamp,
       data: notification.data,
+      id: notification.id,
     },
   };
 
@@ -37,6 +47,7 @@ export async function showSystemNotification(notification: AppNotification) {
     if (navigator.serviceWorker && navigator.serviceWorker.ready) {
       const registration = await navigator.serviceWorker.ready;
       await registration.showNotification(notification.title, options);
+      markNotificationShown(notification.id);
       return;
     }
   } catch (error) {
@@ -44,4 +55,5 @@ export async function showSystemNotification(notification: AppNotification) {
   }
 
   new Notification(notification.title, options);
+  markNotificationShown(notification.id);
 }
