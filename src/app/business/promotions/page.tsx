@@ -75,10 +75,19 @@ export default function BusinessPromotionsPage() {
   const [revealedCodes, setRevealedCodes] = useState<Set<string>>(new Set());
   const ITEMS_PER_PAGE = 10;
 
-  // Filter active coupons (not yet fully used)
-  const activeCoupons = coupons.filter(c => c.usage_count < c.usage_limit);
-  // Filter archived coupons (fully used)
-  const archivedCoupons = coupons.filter(c => c.usage_count >= c.usage_limit);
+  const isCouponExpired = (coupon: Coupon) => {
+    return coupon.expires_at ? new Date(coupon.expires_at).getTime() < Date.now() : false;
+  };
+
+  // Active coupons are those not fully used and not expired
+  const activeCoupons = coupons.filter(
+    (c) => c.usage_count < c.usage_limit && !isCouponExpired(c)
+  );
+
+  // Archived coupons include fully used coupons or expired coupons
+  const archivedCoupons = coupons.filter(
+    (c) => c.usage_count >= c.usage_limit || isCouponExpired(c)
+  );
 
   const toggleCodeVisibility = (couponId: string) => {
     setRevealedCodes(prev => {

@@ -505,6 +505,17 @@ export default function BusinessPage() {
         },
         async () => {
           await refreshMenuItems();
+          try {
+            if (business?.slug) {
+              await fetch('/api/cache/invalidate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: `business_page:${business.slug}` }),
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to invalidate cache', e);
+          }
         }
       );
 

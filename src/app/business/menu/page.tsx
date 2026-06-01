@@ -88,6 +88,7 @@ export default function BusinessMenuPage() {
   const [ordersCount, setOrdersCount] = useState(0);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addMenuStep, setAddMenuStep] = useState(1);
   const [menuName, setMenuName] = useState("");
   const [menuCategory, setMenuCategory] = useState("Meals");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -427,7 +428,10 @@ export default function BusinessMenuPage() {
                 </div>
 
                 <button
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    setAddMenuStep(1);
+                    setShowAddModal(true);
+                  }}
                   disabled={!canCreateMenu}
                   aria-disabled={!canCreateMenu}
                   className="rounded-2xl bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
@@ -515,25 +519,48 @@ export default function BusinessMenuPage() {
                       New Menu Item
                     </p>
                     <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                      Add item details
+                      Step {addMenuStep} of 3
                     </h2>
                     <p className="mt-2 text-sm text-gray-600">
-                      Provide a title, description, price and optional image so your customers
-                      can browse the dish clearly.
+                      {addMenuStep === 1
+                        ? "Enter the item name, price, category, and description."
+                        : addMenuStep === 2
+                        ? "Add nutrition details and stock settings."
+                        : "Upload an image and configure optional addons."
+                      }
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      addonsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-                    }
-                    className="rounded-3xl border border-blue-600 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
-                  >
-                    Jump to Addons
-                  </button>
                 </div>
 
-                <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-3xl border border-gray-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: 1, label: "Details" },
+                        { id: 2, label: "Nutrition" },
+                        { id: 3, label: "Image & Addons" },
+                      ].map((step) => (
+                        <button
+                          key={step.id}
+                          type="button"
+                          onClick={() => setAddMenuStep(step.id)}
+                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                            addMenuStep === step.id
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {step.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-gray-500 font-semibold">
+                      {addMenuStep === 1 ? "Start here" : addMenuStep === 2 ? "Second" : "Final"}
+                    </p>
+                  </div>
+                </div>
+
+                {addMenuStep === 1 && (
                   <div className="space-y-4">
                     <label className="block text-sm font-semibold text-gray-700">
                       Menu Name
@@ -555,32 +582,38 @@ export default function BusinessMenuPage() {
                       />
                     </label>
 
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Category
-                      <select
-                        value={menuCategory}
-                        onChange={(e) => setMenuCategory(e.target.value)}
-                        className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                      >
-                        <option value="Meals">Meals</option>
-                        <option value="Beverage">Beverage</option>
-                        <option value="Solo">Solo</option>
-                        <option value="Extras">Extras</option>
-                        <option value="Dessert">Dessert</option>
-                      </select>
-                    </label>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Category
+                        <select
+                          value={menuCategory}
+                          onChange={(e) => setMenuCategory(e.target.value)}
+                          className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                        >
+                          <option value="Meals">Meals</option>
+                          <option value="Beverage">Beverage</option>
+                          <option value="Solo">Solo</option>
+                          <option value="Extras">Extras</option>
+                          <option value="Dessert">Dessert</option>
+                        </select>
+                      </label>
 
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Price
-                      <input
-                        type="number"
-                        value={menuPrice}
-                        onChange={(e) => setMenuPrice(e.target.value)}
-                        className="mt-2 block w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
-                        placeholder="₱0.00"
-                      />
-                    </label>
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Price
+                        <input
+                          type="number"
+                          value={menuPrice}
+                          onChange={(e) => setMenuPrice(e.target.value)}
+                          className="mt-2 block w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
+                          placeholder="₱0.00"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
 
+                {addMenuStep === 2 && (
+                  <div className="space-y-4">
                     <div className="rounded-3xl border border-gray-200 bg-slate-50 p-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -790,290 +823,308 @@ export default function BusinessMenuPage() {
                       </label>
                     )}
                   </div>
+                )}
 
-                  <div className="rounded-[28px] border border-dashed border-gray-300 bg-blue-50 p-5 text-center">
-                    <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center rounded-full bg-blue-50 text-blue-600 shadow-sm">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-8 w-8"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 15a4 4 0 104 4H3v-4zm0 0l4-4m12 4a4 4 0 114 4h-4v-4zm0 0l-4-4"
+                {addMenuStep === 3 && (
+                  <div className="space-y-6">
+                    <div className="rounded-[28px] border border-dashed border-gray-300 bg-blue-50 p-5 shadow-sm">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-slate-900">Menu Image</p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Upload a photo and choose its position in one compact preview.
+                          </p>
+                        </div>
+                        <div className="rounded-full border border-blue-200 bg-white p-3 text-blue-600 shadow-sm">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 15a4 4 0 104 4H3v-4zm0 0l4-4m12 4a4 4 0 114 4h-4v-4zm0 0l-4-4"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-4">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
                         />
-                      </svg>
+
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Image Position
+                          <select
+                            value={menuImagePosition}
+                            onChange={(e) => setMenuImagePosition(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                          >
+                            <option value="center">Center</option>
+                            <option value="top">Top</option>
+                            <option value="bottom">Bottom</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                          </select>
+                        </label>
+
+                        <div className="rounded-3xl overflow-hidden border border-gray-200 bg-white">
+                          {imagePreview ? (
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              className="h-44 w-full object-cover"
+                              style={{ objectPosition: menuImagePosition }}
+                            />
+                          ) : (
+                            <div className="flex h-44 items-center justify-center bg-slate-50 px-4 text-sm text-gray-500">
+                              No image selected yet. Upload a file to preview it here.
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-slate-900">Menu Image</p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Upload a photo to help customers identify this item faster.
-                    </p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="mt-4 w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
-                    />
 
-                    <label className="block text-sm font-semibold text-gray-700 mt-4 text-left">
-                      Image Position
-                      <select
-                        value={menuImagePosition}
-                        onChange={(e) => setMenuImagePosition(e.target.value)}
-                        className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                      >
-                        <option value="center">Center</option>
-                        <option value="top">Top</option>
-                        <option value="bottom">Bottom</option>
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                      </select>
-                    </label>
-                  </div>
-                </div>
+                    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.24em] font-semibold text-slate-500">
+                            Addons & Options
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Optional — only add groups if this menu item has add-ons.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddNewOptionGroup}
+                          className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                        >
+                          + Add Group
+                        </button>
+                      </div>
 
-                {imagePreview && (
-                  <div className="rounded-3xl overflow-hidden border border-gray-200 bg-white shadow-sm">
-                    <img src={imagePreview} alt="Preview" className="h-52 w-full object-cover" style={{ objectPosition: menuImagePosition }} />
+                      {menuOptionGroups.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 text-center">
+                          No option groups yet. Add one only if this item has add-ons.
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {menuOptionGroups.map((group, groupIndex) => (
+                            <div key={group.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <h4 className="font-semibold text-slate-900">Group {groupIndex + 1}</h4>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setMenuOptionGroups((prev) => prev.filter((g) => g.id !== group.id))
+                                  }
+                                  className="text-blue-600 hover:text-blue-800 text-sm"
+                                >
+                                  Remove group
+                                </button>
+                              </div>
+
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="block text-sm text-gray-700">
+                                  Group Name
+                                  <input
+                                    type="text"
+                                    value={group.name}
+                                    onChange={(e) =>
+                                      setMenuOptionGroups((prev) =>
+                                        prev.map((g) =>
+                                          g.id === group.id ? { ...g, name: e.target.value } : g
+                                        )
+                                      )
+                                    }
+                                    placeholder="e.g., Size, Addons, Drinks"
+                                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                  />
+                                </label>
+
+                                <label className="block text-sm text-gray-700">
+                                  Required selection
+                                  <select
+                                    value={group.isRequired ? "yes" : "no"}
+                                    onChange={(e) =>
+                                      setMenuOptionGroups((prev) =>
+                                        prev.map((g) =>
+                                          g.id === group.id
+                                            ? { ...g, isRequired: e.target.value === "yes" }
+                                            : g
+                                        )
+                                      )
+                                    }
+                                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                  >
+                                    <option value="no">No</option>
+                                    <option value="yes">Yes</option>
+                                  </select>
+                                </label>
+                              </div>
+
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="block text-sm text-gray-700">
+                                  Min Select
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={group.minSelect}
+                                    onChange={(e) =>
+                                      setMenuOptionGroups((prev) =>
+                                        prev.map((g) =>
+                                          g.id === group.id
+                                            ? { ...g, minSelect: Number(e.target.value) }
+                                            : g
+                                        )
+                                      )
+                                    }
+                                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                  />
+                                </label>
+                                <label className="block text-sm text-gray-700">
+                                  Max Select
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={group.maxSelect}
+                                    onChange={(e) =>
+                                      setMenuOptionGroups((prev) =>
+                                        prev.map((g) =>
+                                          g.id === group.id
+                                            ? { ...g, maxSelect: Number(e.target.value) }
+                                            : g
+                                        )
+                                      )
+                                    }
+                                    className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-semibold text-slate-900">Group Options</p>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setMenuOptionGroups((prev) =>
+                                        prev.map((g) =>
+                                          g.id === group.id
+                                            ? {
+                                                ...g,
+                                                options: [
+                                                  ...g.options,
+                                                  { id: Math.random().toString(36).slice(2, 10), name: "", price: "" },
+                                                ],
+                                              }
+                                            : g
+                                        )
+                                      )
+                                    }
+                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                                  >
+                                    + Add Option
+                                  </button>
+                                </div>
+
+                                {group.options.length === 0 ? (
+                                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                    Add options to this group so customers can choose when ordering.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {group.options.map((option) => (
+                                      <div key={option.id} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                        <input
+                                          type="text"
+                                          value={option.name}
+                                          onChange={(e) =>
+                                            setMenuOptionGroups((prev) =>
+                                              prev.map((g) =>
+                                                g.id === group.id
+                                                  ? {
+                                                      ...g,
+                                                      options: g.options.map((opt) =>
+                                                        opt.id === option.id
+                                                          ? { ...opt, name: e.target.value }
+                                                          : opt
+                                                      ),
+                                                    }
+                                                  : g
+                                              )
+                                            )
+                                          }
+                                          placeholder="Option name"
+                                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                        />
+                                        <input
+                                          type="number"
+                                          value={option.price}
+                                          onChange={(e) =>
+                                            setMenuOptionGroups((prev) =>
+                                              prev.map((g) =>
+                                                g.id === group.id
+                                                  ? {
+                                                      ...g,
+                                                      options: g.options.map((opt) =>
+                                                        opt.id === option.id
+                                                          ? { ...opt, price: e.target.value }
+                                                          : opt
+                                                      ),
+                                                    }
+                                                  : g
+                                              )
+                                            )
+                                          }
+                                          placeholder="Price modifier"
+                                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setMenuOptionGroups((prev) =>
+                                              prev.map((g) =>
+                                                g.id === group.id
+                                                  ? {
+                                                      ...g,
+                                                      options: g.options.filter((opt) => opt.id !== option.id),
+                                                    }
+                                                  : g
+                                              )
+                                            )
+                                          }
+                                          className="text-blue-600 hover:text-blue-800"
+                                        >
+                                          Delete
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <div
-                  ref={addonsSectionRef}
-                  className="rounded-2xl border border-gray-200 bg-slate-50 p-5 shadow-sm"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.24em] font-semibold text-slate-500">
-                        Addons & Options
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Optional — only add groups if this menu item has add-ons.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddNewOptionGroup}
-                      className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
-                    >
-                      + Add Group
-                    </button>
-                  </div>
-
-                  {menuOptionGroups.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 text-center">
-                      No option groups yet. Add one only if this item has add-ons.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {menuOptionGroups.map((group, groupIndex) => (
-                        <div key={group.id} className="rounded-2xl border border-gray-200 bg-white p-4">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <h4 className="font-semibold text-slate-900">Group {groupIndex + 1}</h4>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMenuOptionGroups((prev) => prev.filter((g) => g.id !== group.id))
-                              }
-                              className="text-blue-600 hover:text-blue-800 text-sm"
-                            >
-                              Remove group
-                            </button>
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <label className="block text-sm text-gray-700">
-                              Group Name
-                              <input
-                                type="text"
-                                value={group.name}
-                                onChange={(e) =>
-                                  setMenuOptionGroups((prev) =>
-                                    prev.map((g) =>
-                                      g.id === group.id ? { ...g, name: e.target.value } : g
-                                    )
-                                  )
-                                }
-                                placeholder="e.g., Size, Addons, Drinks"
-                                className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                              />
-                            </label>
-
-                            <label className="block text-sm text-gray-700">
-                              Required selection
-                              <select
-                                value={group.isRequired ? "yes" : "no"}
-                                onChange={(e) =>
-                                  setMenuOptionGroups((prev) =>
-                                    prev.map((g) =>
-                                      g.id === group.id
-                                        ? { ...g, isRequired: e.target.value === "yes" }
-                                        : g
-                                    )
-                                  )
-                                }
-                                className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                              >
-                                <option value="no">No</option>
-                                <option value="yes">Yes</option>
-                              </select>
-                            </label>
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <label className="block text-sm text-gray-700">
-                              Min Select
-                              <input
-                                type="number"
-                                min={0}
-                                value={group.minSelect}
-                                onChange={(e) =>
-                                  setMenuOptionGroups((prev) =>
-                                    prev.map((g) =>
-                                      g.id === group.id
-                                        ? { ...g, minSelect: Number(e.target.value) }
-                                        : g
-                                    )
-                                  )
-                                }
-                                className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                              />
-                            </label>
-                            <label className="block text-sm text-gray-700">
-                              Max Select
-                              <input
-                                type="number"
-                                min={1}
-                                value={group.maxSelect}
-                                onChange={(e) =>
-                                  setMenuOptionGroups((prev) =>
-                                    prev.map((g) =>
-                                      g.id === group.id
-                                        ? { ...g, maxSelect: Number(e.target.value) }
-                                        : g
-                                    )
-                                  )
-                                }
-                                className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                              />
-                            </label>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold text-slate-900">Group Options</p>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setMenuOptionGroups((prev) =>
-                                    prev.map((g) =>
-                                      g.id === group.id
-                                        ? {
-                                            ...g,
-                                            options: [
-                                              ...g.options,
-                                              { id: Math.random().toString(36).slice(2, 10), name: "", price: "" },
-                                            ],
-                                          }
-                                        : g
-                                    )
-                                  )
-                                }
-                                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
-                              >
-                                + Add Option
-                              </button>
-                            </div>
-
-                            {group.options.length === 0 ? (
-                              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                Add options to this group so customers can choose when ordering.
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {group.options.map((option) => (
-                                  <div key={option.id} className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                    <input
-                                      type="text"
-                                      value={option.name}
-                                      onChange={(e) =>
-                                        setMenuOptionGroups((prev) =>
-                                          prev.map((g) =>
-                                            g.id === group.id
-                                              ? {
-                                                  ...g,
-                                                  options: g.options.map((opt) =>
-                                                    opt.id === option.id
-                                                      ? { ...opt, name: e.target.value }
-                                                      : opt
-                                                  ),
-                                                }
-                                              : g
-                                          )
-                                        )
-                                      }
-                                      placeholder="Option name"
-                                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                                    />
-                                    <input
-                                      type="number"
-                                      value={option.price}
-                                      onChange={(e) =>
-                                        setMenuOptionGroups((prev) =>
-                                          prev.map((g) =>
-                                            g.id === group.id
-                                              ? {
-                                                  ...g,
-                                                  options: g.options.map((opt) =>
-                                                    opt.id === option.id
-                                                      ? { ...opt, price: e.target.value }
-                                                      : opt
-                                                  ),
-                                                }
-                                              : g
-                                          )
-                                        )
-                                      }
-                                      placeholder="Price modifier"
-                                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setMenuOptionGroups((prev) =>
-                                          prev.map((g) =>
-                                            g.id === group.id
-                                              ? {
-                                                  ...g,
-                                                  options: g.options.filter((opt) => opt.id !== option.id),
-                                                }
-                                              : g
-                                          )
-                                        )
-                                      }
-                                      className="text-blue-600 hover:text-blue-800"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-between items-center">
                   <button
                     onClick={() => {
                       setShowAddModal(false);
+                      setAddMenuStep(1);
                       setMenuOptionGroups([]);
                       setMenuName("");
                       setMenuPrice("");
@@ -1095,13 +1146,32 @@ export default function BusinessMenuPage() {
                   >
                     Cancel
                   </button>
-                  <button
-                    onClick={handleSaveMenuItem}
-                    className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={loading || !canCreateMenu}
-                  >
-                    {loading ? "Saving..." : "Save Menu Item"}
-                  </button>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    {addMenuStep > 1 ? (
+                      <button
+                        onClick={() => setAddMenuStep(addMenuStep - 1)}
+                        className="rounded-2xl border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        Back
+                      </button>
+                    ) : null}
+                    {addMenuStep < 3 ? (
+                      <button
+                        onClick={() => setAddMenuStep(addMenuStep + 1)}
+                        className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                      >
+                        Next
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSaveMenuItem}
+                        className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={loading || !canCreateMenu}
+                      >
+                        {loading ? "Saving..." : "Save Menu Item"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
