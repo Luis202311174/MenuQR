@@ -461,7 +461,8 @@ export default function BusinessReportsPage() {
           created_at,
           status,
           user_id,
-          items
+          items,
+          customer_behavior
         `)
         .eq("business_id", businessId)
         .in("status", ["paid", "completed"]);
@@ -489,6 +490,7 @@ export default function BusinessReportsPage() {
       id: order.id,
       createdAt: order.created_at,
       total: order.total_amount || 0,
+      customer_behavior: order.customer_behavior,
       items: normalizeOrderItems(order.items).map((item: any) => ({
         menuItemId: item.menu_item_id || item.id || "unknown",
         name: item.name || "Unknown Item",

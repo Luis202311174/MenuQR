@@ -9,8 +9,9 @@ if (REDIS_URL) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const IORedis = require('ioredis');
     redisClient = new IORedis(REDIS_URL);
-  } catch (e) {
-    console.warn('ioredis not available, falling back to in-memory cache', e?.message || e);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.warn('ioredis not available, falling back to in-memory cache', message);
     inMemoryCache = new Map();
   }
 } else {
@@ -25,8 +26,9 @@ export async function redisGet(key: string): Promise<string | null> {
     try {
       const res = await redisClient.get(key);
       return res;
-    } catch (e) {
-      console.warn('redis get failed, fallback to memory', e?.message || e);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.warn('redis get failed, fallback to memory', message);
     }
   }
 
@@ -49,8 +51,9 @@ export async function redisSet(key: string, value: string, ttlSeconds?: number):
       if (ttlSeconds) await redisClient.set(key, value, 'EX', ttlSeconds);
       else await redisClient.set(key, value);
       return;
-    } catch (e) {
-      console.warn('redis set failed, fallback to memory', e?.message || e);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.warn('redis set failed, fallback to memory', message);
     }
   }
 
@@ -65,8 +68,9 @@ export async function redisDel(key: string): Promise<void> {
     try {
       await redisClient.del(key);
       return;
-    } catch (e) {
-      console.warn('redis del failed, fallback to memory', e?.message || e);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.warn('redis del failed, fallback to memory', message);
     }
   }
 
