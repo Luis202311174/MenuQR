@@ -10,6 +10,7 @@ import {
   removeLowStockNotification,
 } from "@/utils/lowStockNotifications";
 import { storeNotification, removeNotification } from "@/utils/notificationManager";
+import { showSystemNotification } from "@/utils/notificationService";
 
 type Notif = {
   id: string;
@@ -64,15 +65,17 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
           const timestamp = new Date().toISOString();
           low.forEach((item) => {
             storeLowStockNotification({ ...item, timestamp });
-            storeNotification({
+            const notification = {
               id: `low-stock-${item.id}`,
-              type: "inventory",
+              type: "inventory" as const,
               title: "Low stock alert",
               message: `${item.name} is low: ${item.current_stock} left`,
               href: "/business/inventory",
               timestamp,
               data: { itemId: item.id, current_stock: item.current_stock },
-            });
+            };
+            storeNotification(notification);
+            void showSystemNotification(notification);
           });
           setNotifs((prev) => {
             const ids = new Set(prev.map((p) => p.id));
@@ -117,15 +120,17 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
                 timestamp: new Date().toISOString(),
               };
               storeLowStockNotification(notif);
-              storeNotification({
+              const notification = {
                 id: `low-stock-${notif.id}`,
-                type: "inventory",
+                type: "inventory" as const,
                 title: "Low stock alert",
                 message: `${notif.name} is low: ${notif.current_stock} left`,
                 href: "/business/inventory",
                 timestamp: notif.timestamp,
                 data: { itemId: notif.id, current_stock: notif.current_stock },
-              });
+              };
+              storeNotification(notification);
+              void showSystemNotification(notification);
               setNotifs((prev) => {
                 if (prev.some((p) => p.id === notif.id)) return prev;
                 return [notif, ...prev];

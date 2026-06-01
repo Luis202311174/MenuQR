@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useStaffSession } from "@/hooks/useStaffSession";
+import { showSystemNotification } from "@/utils/notificationService";
 
 type BusinessOrdersNotifierProps = {
   businessId?: string | null;
@@ -158,6 +159,19 @@ export default function BusinessOrdersNotifier({
             setLatestTableNumber(order.table?.table_number || "N/A");
             playNewOrderSound();
             setShowModal(true);
+
+            // Only show system (OS) notifications for newly inserted orders.
+            if (payload.eventType === "INSERT") {
+              void showSystemNotification({
+                id: `new-order-${order.id}`,
+                type: "order",
+                title: "New order received",
+                message: `Table ${order.table?.table_number || "N/A"} placed a new order.`,
+                href: "/business/orders",
+                timestamp: new Date().toISOString(),
+                data: { orderId: order.id, tableNumber: order.table?.table_number },
+              });
+            }
           }
 
           await fetchOrderCount();

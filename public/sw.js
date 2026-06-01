@@ -13,6 +13,26 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.href;
+
+  if (!url) return;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url === url && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url);
+      }
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
     return;
@@ -20,6 +40,16 @@ self.addEventListener("fetch", (event) => {
 
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) {
+    return;
+  }
+  // Avoid caching Next.js runtime assets and API responses — they change frequently
+  const pathname = requestUrl.pathname || "";
+  if (pathname.startsWith("/_next/") || pathname.startsWith("/api/")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => res)
+        .catch(() => caches.match(event.request).then((r) => r || caches.match(FALLBACK_URL)))
+    );
     return;
   }
 

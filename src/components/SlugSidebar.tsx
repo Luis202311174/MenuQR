@@ -200,7 +200,7 @@ export default function SlugSidebar({
             <div>
               <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-1">Items</p>
               <div className="space-y-1">
-                {currentOrder.items.map((item, idx) => (
+                {(Array.isArray(currentOrder.items) ? currentOrder.items : []).map((item, idx) => (
                   <p key={idx} className="text-sm text-gray-700 flex justify-between">
                     <span>• {item.name}</span>
                     <span className="text-blue-600 font-semibold">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { requestNotificationPermission } from "@/utils/notificationService";
 
 export default function ServiceWorkerRegister() {
   useEffect(() => {
@@ -15,6 +16,12 @@ export default function ServiceWorkerRegister() {
       .catch((error) => {
         console.warn("MenuQR service worker registration failed:", error);
       });
+
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      void requestNotificationPermission().then((permission) => {
+        console.log("Notification permission:", permission);
+      });
+    }
   }, []);
 
   return null;
