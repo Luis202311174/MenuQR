@@ -8,6 +8,8 @@ import { clearStoredLowStockNotifications } from "@/utils/lowStockNotifications"
 import {
   getStoredNotifications,
   clearStoredNotifications,
+  acknowledgeNotification,
+  isAcknowledgedToday,
 } from "@/utils/notificationManager";
 import { cleanupStaleNotifications } from "@/utils/notificationCleanup";
 import Image from "next/image";
@@ -147,6 +149,9 @@ export default function Header() {
   const handleNotificationClick = (notification) => {
     setShowBell(false);
     if (!notification?.href) return;
+    try {
+      if (notification.id) acknowledgeNotification(notification.id);
+    } catch (e) {}
     router.push(notification.href);
   };
 
@@ -154,7 +159,26 @@ export default function Header() {
   const dashboardHref = isStaff || role === "owner" ? "/business/dashboard" : "/user-home";
   const dashboardLabel = isStaff || role === "owner" ? "My Dashboard" : "Menu Dashboard";
   const storedReceipts = getStoredReceipts();
-  const notificationCount = storedReceipts.length + storedNotifications.length;
+  const visibleNotifications = Array.isArray(storedNotifications)
+    ? storedNotifications.filter((n) => !isAcknowledgedToday(n))
+    : [];
+  const notificationCount = storedReceipts.length + visibleNotifications.length;
+
+  // When the bell is closed, mark any visible notifications as acknowledged for today
+  useEffect(() => {
+    // Only act when transitioning from open -> closed
+    let prev = false;
+    try { prev = window.__prevShowBell === true; } catch (e) {}
+    window.__prevShowBell = showBell;
+    if (prev && !showBell) {
+      try {
+        visibleNotifications.forEach((n) => {
+          if (n && n.id && !isAcknowledgedToday(n)) acknowledgeNotification(n.id);
+        });
+      } catch (e) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBell]);
 
   return (
     <>
@@ -253,6 +277,12 @@ export default function Header() {
                       <h4 className="font-semibold">Notifications</h4>
                       <button
                         onClick={() => {
+                          // Acknowledge visible notifications before clearing
+                          try {
+                            visibleNotifications.forEach((n) => {
+                              if (n && n.id) acknowledgeNotification(n.id);
+                            });
+                          } catch (e) {}
                           clearStoredReceipts();
                           clearStoredLowStockNotifications();
                           clearStoredNotifications();
@@ -270,9 +300,9 @@ export default function Header() {
                         <p className="text-xs text-slate-500">No notifications</p>
                       ) : (
                         <>
-                          {storedNotifications.length > 0 && (
+                          {visibleNotifications.length > 0 && (
                             <div className="space-y-2">
-                              {storedNotifications.slice().reverse().map((notif) => (
+                              {visibleNotifications.slice().reverse().map((notif) => (
                                 <button
                                   key={notif.id}
                                   onClick={() => handleNotificationClick(notif)}

@@ -12,6 +12,8 @@ export interface AppNotification {
   message: string;
   href: string;
   timestamp: string;
+  // ISO timestamp when the notification was acknowledged/viewed by the user
+  acknowledgedAt?: string | null;
   data?: Record<string, unknown>;
 }
 
@@ -21,7 +23,12 @@ export function getStoredNotifications(): AppNotification[] {
   if (typeof window === "undefined") return [];
 
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    // Normalize older entries to include acknowledgedAt field
+    if (Array.isArray(raw)) {
+      return raw.map((n) => ({ ...n, acknowledgedAt: n.acknowledgedAt ?? null }));
+    }
+    return [];
   } catch {
     return [];
   }
@@ -34,13 +41,35 @@ export function storeNotification(notification: AppNotification) {
   const index = notifications.findIndex((item) => item.id === notification.id);
 
   if (index !== -1) {
-    notifications[index] = { ...notifications[index], ...notification };
+    // Preserve previous acknowledgedAt unless new value provided
+    notifications[index] = { ...notifications[index], ...notification, acknowledgedAt: notification.acknowledgedAt ?? notifications[index].acknowledgedAt ?? null };
   } else {
-    notifications.push(notification);
+    notifications.push({ ...notification, acknowledgedAt: notification.acknowledgedAt ?? null });
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
   dispatchNotificationsUpdated();
+}
+
+export function acknowledgeNotification(id: string) {
+  if (typeof window === "undefined") return;
+  const notifications = getStoredNotifications();
+  const idx = notifications.findIndex((n) => n.id === id);
+  if (idx === -1) return;
+  notifications[idx] = { ...notifications[idx], acknowledgedAt: new Date().toISOString() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+  dispatchNotificationsUpdated();
+}
+
+export function isAcknowledgedToday(notification: AppNotification) {
+  if (!notification || !notification.acknowledgedAt) return false;
+  try {
+    const a = new Date(notification.acknowledgedAt);
+    const now = new Date();
+    return a.getFullYear() === now.getFullYear() && a.getMonth() === now.getMonth() && a.getDate() === now.getDate();
+  } catch {
+    return false;
+  }
 }
 
 export function removeNotification(id: string) {
