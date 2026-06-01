@@ -162,19 +162,24 @@ export default function TableQRPage() {
       .from("tables")
       .select("*")
       .eq("business_id", businessId)
-      .order("created_at", { ascending: false });
+      .order("table_number", { ascending: true });
 
     if (error) {
       console.error(error);
       return;
     }
 
-    setTables(data || []);
+    setTables(sortTables(data || []));
   };
 
   useEffect(() => {
     if (businessId) fetchTables();
   }, [businessId]);
+
+  const sortTables = (tables: ITable[]) =>
+    [...tables].sort(
+      (a, b) => parseInt(a.table_number) - parseInt(b.table_number)
+    );
 
   // ADD TABLE (FIXED QR FLOW)
   const handleAddTables = async (count: number) => {
@@ -194,20 +199,26 @@ export default function TableQRPage() {
 
       if (fetchError) throw fetchError;
 
-      // 2. Get current max
+      // 2. Get existing numeric table numbers
       const numbers = (existingTables || [])
         .map((t) => parseInt(t.table_number))
         .filter((n) => !isNaN(n));
 
-      let currentMax = numbers.length > 0 ? Math.max(...numbers) : 0;
-
+      const existingSet = new Set(numbers);
       const newTables: ITable[] = [];
+
+      const getNextTableNumber = () => {
+        let candidate = 1;
+        while (existingSet.has(candidate)) {
+          candidate += 1;
+        }
+        existingSet.add(candidate);
+        return candidate;
+      };
 
       // 3. Loop create tables
       for (let i = 0; i < count; i++) {
-        const nextNumber = currentMax + 1;
-        currentMax++;
-
+        const nextNumber = getNextTableNumber();
         const formattedNumber = String(nextNumber).padStart(3, "0");
 
         // Insert table
@@ -244,8 +255,8 @@ export default function TableQRPage() {
         newTables.push({ ...data, qr_code: qrCodeUrl });
       }
 
-      // 4. Update UI (prepend all new tables)
-      setTables((prev) => [...newTables.reverse(), ...prev]);
+      // 4. Update UI and keep display sorted from lowest to highest table number
+      setTables((prev) => sortTables([...prev, ...newTables]));
     } catch (err: any) {
       console.error(err);
       alert("Failed to add tables: " + err.message);
@@ -269,7 +280,7 @@ export default function TableQRPage() {
       return;
     }
 
-    setTables((prev) => prev.filter((t) => t.id !== id));
+    setTables((prev) => sortTables(prev.filter((t) => t.id !== id)));
   };
 
   const handleClearAllSessions = async () => {
