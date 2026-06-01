@@ -1,9 +1,10 @@
 const CACHE_NAME = "menuqr-offline-cache-v1";
 const FALLBACK_URL = "/";
+const PRE_CACHE_URLS = [FALLBACK_URL, "/logo.png", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll([FALLBACK_URL])).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRE_CACHE_URLS)).catch(() => {})
   );
   self.skipWaiting();
 });

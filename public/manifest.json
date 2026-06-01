@@ -1,0 +1,17 @@
+{
+  "name": "MenuQR",
+  "short_name": "MenuQR",
+  "description": "Dynamic QR Menu Platform",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
