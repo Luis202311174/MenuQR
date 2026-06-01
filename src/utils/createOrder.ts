@@ -27,7 +27,26 @@ export type CreateOrderParams = {
   promoCode?: string;
   amountReceived?: number;
   changeAmount?: number;
+  orderDurationMs?: number;
+  mostOrderedItem?: string;
+  spendPerOrder?: number;
+  customerBehavior?: any;
 };
+
+function getMostOrderedItem(cartItems: any[]) {
+  if (!cartItems || cartItems.length === 0) return null;
+
+  const counts = cartItems.reduce<Record<string, number>>((acc, item) => {
+    const name = item.name || item.menu_desc || item.title || item.id || "";
+    const qty = Number(item.qty || 1);
+    if (!name || qty <= 0) return acc;
+    acc[name] = (acc[name] || 0) + qty;
+    return acc;
+  }, {});
+
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return sorted.length > 0 ? sorted[0][0] : null;
+}
 
 export async function createOrder({
   businessId,
@@ -44,6 +63,10 @@ export async function createOrder({
   promoCode,
   amountReceived,
   changeAmount,
+  orderDurationMs,
+  mostOrderedItem,
+  spendPerOrder,
+  customerBehavior,
 }: CreateOrderParams) {
   const qtyByMenuItemId = cartItems.reduce<Record<string, number>>((acc, item) => {
     const qty = Number(item.qty || 1);
@@ -124,6 +147,7 @@ export async function createOrder({
       updateResults.push({ id: item.id, oldStock: Number(item.current_stock ?? 0) });
     }
 
+    const trackedMostOrderedItem = mostOrderedItem || getMostOrderedItem(cartItems);
     const orderData: any = {
       business_id: businessId,
       items: cartItems,
@@ -137,6 +161,10 @@ export async function createOrder({
       discount_amount: discountAmount ?? 0,
       amount_received: amountReceived ?? null,
       change_amount: changeAmount ?? null,
+      ...(orderDurationMs !== undefined ? { order_duration_ms: orderDurationMs } : {}),
+      ...(trackedMostOrderedItem ? { most_ordered_item: trackedMostOrderedItem } : {}),
+      ...(spendPerOrder !== undefined ? { spend_per_order: spendPerOrder } : {}),
+      ...(customerBehavior ? { customer_behavior: customerBehavior } : {}),
       ...(userId ? { user_id: userId } : {}),
       ...(couponId ? { coupon_id: couponId } : {}),
     };

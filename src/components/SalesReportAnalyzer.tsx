@@ -20,12 +20,19 @@ interface Order {
   total?: number;
   total_amount?: number;
   amount_received?: number;
+  order_duration_ms?: number;
+  most_ordered_item?: string;
+  spend_per_order?: number;
+  customer_behavior?: any;
 }
 
 interface SalesReportAnalyzerSummary {
   totalRevenue: number;
   totalOrders: number;
   averageOrderValue: number;
+  averageOrderDurationMs: number;
+  averageSpendPerOrder: number;
+  mostFrequentMostOrderedItem?: string;
   bestSellers: { name: string; count: number }[];
   leastSellers: { name: string; count: number }[];
   suggestions: Array<{
@@ -34,6 +41,7 @@ interface SalesReportAnalyzerSummary {
     text: string;
     type: 'combo' | 'promotion';
   }>;
+  behaviorInsights?: any;
 }
 
 interface SalesReportAnalyzerProps {
@@ -50,6 +58,13 @@ const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 };
 
+const formatDuration = (milliseconds: number) => {
+  const totalSeconds = Math.round(milliseconds / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+};
+
 export default function SalesReportAnalyzer({ 
   orders, 
   suggestionThreshold = 1,
@@ -64,6 +79,9 @@ export default function SalesReportAnalyzer({
           totalRevenue: 0,
           totalOrders: 0,
           averageOrderValue: 0,
+          averageOrderDurationMs: 0,
+          averageSpendPerOrder: 0,
+          mostFrequentMostOrderedItem: undefined,
           bestSellers: [],
           leastSellers: [],
           suggestions: [],
@@ -78,6 +96,81 @@ export default function SalesReportAnalyzer({
       }, 0);
       const totalOrders = orderList.length;
       const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const totalDuration = orderList.reduce((sum, order) => sum + (Number(order.order_duration_ms ?? 0)), 0);
+      const averageOrderDurationMs = totalOrders > 0 ? totalDuration / totalOrders : 0;
+      const totalSpendPerOrder = orderList.reduce((sum, order) => sum + (Number(order.spend_per_order ?? 0)), 0);
+      const averageSpendPerOrder = totalOrders > 0 ? totalSpendPerOrder / totalOrders : 0;
+
+      // Analyze customer_behavior JSON blobs (if present) for simple insights
+      const behaviorAgg = {
+        totalSessions: orderList.length,
+        totalEvents: 0,
+        avgEventsPerSession: 0,
+        abandonmentCount: 0,
+        abandonmentRate: 0,
+        avgMaxScrollPercent: 0,
+        topSearches: {} as Record<string, number>,
+        topFilters: {} as Record<string, number>,
+      };
+
+      let scrollSum = 0;
+      let scrollCount = 0;
+
+      orderList.forEach(order => {
+        const cb = order.customer_behavior;
+        if (!cb) return;
+        let payload: any = cb;
+        if (typeof cb === 'string') {
+          try {
+            payload = JSON.parse(cb);
+          } catch {
+            return;
+          }
+        }
+
+        const events = payload?.events || [];
+        behaviorAgg.totalEvents += events.length;
+
+        events.forEach((ev: any) => {
+          const t = ev?.type;
+          const p = ev?.payload || {};
+          if (t === 'search' || t === 'search_input') {
+            const q = (p.query || p.q || p.term || '').toString().toLowerCase();
+            if (q) behaviorAgg.topSearches[q] = (behaviorAgg.topSearches[q] || 0) + 1;
+          }
+          if (t === 'category_filter' || t === 'category_select') {
+            const c = p.category;
+            if (c) behaviorAgg.topFilters[c] = (behaviorAgg.topFilters[c] || 0) + 1;
+          }
+          if (t === 'session_abandoned') {
+            behaviorAgg.abandonmentCount++;
+          }
+        });
+
+        const maxScroll = payload?.metadata?.maxScrollPercent;
+        if (typeof maxScroll === 'number') {
+          scrollSum += maxScroll;
+          scrollCount++;
+        }
+      });
+
+      behaviorAgg.avgEventsPerSession = behaviorAgg.totalEvents / (orderList.length || 1);
+      behaviorAgg.abandonmentRate = (behaviorAgg.abandonmentCount / (orderList.length || 1)) * 100;
+      behaviorAgg.avgMaxScrollPercent = scrollCount > 0 ? scrollSum / scrollCount : 0;
+
+      const topSearches = Object.entries(behaviorAgg.topSearches).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([q, c]) => ({ q, c }));
+      const topFilters = Object.entries(behaviorAgg.topFilters).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([f, c]) => ({ f, c }));
+
+
+      const mostOrderedItemCounts: Record<string, number> = {};
+      orderList.forEach(order => {
+        const itemName = order.most_ordered_item;
+        if (itemName) {
+          mostOrderedItemCounts[itemName] = (mostOrderedItemCounts[itemName] || 0) + 1;
+        }
+      });
+      const mostFrequentMostOrderedItem = Object.entries(mostOrderedItemCounts)
+        .sort((a, b) => b[1] - a[1])[0]?.[0];
 
       const itemSales: { [key: string]: { name: string, count: number } } = {};
       orderList.forEach(order => {
@@ -186,9 +279,17 @@ export default function SalesReportAnalyzer({
         totalRevenue,
         totalOrders,
         averageOrderValue,
+        averageOrderDurationMs,
+        averageSpendPerOrder,
+        mostFrequentMostOrderedItem,
         bestSellers,
         leastSellers,
         suggestions,
+        behaviorInsights: {
+          summary: behaviorAgg,
+          topSearches,
+          topFilters,
+        },
       };
     };
 
@@ -308,7 +409,7 @@ export default function SalesReportAnalyzer({
       </div>
 
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Total Revenue */}
         <div className="group bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:border-green-300">
           <div className="flex items-start justify-between mb-2">
@@ -344,7 +445,76 @@ export default function SalesReportAnalyzer({
           <p className="text-3xl sm:text-4xl font-bold text-purple-600 mb-2">{formatCurrency(currentAnalysis.averageOrderValue)}</p>
           <p className="text-xs text-slate-500">per transaction</p>
         </div>
+
+        {/* Avg Order Duration */}
+        <div className="group bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:border-indigo-300">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Avg Order Duration</h3>
+            <div className="bg-indigo-100 rounded-full p-2">
+              <FontAwesomeIcon icon={faLightbulb} className="text-indigo-600 text-sm" />
+            </div>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold text-indigo-600 mb-2">{formatDuration(currentAnalysis.averageOrderDurationMs)}</p>
+          <p className="text-xs text-slate-500">from customer sessions</p>
+        </div>
       </div>
+
+      {currentAnalysis.behaviorInsights && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-3 text-slate-900">Customer Behavior</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 text-center">
+              <div className="text-xs text-slate-500">Abandonment Rate</div>
+              <div className="text-xl font-bold text-slate-800">{(currentAnalysis.behaviorInsights?.summary?.abandonmentRate ?? 0).toFixed(1)}%</div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 text-center">
+              <div className="text-xs text-slate-500">Avg Events / Session</div>
+              <div className="text-xl font-bold text-slate-800">{(currentAnalysis.behaviorInsights?.summary?.avgEventsPerSession ?? 0).toFixed(1)}</div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 text-center">
+              <div className="text-xs text-slate-500">Avg Max Scroll</div>
+              <div className="text-xl font-bold text-slate-800">{Math.round(currentAnalysis.behaviorInsights?.summary?.avgMaxScrollPercent ?? 0)}%</div>
+            </div>
+          </div>
+
+          {currentAnalysis.behaviorInsights?.topSearches?.length > 0 && (
+            <div className="mb-3">
+              <div className="text-sm text-slate-600 font-medium mb-2">Top Searches</div>
+              <div className="flex flex-wrap gap-2">
+                {currentAnalysis.behaviorInsights.topSearches.map((s: any, i: number) => (
+                  <span key={i} className="text-xs px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100">{s.q} · {s.c}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentAnalysis.behaviorInsights?.topFilters?.length > 0 && (
+            <div className="mb-2">
+              <div className="text-sm text-slate-600 font-medium mb-2">Top Category Filters</div>
+              <div className="flex flex-wrap gap-2">
+                {currentAnalysis.behaviorInsights.topFilters.map((f: any, i: number) => (
+                  <span key={i} className="text-xs px-3 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-100">{f.f} · {f.c}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentAnalysis.behaviorInsights?.summary?.abandonmentRate > 20 && (
+            <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-100 text-rose-800 text-sm">
+              High checkout abandonment detected — consider simplifying checkout, showing clearer payment prompts, or offering guest checkout options.
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentAnalysis.mostFrequentMostOrderedItem && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm text-slate-700">
+          <p className="text-sm font-medium">Customer behavior insight:</p>
+          <p className="mt-1 text-base sm:text-lg">
+            Most frequently selected top item: <span className="font-semibold">{currentAnalysis.mostFrequentMostOrderedItem}</span>
+          </p>
+        </div>
+      )}
 
       {/* Best Sellers */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">

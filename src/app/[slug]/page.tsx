@@ -1,6 +1,6 @@
 ﻿  "use client";
 
-  import { useEffect, useRef, useState } from "react";
+  import { useEffect, useRef, useState, useMemo } from "react";
   import { useRouter, useSearchParams, useParams } from "next/navigation";
   import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
   import { faShoppingCart } from "@fortawesome/free-solid-svg-icons";
@@ -17,8 +17,10 @@
   import { supabase } from "@/lib/supabaseClient";
   import { storeNotification } from "@/utils/notificationManager";
   import { trackBusinessViewOnce } from "@/utils/trackBusinessView";
-  import CheckoutModal from "@/components/CheckoutModal";
+import { CustomerBehaviorTracker } from "@/utils/customerBehaviorTracker";
   import CraveBotV2 from "@/components/CraveBotV2";
+  import dynamic from 'next/dynamic';
+  const CheckoutModal = dynamic(() => import('@/components/CheckoutModal'), { ssr: false });
 
   type Business = {
     id: string;
@@ -109,8 +111,10 @@ export default function BusinessPage() {
     const [checkoutStatusMessage, setCheckoutStatusMessage] = useState<string | null>(null);
     const [checkoutSubmitted, setCheckoutSubmitted] = useState(false);
     const [submittedOrderDetails, setSubmittedOrderDetails] = useState<SubmittedCheckoutData | null>(null);
+    const [orderSessionStartMs, setOrderSessionStartMs] = useState<number>(0);
 
     const currentOrderIdRef = useRef<string | null>(null);
+    const behaviorTrackerRef = useRef<CustomerBehaviorTracker | null>(null);
     const isDineIn = !!tableId && !!sessionId && !tableInvalid;
     const orderStatus = (currentOrder?.status as string) || "none";
     const activeOrderStatuses = ["pending", "pending_payment", "received", "paid", "preparing", "ready"];
@@ -136,6 +140,14 @@ export default function BusinessPage() {
       if (tableId) {
         sessionStorage.removeItem(`order_${tableId}_${sessionId}`);
       }
+    };
+
+    const getBehaviorTracker = () => behaviorTrackerRef.current;
+
+    const trackCustomerEvent = (type: string, payload: Record<string, any> = {}) => {
+      const tracker = getBehaviorTracker();
+      if (!tracker) return;
+      tracker.logEvent(type, payload);
     };
 
     const awardRewardCouponForOrder = async (order: OrderData) => {
@@ -404,6 +416,82 @@ export default function BusinessPage() {
     }, [business?.id]);
 
     useEffect(() => {
+      if (!sessionId || !business?.id) return;
+
+      const tracker = new CustomerBehaviorTracker({
+        sessionId,
+        tableId: tableId ?? undefined,
+        businessId: business.id,
+      });
+      tracker.init();
+      tracker.logEvent("entry", {
+        tableId,
+        scanTimestamp: new Date().toISOString(),
+        scanUrl: typeof window !== "undefined" ? window.location.href : "",
+      });
+      tracker.startScrollTracking();
+      tracker.startIdleMonitor(60000);
+      behaviorTrackerRef.current = tracker;
+
+      return () => {
+        tracker.stop();
+        tracker.persist();
+      };
+    }, [sessionId, business?.id, tableId]);
+
+    useEffect(() => {
+      const handleBeforeUnload = () => {
+        const tracker = behaviorTrackerRef.current;
+        if (!tracker) return;
+
+        const cartTotalLocal = cartItems.reduce(
+          (sum, item) =>
+            sum +
+            Number(
+              item.total ??
+                (Number(item.price || 0) * Number(item.qty || 1))
+            ),
+          0
+        );
+
+        if (cartItems.length > 0) {
+          tracker.logEvent("session_abandoned", {
+            cartCount: cartItems.length,
+            cartTotal: cartTotalLocal,
+          });
+        }
+
+        tracker.logEvent("session_end", {
+          reason: "beforeunload",
+          cartCount: cartItems.length,
+          cartTotal: cartTotalLocal,
+        });
+        tracker.persist();
+      };
+
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
+    }, [cartItems.length]);
+
+    useEffect(() => {
+      if (!sessionId) return;
+
+      const storageKey = `order_session_start_${sessionId}`;
+      const stored = window.localStorage.getItem(storageKey);
+      const now = Date.now();
+      const startTime = stored ? Number(stored) || now : now;
+
+      window.localStorage.setItem(storageKey, startTime.toString());
+      setOrderSessionStartMs(startTime);
+
+      return () => {
+        window.localStorage.removeItem(storageKey);
+      };
+    }, [sessionId]);
+
+    useEffect(() => {
       if (!business?.id) return;
 
       const menuChannel = supabase.channel(`menu-items-business-${business.id}`);
@@ -476,14 +564,17 @@ export default function BusinessPage() {
       }
     };
 
-    const cartTotal = cartItems.reduce(
-      (sum, item) =>
-        sum +
-        Number(
-          item.total ??
-            (Number(item.price || 0) * Number(item.qty || 1))
-        ),
-      0
+    const cartTotal = useMemo(() =>
+      cartItems.reduce(
+        (sum, item) =>
+          sum +
+          Number(
+            item.total ??
+              (Number(item.price || 0) * Number(item.qty || 1))
+          ),
+        0
+      ),
+    [cartItems]
     );
 
     const pendingMenuItemQuantities = cartItems.reduce<Record<string, number>>((acc, item) => {
@@ -536,6 +627,19 @@ export default function BusinessPage() {
       return grouped;
     }, {} as Record<string, typeof menuItems>);
 
+    const handleViewItem = (item: any) => {
+      if (!item) {
+        setViewItem(null);
+        return;
+      }
+
+      trackCustomerEvent("item_detail_view", {
+        itemId: item.menu_item_id ?? item.id,
+        itemName: item.name || item.menu_desc || item.title || item.id,
+      });
+      setViewItem(item);
+    };
+
     const handleAddToCart = (item: any) => {
       const isSoldOut = item.availability === false || (item.is_trackable && (Number(item.current_stock ?? 0) <= 0));
       const qty = item.qty ?? 1;
@@ -559,6 +663,13 @@ export default function BusinessPage() {
 
       const finalPrice = (item.base_price ?? item.price ?? 0) + addonsTotal;
 
+      trackCustomerEvent("add_to_cart", {
+        itemId: item.menu_item_id ?? item.id,
+        itemName: item.name || item.menu_desc || item.title || item.id,
+        qty,
+        price: finalPrice,
+      });
+
       setCartItems((prev) => [
         ...prev,
         {
@@ -576,7 +687,18 @@ export default function BusinessPage() {
     };
 
     const handleRemoveFromCart = (index: number) => {
-      setCartItems((prev) => prev.filter((_, i) => i !== index));
+      setCartItems((prev) => {
+        const removedItem = prev[index];
+        if (removedItem) {
+          trackCustomerEvent("cart_remove", {
+            itemId: removedItem.menu_item_id ?? removedItem.id,
+            itemName: removedItem.name || removedItem.menu_desc || removedItem.title || removedItem.id,
+            qty: removedItem.qty ?? 1,
+            price: removedItem.price ?? 0,
+          });
+        }
+        return prev.filter((_, i) => i !== index);
+      });
     };
 
     const handleSubmitOrder = async () => {
@@ -588,6 +710,11 @@ export default function BusinessPage() {
         });
         return;
       }
+
+      trackCustomerEvent("checkout_open", {
+        cartCount: cartItems.length,
+        cartTotal,
+      });
 
       setCheckoutStatusMessage(null);
       setCheckoutSubmitted(false);
@@ -616,6 +743,13 @@ export default function BusinessPage() {
       }
 
       setSubmittingOrder(true);
+      trackCustomerEvent("order_place_attempt", {
+        cartCount: cartItems.length,
+        cartTotal,
+        paymentMethod: orderData.paymentMethod,
+        discountType: orderData.discountType,
+        totalGuests: orderData.totalGuests,
+      });
 
       try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -624,6 +758,18 @@ export default function BusinessPage() {
         // Create order with discount and guest information
         // Customer-side orders should not include cashier-entered amounts; mark unpaid by default
         const isPaid = false;
+
+        const orderDurationMs = orderSessionStartMs > 0 ? Date.now() - orderSessionStartMs : undefined;
+        const orderedItemCounts = cartItems.reduce<Record<string, number>>((acc, item) => {
+          const itemName = item.name || item.menu_desc || item.title || item.id;
+          const qty = Number(item.qty || 1);
+          if (!itemName || qty <= 0) return acc;
+          acc[itemName] = (acc[itemName] || 0) + qty;
+          return acc;
+        }, {});
+        const mostOrderedItem = Object.entries(orderedItemCounts)
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || undefined;
+        const spendPerOrder = Number(Math.max(0, cartTotal - orderData.discountAmount).toFixed(2));
 
         const order = await createOrder({
           businessId: business.id,
@@ -638,6 +784,10 @@ export default function BusinessPage() {
           discountAmount: orderData.discountAmount,
           couponId: orderData.couponId,
           promoCode: orderData.promoCode,
+          orderDurationMs,
+          mostOrderedItem,
+          spendPerOrder,
+          customerBehavior: behaviorTrackerRef.current?.getPayload(),
         });
 
         // 🔥 Immediately decrement stock in local state for ordered items
@@ -672,6 +822,13 @@ export default function BusinessPage() {
 
         setCurrentOrder(order as OrderData);
         setCurrentOrderId(order.id);
+        trackCustomerEvent("order_success", {
+          orderId: order.id,
+          cartCount: cartItems.length,
+          cartTotal,
+          discountAmount: orderData.discountAmount,
+          paymentMethod: orderData.paymentMethod,
+        });
         setSubmittedOrderDetails({
           discountType: orderData.discountType,
           totalGuests: orderData.totalGuests,
@@ -729,6 +886,12 @@ export default function BusinessPage() {
           "Failed to submit order. Please try again.";
         
         console.error("Final error message to show:", errorMessage);
+        trackCustomerEvent("order_submit_error", {
+          errorMessage,
+          cartCount: cartItems.length,
+          cartTotal,
+          paymentMethod: orderData.paymentMethod,
+        });
         setNotification({ message: errorMessage, type: "error" });
       } finally {
         setSubmittingOrder(false);
@@ -995,7 +1158,12 @@ export default function BusinessPage() {
                     <input
                       type="text"
                       value={searchFilter}
-                      onChange={(e) => setSearchFilter(e.target.value)}
+                      onChange={(e) => {
+                        setSearchFilter(e.target.value);
+                        trackCustomerEvent("search_query", {
+                          query: e.target.value,
+                        });
+                      }}
                       placeholder="Search menu..."
                       className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
                     />
@@ -1007,7 +1175,12 @@ export default function BusinessPage() {
                     </label>
                     <select
                       value={categoryFilter[0] || "All"}
-                      onChange={(e) => setCategoryFilter([e.target.value])}
+                      onChange={(e) => {
+                        setCategoryFilter([e.target.value]);
+                        trackCustomerEvent("category_filter", {
+                          category: e.target.value,
+                        });
+                      }}
                       className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
                     >
                       <option value="All">All Categories</option>
@@ -1037,7 +1210,7 @@ export default function BusinessPage() {
                           items={items}
                           onAddToCart={handleAddToCart}
                           viewItem={viewItem}
-                          setViewItem={setViewItem}
+                          setViewItem={handleViewItem}
                           isDineIn={isDineIn}
                           businessId={business?.id}
                         />

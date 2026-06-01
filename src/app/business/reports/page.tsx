@@ -268,6 +268,10 @@ export default function BusinessReportsPage() {
           id,
           total_amount,
           discount_amount,
+          order_duration_ms,
+          most_ordered_item,
+          spend_per_order,
+          customer_behavior,
           created_at,
           status,
           user_id,
@@ -1396,8 +1400,8 @@ export default function BusinessReportsPage() {
 
           {showAnalyzer && (
             <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/70 p-3 sm:p-6" onClick={() => setShowAnalyzer(false)}>
-              <div className="relative w-full max-w-md sm:max-w-2xl lg:max-w-3xl max-h-[70vh] overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 p-4 sm:p-6">
+              <div className="relative w-full max-w-[95vw] md:max-w-5xl lg:max-w-6xl xl:max-w-[1100px] max-h-[88vh] overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200" onClick={(event) => event.stopPropagation()}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 p-5 sm:p-7">
                   <div>
                     <h3 className="text-xl sm:text-2xl font-semibold text-slate-900">AI Analyzer</h3>
                     <p className="text-xs sm:text-sm text-slate-500 mt-1">{analyzerDateLabel}</p>
@@ -1411,7 +1415,7 @@ export default function BusinessReportsPage() {
                     <span className="sr-only">Close analyzer</span>
                   </button>
                 </div>
-                <div className="max-h-[60vh] overflow-y-auto p-4 sm:p-6 pb-20 sm:pb-24">
+                <div className="max-h-[72vh] overflow-y-auto p-4 sm:p-6 pb-20 sm:pb-24">
                   {analyzerLoading ? (
                     <div className="flex min-h-[320px] items-center justify-center py-16">
                       <div className="text-center w-full max-w-sm">
