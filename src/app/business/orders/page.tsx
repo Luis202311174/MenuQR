@@ -49,6 +49,23 @@ function getOrderStatusNotification(order: Order) {
   };
 }
 
+async function resolveTableNumberForOrder(order: any) {
+  if (order?.table?.table_number) return order.table.table_number;
+  if (typeof order?.table_number === "string" && order.table_number.trim().length > 0) {
+    return order.table_number;
+  }
+  if (!order?.table_id) return undefined;
+
+  const { data, error } = await supabase
+    .from("tables")
+    .select("table_number")
+    .eq("id", order.table_id)
+    .single();
+
+  if (error || !data) return undefined;
+  return data.table_number;
+}
+
 type Order = {
   id: string;
   status: string;
@@ -292,6 +309,23 @@ export default function BusinessOrdersPage() {
   }, [businessId]);
 
   // ⚡ REALTIME
+  const resolveTableNumberForOrder = async (order: any): Promise<string | undefined> => {
+    if (order?.table?.table_number) return order.table.table_number;
+    if (typeof (order as any)?.table_number === "string" && (order as any).table_number.trim().length > 0) {
+      return (order as any).table_number;
+    }
+    if (!order?.table_id) return undefined;
+
+    const { data, error } = await supabase
+      .from("tables")
+      .select("table_number")
+      .eq("id", order.table_id)
+      .single();
+
+    if (error || !data) return undefined;
+    return data.table_number;
+  };
+
   useEffect(() => {
     if (!businessId) return;
 
@@ -359,23 +393,24 @@ export default function BusinessOrdersPage() {
               return prev.map((o) => (o.id === order.id ? { ...o, ...order } : o));
             }
 
-            playNewOrderSound();
-            const message = `New order received from Table ${order.table?.table_number || "N/A"}`;
-            setNotification({
-              message,
-              type: "success",
-            });
-            queueNotification({
-              id: `order-received-${order.id}`,
-              type: "order",
-              title: "New order received",
-              message,
-              href: "/business/orders",
-              timestamp: new Date().toISOString(),
-              data: { orderId: order.id, tableNumber: order.table?.table_number },
-            });
-
             return [...prev, order];
+          });
+
+          playNewOrderSound();
+          const resolvedTableNumber = (await resolveTableNumberForOrder(order)) || "N/A";
+          const message = `New order received from Table ${resolvedTableNumber}`;
+          setNotification({
+            message,
+            type: "success",
+          });
+          queueNotification({
+            id: `order-received-${order.id}`,
+            type: "order",
+            title: "New order received",
+            message,
+            href: "/business/orders",
+            timestamp: new Date().toISOString(),
+            data: { orderId: order.id, tableNumber: resolvedTableNumber },
           });
 
           fetchOrders();

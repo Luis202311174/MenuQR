@@ -87,6 +87,23 @@ export default function BusinessOrdersNotifier({
     }
   };
 
+  const resolveTableNumber = async (order: any): Promise<string | undefined> => {
+    if (order?.table?.table_number) return order.table.table_number;
+    if (typeof order?.table_number === "string" && order.table_number.trim().length > 0) {
+      return order.table_number;
+    }
+    if (!order?.table_id) return undefined;
+
+    const { data, error } = await supabase
+      .from("tables")
+      .select("table_number")
+      .eq("id", order.table_id)
+      .single();
+
+    if (error || !data) return undefined;
+    return data.table_number;
+  };
+
   useEffect(() => {
     if (businessId) {
       setResolvedBusinessId(businessId);
@@ -157,7 +174,8 @@ export default function BusinessOrdersNotifier({
 
           if ((isNewActiveOrder || becameActiveOrder) && order.id !== lastNotifiedOrderIdRef.current) {
             lastNotifiedOrderIdRef.current = order.id;
-            setLatestTableNumber(order.table?.table_number || "N/A");
+            const tableNumber = (await resolveTableNumber(order)) || "N/A";
+            setLatestTableNumber(tableNumber);
             playNewOrderSound();
             setShowModal(true);
 
@@ -167,10 +185,10 @@ export default function BusinessOrdersNotifier({
                 id: `new-order-${order.id}`,
                 type: "order" as const,
                 title: "New order received",
-                message: `Table ${order.table?.table_number || "N/A"} placed a new order.`,
+                message: `Table ${tableNumber} placed a new order.`,
                 href: "/business/orders",
                 timestamp: new Date().toISOString(),
-                data: { orderId: order.id, tableNumber: order.table?.table_number },
+                data: { orderId: order.id, tableNumber },
               };
 
               storeNotification(notification);
