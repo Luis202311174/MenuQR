@@ -51,6 +51,9 @@ interface SalesReportAnalyzerProps {
   analysisType?: 'selected' | 'weekly' | 'monthly' | 'overall';
   selectedMonth?: string;
   dateRangeLabel?: string;
+  // optional explicit date range to analyze (ISO date strings)
+  selectedStartDate?: string;
+  selectedEndDate?: string;
 }
 
 // A helper function to format currency, consistent with other components
@@ -71,6 +74,8 @@ export default function SalesReportAnalyzer({
   analysisType = 'selected',
   selectedMonth,
   dateRangeLabel,
+  selectedStartDate,
+  selectedEndDate,
 }: SalesReportAnalyzerProps) {
   const analysis = useMemo(() => {
     const summarizeOrders = (orderList: Order[]) => {
@@ -102,6 +107,7 @@ export default function SalesReportAnalyzer({
       const averageSpendPerOrder = totalOrders > 0 ? totalSpendPerOrder / totalOrders : 0;
 
       // Analyze customer_behavior JSON blobs (if present) for simple insights
+
       const behaviorAgg = {
         totalSessions: orderList.length,
         totalEvents: 0,
@@ -111,6 +117,20 @@ export default function SalesReportAnalyzer({
         avgMaxScrollPercent: 0,
         topSearches: {} as Record<string, number>,
         topFilters: {} as Record<string, number>,
+        // detailed maps
+        tableScans: {} as Record<string, number>,
+        deviceTypes: {} as Record<string, number>,
+        categoryViews: {} as Record<string, number>,
+        itemViews: {} as Record<string, number>,
+        addToCart: {} as Record<string, number>,
+        modifiers: {} as Record<string, number>,
+        quantityAdjustments: 0,
+        removals: 0,
+        checkoutOpens: 0,
+        paymentMethods: {} as Record<string, number>,
+        placeOrderSuccess: 0,
+        placeOrderErrors: {} as Record<string, number>,
+        idleSessions: 0,
       };
 
       let scrollSum = 0;
@@ -130,27 +150,114 @@ export default function SalesReportAnalyzer({
 
         const events = payload?.events || [];
         behaviorAgg.totalEvents += events.length;
+        let sessionDeviceCounted = false;
 
         events.forEach((ev: any) => {
           const t = ev?.type;
           const p = ev?.payload || {};
-          if (t === 'search' || t === 'search_input') {
-            const q = (p.query || p.q || p.term || '').toString().toLowerCase();
+          // scan / entry
+          if (t === 'scan' || t === 'table_scan' || t === 'entry') {
+            const rawTable = p.table_number || p.tableNumber || p.table_num || p.table || p.table_id || p.tableId;
+            let tableLabel: string | undefined;
+            if (typeof rawTable === 'number') {
+              tableLabel = `Table ${rawTable}`;
+            } else if (typeof rawTable === 'string') {
+              const numeric = rawTable.trim().match(/\d+/)?.[0];
+              if (numeric && numeric.length > 0) {
+                tableLabel = `Table ${numeric}`;
+              } else {
+                tableLabel = rawTable;
+              }
+            }
+            if (!tableLabel && typeof p.qr_source === 'string') {
+              const numeric = p.qr_source.trim().match(/\d+/)?.[0];
+              tableLabel = numeric ? `Table ${numeric}` : p.qr_source;
+            }
+            if (!tableLabel && typeof p.source === 'string') {
+              const numeric = p.source.trim().match(/\d+/)?.[0];
+              tableLabel = numeric ? `Table ${numeric}` : p.source;
+            }
+            if (tableLabel) behaviorAgg.tableScans[tableLabel] = (behaviorAgg.tableScans[tableLabel] || 0) + 1;
+            const device = p.device || p.userAgent || p.ua || p.browser;
+            if (device) {
+              behaviorAgg.deviceTypes[device] = (behaviorAgg.deviceTypes[device] || 0) + 1;
+              sessionDeviceCounted = true;
+            }
+          }
+
+          // browsing
+          if (t === 'category_view' || t === 'category_select' || t === 'category_filter') {
+            const c = p.category || p.name;
+            if (c) behaviorAgg.categoryViews[c] = (behaviorAgg.categoryViews[c] || 0) + 1;
+            if (typeof c === 'string' && c.trim().length > 0) {
+              behaviorAgg.topFilters[c.trim().toLowerCase()] = (behaviorAgg.topFilters[c.trim().toLowerCase()] || 0) + 1;
+            }
+          }
+          if (t === 'item_view' || t === 'item_click' || t === 'view_item' || t === 'item_detail_view') {
+            const name = p.name || p.itemName || p.title || p.itemName;
+            if (name) behaviorAgg.itemViews[name] = (behaviorAgg.itemViews[name] || 0) + 1;
+          }
+          if (t === 'search' || t === 'search_input' || t === 'search_query') {
+            const q = (p.query || p.q || p.term || p.search || p.value || '').toString().trim().toLowerCase();
             if (q) behaviorAgg.topSearches[q] = (behaviorAgg.topSearches[q] || 0) + 1;
           }
-          if (t === 'category_filter' || t === 'category_select') {
-            const c = p.category;
-            if (c) behaviorAgg.topFilters[c] = (behaviorAgg.topFilters[c] || 0) + 1;
+
+          // scroll
+          if (t === 'scroll' && typeof p.percent === 'number') {
+            scrollSum += p.percent;
+            scrollCount++;
           }
+          if (t === 'scroll_depth' && typeof p.scrollPercent === 'number') {
+            scrollSum += p.scrollPercent;
+            scrollCount++;
+          }
+
+          // cart actions
+          if (t === 'add_to_cart' || t === 'cart_add') {
+            const name = p.name || p.itemName || p.title || p.itemName;
+            if (name) behaviorAgg.addToCart[name] = (behaviorAgg.addToCart[name] || 0) + 1;
+          }
+          if (t === 'modifier_select' || t === 'modifier') {
+            const m = p.modifier || p.name;
+            if (m) behaviorAgg.modifiers[m] = (behaviorAgg.modifiers[m] || 0) + 1;
+          }
+          if (t === 'quantity_change') {
+            behaviorAgg.quantityAdjustments++;
+          }
+          if (t === 'remove_from_cart' || t === 'cart_remove') {
+            behaviorAgg.removals++;
+          }
+
+          // checkout & payment
+          if (t === 'checkout_open') behaviorAgg.checkoutOpens++;
+          if (t === 'payment_method_selected') {
+            const m = p.method || p.name;
+            if (m) behaviorAgg.paymentMethods[m] = (behaviorAgg.paymentMethods[m] || 0) + 1;
+          }
+          if (t === 'place_order' && p.success) behaviorAgg.placeOrderSuccess++;
+          if (t === 'place_order' && p.success === false) {
+            const code = p.error_code || p.error || 'unknown';
+            behaviorAgg.placeOrderErrors[code] = (behaviorAgg.placeOrderErrors[code] || 0) + 1;
+          }
+
+          // session end / idle
           if (t === 'session_abandoned') {
             behaviorAgg.abandonmentCount++;
           }
+          if (t === 'idle' || t === 'idle_period') behaviorAgg.idleSessions++;
+
+          // generic event count
         });
 
         const maxScroll = payload?.metadata?.maxScrollPercent;
         if (typeof maxScroll === 'number') {
           scrollSum += maxScroll;
           scrollCount++;
+        }
+
+        const metadataDevice = payload?.metadata?.deviceInfo?.device || payload?.metadata?.deviceInfo?.browser || payload?.metadata?.deviceInfo?.os;
+        if (metadataDevice && !sessionDeviceCounted) {
+          behaviorAgg.deviceTypes[metadataDevice] = (behaviorAgg.deviceTypes[metadataDevice] || 0) + 1;
         }
       });
 
@@ -160,6 +267,15 @@ export default function SalesReportAnalyzer({
 
       const topSearches = Object.entries(behaviorAgg.topSearches).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([q, c]) => ({ q, c }));
       const topFilters = Object.entries(behaviorAgg.topFilters).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([f, c]) => ({ f, c }));
+
+      const topTables = Object.entries(behaviorAgg.tableScans).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, c]) => ({ id, c }));
+      const topDevices = Object.entries(behaviorAgg.deviceTypes).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, c]) => ({ id, c }));
+      const topCategories = Object.entries(behaviorAgg.categoryViews).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([cat, c]) => ({ cat, c }));
+      const topItemViews = Object.entries(behaviorAgg.itemViews).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, c]) => ({ name, c }));
+      const topAddToCart = Object.entries(behaviorAgg.addToCart).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, c]) => ({ name, c }));
+      const topModifiers = Object.entries(behaviorAgg.modifiers).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m, c]) => ({ m, c }));
+      const topPaymentMethods = Object.entries(behaviorAgg.paymentMethods).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m, c]) => ({ m, c }));
+      const topOrderErrors = Object.entries(behaviorAgg.placeOrderErrors).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([e, c]) => ({ e, c }));
 
 
       const mostOrderedItemCounts: Record<string, number> = {};
@@ -289,6 +405,14 @@ export default function SalesReportAnalyzer({
           summary: behaviorAgg,
           topSearches,
           topFilters,
+          topTables,
+          topDevices,
+          topCategories,
+          topItemViews,
+          topAddToCart,
+          topModifiers,
+          topPaymentMethods,
+          topOrderErrors,
         },
       };
     };
@@ -317,12 +441,23 @@ export default function SalesReportAnalyzer({
     const monthEnd = new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 0, 23, 59, 59, 999);
     const monthlySummary = summarizeOrders(filterByDate(orders, monthStart, monthEnd));
 
+    // If user provided an explicit selectedStartDate/selectedEndDate, compute a "selected" summary
+    let selectedSummary = overallSummary;
+    if (selectedStartDate && selectedEndDate) {
+      const s = new Date(selectedStartDate);
+      const e = new Date(selectedEndDate);
+      s.setHours(0,0,0,0);
+      e.setHours(23,59,59,999);
+      selectedSummary = summarizeOrders(filterByDate(orders, s, e));
+    }
+
     return {
       overall: overallSummary,
       weekly: weeklySummary,
       monthly: monthlySummary,
+      selected: selectedSummary,
     };
-  }, [orders, suggestionThreshold, selectedMonth]);
+  }, [orders, suggestionThreshold, selectedMonth, selectedStartDate, selectedEndDate]);
 
   // Get the data to display based on analysisType
   const router = useRouter();
@@ -330,7 +465,9 @@ export default function SalesReportAnalyzer({
   const currentAnalysis = useMemo(() => {
     switch (analysisType) {
       case 'selected':
-        return analysis.overall;
+        // when 'selected' analysis is requested prefer the computed selected summary (if present)
+        // otherwise fall back to overall
+        return (analysis as any).selected ?? analysis.overall;
       case 'weekly':
         return analysis.weekly;
       case 'monthly':
@@ -460,50 +597,130 @@ export default function SalesReportAnalyzer({
       </div>
 
       {currentAnalysis.behaviorInsights && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-3 text-slate-900">Customer Behavior</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 text-center">
-              <div className="text-xs text-slate-500">Abandonment Rate</div>
-              <div className="text-xl font-bold text-slate-800">{(currentAnalysis.behaviorInsights?.summary?.abandonmentRate ?? 0).toFixed(1)}%</div>
+        <div className="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 rounded-3xl border border-slate-300 p-6 shadow-xl">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-semibold text-slate-900">Customer Behavior</h3>
+              <p className="text-sm text-slate-600">Insights driven from tracked customer sessions and menu interactions.</p>
             </div>
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 text-center">
-              <div className="text-xs text-slate-500">Avg Events / Session</div>
-              <div className="text-xl font-bold text-slate-800">{(currentAnalysis.behaviorInsights?.summary?.avgEventsPerSession ?? 0).toFixed(1)}</div>
+            <span className="rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-600">Session behavior overview</span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3 mb-6">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 text-center">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500 mb-3">Abandonment Rate</p>
+              <p className="text-3xl font-semibold text-rose-600">{(currentAnalysis.behaviorInsights?.summary?.abandonmentRate ?? 0).toFixed(1)}%</p>
+              <p className="text-sm text-slate-500 mt-2">sessions ended without ordering</p>
             </div>
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 text-center">
-              <div className="text-xs text-slate-500">Avg Max Scroll</div>
-              <div className="text-xl font-bold text-slate-800">{Math.round(currentAnalysis.behaviorInsights?.summary?.avgMaxScrollPercent ?? 0)}%</div>
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 text-center">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500 mb-3">Avg Events / Session</p>
+              <p className="text-3xl font-semibold text-slate-900">{(currentAnalysis.behaviorInsights?.summary?.avgEventsPerSession ?? 0).toFixed(1)}</p>
+              <p className="text-sm text-slate-500 mt-2">key interactions per visit</p>
+            </div>
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 text-center">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500 mb-3">Avg Max Scroll</p>
+              <p className="text-3xl font-semibold text-slate-900">{Math.round(currentAnalysis.behaviorInsights?.summary?.avgMaxScrollPercent ?? 0)}%</p>
+              <p className="text-sm text-slate-500 mt-2">menu depth reached</p>
             </div>
           </div>
 
-          {currentAnalysis.behaviorInsights?.topSearches?.length > 0 && (
-            <div className="mb-3">
-              <div className="text-sm text-slate-600 font-medium mb-2">Top Searches</div>
-              <div className="flex flex-wrap gap-2">
-                {currentAnalysis.behaviorInsights.topSearches.map((s: any, i: number) => (
-                  <span key={i} className="text-xs px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100">{s.q} · {s.c}</span>
+          <div className="grid gap-4 xl:grid-cols-2 mb-6">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-6">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">Top Tables</h4>
+                  <p className="text-xs text-slate-500">Frequent table scan locations</p>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">{currentAnalysis.behaviorInsights.topTables?.length ?? 0}</span>
+              </div>
+              <div className="space-y-3">
+                {currentAnalysis.behaviorInsights.topTables?.slice(0, 5).map((t: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <span className="text-sm font-medium text-slate-800">{t.id}</span>
+                    <span className="text-xs font-semibold text-slate-500">{t.c} scans</span>
+                  </div>
                 ))}
               </div>
             </div>
-          )}
 
-          {currentAnalysis.behaviorInsights?.topFilters?.length > 0 && (
-            <div className="mb-2">
-              <div className="text-sm text-slate-600 font-medium mb-2">Top Category Filters</div>
-              <div className="flex flex-wrap gap-2">
-                {currentAnalysis.behaviorInsights.topFilters.map((f: any, i: number) => (
-                  <span key={i} className="text-xs px-3 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-100">{f.f} · {f.c}</span>
+            <div className="rounded-3xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-cyan-50 to-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">Top Devices</h4>
+                  <p className="text-xs text-slate-500">Most common browser/device types</p>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">{currentAnalysis.behaviorInsights.topDevices?.length ?? 0}</span>
+              </div>
+              <div className="space-y-3">
+                {currentAnalysis.behaviorInsights.topDevices?.slice(0, 5).map((d: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <span className="text-sm text-slate-800 truncate">{d.id}</span>
+                    <span className="text-xs font-semibold text-slate-500">{d.c}</span>
+                  </div>
                 ))}
               </div>
             </div>
-          )}
+          </div>
 
-          {currentAnalysis.behaviorInsights?.summary?.abandonmentRate > 20 && (
-            <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-100 text-rose-800 text-sm">
-              High checkout abandonment detected — consider simplifying checkout, showing clearer payment prompts, or offering guest checkout options.
+          <div className="grid gap-4 xl:grid-cols-2 mb-6">
+            <div className="rounded-3xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-indigo-50 to-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">Top Item Views</h4>
+                  <p className="text-xs text-slate-500">Popular item detail clicks</p>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">{currentAnalysis.behaviorInsights.topItemViews?.length ?? 0}</span>
+              </div>
+              <div className="space-y-3">
+                {currentAnalysis.behaviorInsights.topItemViews?.slice(0, 5).map((it: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <span className="text-sm text-slate-800 truncate">{it.name}</span>
+                    <span className="text-xs font-semibold text-slate-500">{it.c}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
+
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-6">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">Top Add to Cart</h4>
+                  <p className="text-xs text-slate-500">Highest cart intent items</p>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">{currentAnalysis.behaviorInsights.topAddToCart?.length ?? 0}</span>
+              </div>
+              <div className="space-y-3">
+                {currentAnalysis.behaviorInsights.topAddToCart?.slice(0, 5).map((a: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <span className="text-sm text-slate-800 truncate">{a.name}</span>
+                    <span className="text-xs font-semibold text-slate-500">{a.c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {currentAnalysis.behaviorInsights?.topOrderErrors?.length > 0 && (
+              <div className="rounded-3xl border border-rose-100 bg-rose-50 p-6">
+                <h4 className="text-sm font-semibold text-rose-900 mb-3">Common Order Errors</h4>
+                <p className="text-sm text-rose-700">{currentAnalysis.behaviorInsights.topOrderErrors.map((e: any) => `${e.e} (${e.c})`).join(', ')}</p>
+              </div>
+            )}
+            <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6">
+              <h4 className="text-sm font-semibold text-amber-900 mb-3">Suggested Actions</h4>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-amber-900">
+                {currentAnalysis.behaviorInsights?.summary?.abandonmentRate > 20 ? (
+                  <li>Simplify checkout flow and clarify payment instructions for faster conversions.</li>
+                ) : (
+                  <>
+                    <li>Review top viewed items with low conversion and improve descriptions or pricing.</li>
+                    <li>Simplify modifier options if users repeatedly adjust quantities or remove items.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
