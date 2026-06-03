@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
@@ -51,8 +52,10 @@ type NewOptionGroup = {
 
 const ORDERED_CATEGORIES = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
 
-export default function BusinessMenuPage() {
+function BusinessMenuPageWithSearchParams() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
 
   const auth = useBusinessAuth("menu", "view");
 
@@ -125,8 +128,10 @@ export default function BusinessMenuPage() {
   const [loading, setLoading] = useState(false);
   const [sameAsYesterdayLoading, setSameAsYesterdayLoading] = useState(false);
 
-  const searchParams = useSearchParams();
+  // Note: useSearchParams() is used in a wrapper component with <Suspense />.
   const [showInventoryModal, setShowInventoryModal] = useState(false);
+
+
 
   useEffect(() => {
     if (!businessId) return;
@@ -1195,3 +1200,12 @@ export default function BusinessMenuPage() {
     </>
   );
 }
+
+export default function BusinessMenuPage() {
+  return (
+    <Suspense fallback={null}>
+      <BusinessMenuPageWithSearchParams />
+    </Suspense>
+  );
+}
+

@@ -45,9 +45,14 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
           .eq("business_id", businessId);
 
         if (!mounted || !items) return;
-        const low = (items as any[])
+        const low: Notif[] = (items as any[])
           .filter((it) => it.is_trackable && Number(it.current_stock ?? 0) <= lowThreshold)
-          .map((it) => ({ id: it.id, name: it.name, current_stock: Number(it.current_stock ?? 0) }));
+          .map((it) => ({
+            id: it.id,
+            name: it.name,
+            current_stock: Number(it.current_stock ?? 0),
+            timestamp: new Date().toISOString(),
+          }));
         const existingLow = getStoredLowStockNotifications();
         const currentLowIds = new Set(low.map((item) => item.id));
 
@@ -79,7 +84,7 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
           });
           setNotifs((prev) => {
             const ids = new Set(prev.map((p) => p.id));
-            return [...low.filter((l: Notif) => !ids.has(l.id)), ...prev];
+            return [...low.filter((l) => !ids.has(l.id)), ...prev];
           });
           setIsOpen(true);
           try {

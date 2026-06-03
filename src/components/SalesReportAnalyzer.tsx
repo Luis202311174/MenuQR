@@ -743,7 +743,7 @@ export default function SalesReportAnalyzer({
         </h3>
         {currentAnalysis.bestSellers.length > 0 ? (
           <div className="space-y-2">
-            {currentAnalysis.bestSellers.map((item, index) => (
+            {currentAnalysis.bestSellers.map((item: { name: string; count: number }, index: number) => (
               <div
                 key={index}
                 className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-transparent p-4 rounded-xl border border-amber-100 transition-all duration-200 hover:border-amber-300"
@@ -776,7 +776,7 @@ export default function SalesReportAnalyzer({
             Items to Promote
           </h3>
           <div className="space-y-2">
-            {currentAnalysis.leastSellers.map((item, index) => (
+            {currentAnalysis.leastSellers.map((item: { name: string; count: number }, index: number) => (
               <div
                 key={index}
                 className="flex items-center justify-between bg-gradient-to-r from-red-50 to-transparent p-4 rounded-xl border border-red-100 transition-all duration-200 hover:border-red-300"
@@ -807,10 +807,10 @@ export default function SalesReportAnalyzer({
             <div className="bg-blue-100 rounded-full p-2 mr-3">
               <FontAwesomeIcon icon={faLightbulb} className="text-blue-600" />
             </div>
-            {currentAnalysis.suggestions.some(s => s.type === 'promotion') ? 'Growth Suggestions' : 'Combo Recommendations'}
+            {currentAnalysis.suggestions.some((s: { type: 'combo' | 'promotion' }) => s.type === 'promotion') ? 'Growth Suggestions' : 'Combo Recommendations'}
           </h3>
           <div className="space-y-3">
-            {currentAnalysis.suggestions.map((suggestion, index) => (
+            {currentAnalysis.suggestions.map((suggestion: { type: 'combo' | 'promotion'; items: any; count: number; text: string }, index: number) => (
               <div
                 key={index}
                 className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"

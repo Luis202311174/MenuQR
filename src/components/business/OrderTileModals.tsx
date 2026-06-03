@@ -13,6 +13,12 @@ export type Order = {
   session_id?: string | null;
   is_paid?: boolean;
   payment_method?: string | null;
+
+  // Added to match usage when marking orders as paid
+  amount_received?: number | null;
+  change_amount?: number | null;
+  reference_numb?: string | null;
+
   table?: {
     id: string;
     table_number: string;
@@ -111,6 +117,12 @@ export default function OrderTileModals({
     setMarkPaidReference("");
   }, [markPaidModal]);
 
+  const requireOrderById = (orderId: string): Order => {
+    const o = orders.find((x) => x.id === orderId);
+    if (!o) throw new Error(`Order ${orderId} not found`);
+    return o;
+  };
+
   const currentMarkPaidOrder = markPaidModal ? orders.find((o) => o.id === markPaidModal.orderId) : null;
   const calculateOrderTotal = (order: Order | null) => {
     if (!order) return 0;
@@ -123,7 +135,7 @@ export default function OrderTileModals({
     );
     return Math.max(0, subtotal - discount);
   };
-  const markPaidOrderTotal = calculateOrderTotal(currentMarkPaidOrder);
+  const markPaidOrderTotal = markPaidModal ? calculateOrderTotal(requireOrderById(markPaidModal.orderId)) : 0;
   const parsedAmountReceived = Number(amountReceived.trim() || 0);
   const isCashPaymentAmountValid =
     selectedMarkPaidMethod !== "cash" || (!Number.isNaN(parsedAmountReceived) && parsedAmountReceived >= markPaidOrderTotal);
@@ -176,8 +188,11 @@ export default function OrderTileModals({
 
       setPaymentStatusModal(null);
 
-      const order = orders.find((o) => o.id === orderId);
-      const tableNumber = order?.table?.table_number || "Unknown";
+      let tableNumber = "Unknown";
+        try {
+          const order = requireOrderById(orderId);
+          tableNumber = order.table?.table_number || "Unknown";
+        } catch {}
       const paymentType = isPaid ? "paid" : "pay later";
 
       setNotification({
@@ -204,7 +219,7 @@ export default function OrderTileModals({
 
         // include received/change amounts when provided for cash
         if (selectedMarkPaidMethod === "cash") {
-          const order = orders.find((o) => o.id === markPaidModal.orderId);
+          const order = requireOrderById(markPaidModal.orderId);
           const total = calculateOrderTotal(order);
           const parsed = Number(amountReceived.trim() || 0);
 

@@ -1,8 +1,7 @@
-import { supabase } from "@/lib/supabaseClient";
+// src/utils/loadBusinessPageData.ts
 import { fetchBusinessBySlug } from "./fetchBusinessBySlug";
 import { fetchMenuItems } from "./fetchMenuItems";
 import { handleTableSession } from "./handleTableSession";
-import { redisGet, redisSet } from "@/lib/redis";
 
 export type BusinessPageLoadResult = {
   business: any | null;
@@ -12,132 +11,120 @@ export type BusinessPageLoadResult = {
   notification?: { message: string; type: "success" | "error" };
 };
 
+const API_BASE = "/api/business";
+
+async function callServerApi(slug: string, tableId?: string | null) {
+  const encoded = encodeURIComponent(slug);
+  const qs = tableId ? `?table=${encodeURIComponent(tableId)}` : "";
+  const url = `${API_BASE}/${encoded}${qs}`;
+
+  const res = await fetch(url, { method: "GET", cache: "no-store" });
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => null);
+    throw new Error(`API ${url} failed: ${res.status} ${bodyText ?? ""}`);
+  }
+  return (await res.json()) as BusinessPageLoadResult;
+}
+
+/**
+ * Client-side loader for business page data.
+ * Primary path: request server API which handles Redis/ioredis (server-only).
+ * Fallback path: if the API call fails (network or server), fetch directly via client-safe utilities.
+ */
 export async function loadBusinessPageData(
   slug: string,
   tableId?: string | null
 ): Promise<BusinessPageLoadResult> {
-  const cacheKey = `business_page:${slug}`;
+  // 1) Try the server API first (preferred: server may return cached payload)
   try {
-    const cached = await redisGet(cacheKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        // Return cached result but still verify session handling below
-        const { business: cachedBusiness, menuItems: cachedMenuItems } = parsed;
-        // Fetch session only when tableId exists
-        if (!tableId) {
-          return {
-            business: cachedBusiness,
-            menuItems: cachedMenuItems,
-            sessionId: null,
-            tableInvalid: false,
-          };
-        }
-        // If tableId present, continue to fetch session and return cached business/menu
-        const sessionId = await handleTableSession(tableId);
-        if (!sessionId) {
-          return {
-            business: cachedBusiness,
-            menuItems: cachedMenuItems,
-            sessionId: null,
-            tableInvalid: true,
-            notification: {
-              message: "Invalid table QR. Scan a valid table QR to unlock ordering.",
-              type: "error",
-            },
-          };
-        }
+    const serverPayload = await callServerApi(slug, tableId);
+    // Normalize shape defensively
+    return {
+      business: serverPayload.business ?? null,
+      menuItems: Array.isArray(serverPayload.menuItems) ? serverPayload.menuItems : [],
+      sessionId: serverPayload.sessionId ?? null,
+      tableInvalid: Boolean(serverPayload.tableInvalid),
+      notification: serverPayload.notification,
+    };
+  } catch (apiErr) {
+    // API failed (could be offline or server error). Fall through to client-side fetch.
+    // Keep a console warning for debugging.
+    // eslint-disable-next-line no-console
+    console.warn("Server API load failed, falling back to client fetch:", apiErr);
+  }
 
+  // 2) Fallback: fetch directly from Supabase via client-safe helpers
+  try {
+    const business = await fetchBusinessBySlug(slug);
+
+    if (!business) {
+      return {
+        business: null,
+        menuItems: [],
+        sessionId: null,
+        tableInvalid: false,
+      };
+    }
+
+    const menuItems = await fetchMenuItems(business.id);
+
+    // If client requested a table/session, attempt to create/validate it client-side.
+    if (!tableId) {
+      return {
+        business,
+        menuItems,
+        sessionId: null,
+        tableInvalid: false,
+      };
+    }
+
+    try {
+      const sessionId = await handleTableSession(tableId);
+      if (!sessionId) {
         return {
-          business: cachedBusiness,
-          menuItems: cachedMenuItems,
-          sessionId,
-          tableInvalid: false,
+          business,
+          menuItems,
+          sessionId: null,
+          tableInvalid: true,
           notification: {
-            message: "Table connected",
-            type: "success",
+            message: "Invalid table QR. Scan a valid table QR to unlock ordering.",
+            type: "error",
           },
         };
-      } catch {
-        // fallthrough to refetch if cache parse failed
       }
-    }
-  } catch (e) {
-    // ignore cache errors and proceed to fetch
-    console.warn('Redis get failed:', e?.message || e);
-  }
 
-  const business = await fetchBusinessBySlug(slug);
-
-  if (!business) {
-    return {
-      business: null,
-      menuItems: [],
-      sessionId: null,
-      tableInvalid: false,
-    };
-  }
-
-  business.view_count = business.view_count ?? 0;
-
-  const menuItems = await fetchMenuItems(business.id);
-
-  // Cache the business + menu for a short period (TTL 60s)
-  try {
-    const payload = JSON.stringify({ business, menuItems });
-    await redisSet(cacheKey, payload, 60);
-  } catch (e) {
-    // ignore cache set failures
-    console.warn('Redis set failed:', e?.message || e);
-  }
-
-  if (!tableId) {
-    return {
-      business,
-      menuItems,
-      sessionId: null,
-      tableInvalid: false,
-    };
-  }
-
-  try {
-    const sessionId = await handleTableSession(tableId);
-
-    if (!sessionId) {
+      return {
+        business,
+        menuItems,
+        sessionId,
+        tableInvalid: false,
+        notification: {
+          message: "Table connected",
+          type: "success",
+        },
+      };
+    } catch (sessionErr) {
+      console.warn("Table session handling failed in fallback:", sessionErr);
       return {
         business,
         menuItems,
         sessionId: null,
         tableInvalid: true,
         notification: {
-          message: "Invalid table QR. Scan a valid table QR to unlock ordering.",
+          message: "Could not connect table session. Please scan again.",
           type: "error",
         },
       };
     }
-
+  } catch (err) {
+    // Final fallback: network/offline — caller can try offline cache
+    // eslint-disable-next-line no-console
+    console.warn("Client fetch fallback failed:", err);
     return {
-      business,
-      menuItems,
-      sessionId,
-      tableInvalid: false,
-      notification: {
-        message: "Table connected",
-        type: "success",
-      },
-    };
-  } catch (error) {
-    console.error("Session error:", error);
-
-    return {
-      business,
-      menuItems,
+      business: null,
+      menuItems: [],
       sessionId: null,
-      tableInvalid: true,
-      notification: {
-        message: "Could not connect table session. Please scan again.",
-        type: "error",
-      },
+      tableInvalid: false,
     };
   }
 }
