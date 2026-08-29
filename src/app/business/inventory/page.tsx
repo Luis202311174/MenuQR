@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
-import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import { useInventory } from "@/hooks/useInventory";
 import { getBusinessByOwner, lazyResetInventoryForBusiness } from "@/utils/businessCRUDMenu";
 import { hasStaffPermission } from "@/lib/staffPermissions";
@@ -179,8 +178,6 @@ export default function BusinessInventoryPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <main className="space-y-6">
-          <BusinessOrdersNotifier businessId={business.id} />
-
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>

@@ -169,39 +169,6 @@ export default function BusinessOrdersPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const channelRef = useRef<any>(null);
-  const audioRef = useRef<AudioContext | null>(null);
-
-  const playNewOrderSound = () => {
-    if (typeof window === "undefined") return;
-
-    const AudioConstructor = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioConstructor) return;
-
-    if (!audioRef.current) {
-      audioRef.current = new AudioConstructor();
-    }
-
-    const context = audioRef.current;
-    if (context.state === "suspended") {
-      context.resume().catch(() => undefined);
-    }
-
-    const gain = context.createGain();
-    gain.gain.value = 0.5;
-    gain.connect(context.destination);
-
-    const now = context.currentTime;
-    const tones = [880, 660, 1040];
-
-    tones.forEach((frequency, index) => {
-      const oscillator = context.createOscillator();
-      oscillator.type = index === 1 ? "square" : "triangle";
-      oscillator.frequency.value = frequency;
-      oscillator.connect(gain);
-      oscillator.start(now + index * 0.05);
-      oscillator.stop(now + 0.2 + index * 0.05);
-    });
-  };
 
   // 🔐 Auth + business
   useEffect(() => {
@@ -396,7 +363,6 @@ export default function BusinessOrdersPage() {
             return [...prev, order];
           });
 
-          playNewOrderSound();
           const resolvedTableNumber = (await resolveTableNumberForOrder(order)) || "N/A";
           const message = `New order received from Table ${resolvedTableNumber}`;
           setNotification({

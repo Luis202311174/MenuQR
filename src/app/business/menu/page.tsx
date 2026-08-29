@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
-import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
@@ -88,7 +87,6 @@ function BusinessMenuPageWithSearchParams() {
   }, [auth.checked, auth.owner, auth.businessId, auth.staffSession]);
 
   const [menuItems, setMenuItems] = useState<BusinessMenuCardItem[]>([]);
-  const [ordersCount, setOrdersCount] = useState(0);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMenuStep, setAddMenuStep] = useState(1);
@@ -132,11 +130,6 @@ function BusinessMenuPageWithSearchParams() {
   const [showInventoryModal, setShowInventoryModal] = useState(false);
 
 
-
-  useEffect(() => {
-    if (!businessId) return;
-    setOrdersCount(0);
-  }, [businessId]);
 
   useEffect(() => {
     if (!auth.checked || !businessId) return;
@@ -374,7 +367,6 @@ function BusinessMenuPageWithSearchParams() {
 
   return (
     <>
-      <BusinessOrdersNotifier businessId={businessId} onCountChange={setOrdersCount} />
       <PageShell title="Menu" subtitle="Manage menu items, inventory, and availability." backHref="/business/dashboard">
         <div className="mb-4 flex items-center justify-between lg:hidden">
           <p className="text-sm font-semibold text-slate-600">{menuItems.length} items</p>

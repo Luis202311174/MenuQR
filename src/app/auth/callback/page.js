@@ -64,9 +64,18 @@ export default function Callback() {
         .from("users")
         .select("role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (roleRes?.role === "owner") {
+      // FAILSAFE: account has no data in the users table (new account)
+      // Do NOT add it to the database. Sign out and return to login
+      // so the user can sign up or choose an account with existing data.
+      if (!roleRes) {
+        await supabase.auth.signOut();
+        router.push("/login?new_account=1");
+        return;
+      }
+
+      if (roleRes.role === "owner") {
         router.push("/business/dashboard");
       } else {
         router.push("/");

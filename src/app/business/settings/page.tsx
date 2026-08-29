@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
-import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 
 const MapPicker = dynamic(() => import("@/components/MapPicker"), {
@@ -22,7 +21,6 @@ export default function BusinessSettingsPage() {
 
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [ordersCount, setOrdersCount] = useState(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [address, setAddress] = useState("");
   const [contact, setContact] = useState("");
@@ -128,11 +126,6 @@ export default function BusinessSettingsPage() {
 
     init();
   }, [auth, router]);
-
-  useEffect(() => {
-    if (!businessId) return;
-    setOrdersCount(0);
-  }, [businessId]);
 
   const resizeImageToSquare = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -266,11 +259,6 @@ export default function BusinessSettingsPage() {
 
   return (
     <>
-      <BusinessOrdersNotifier
-        businessId={businessId}
-        onCountChange={setOrdersCount}
-      />
-
       <PageShell
         title="Settings"
         subtitle="Update your business profile and preferences."

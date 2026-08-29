@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "../../lib/supabaseClient";
@@ -8,6 +8,16 @@ import { supabase } from "../../lib/supabaseClient";
 export default function LoginPage() {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState(null);
+  const [showNewAccountModal, setShowNewAccountModal] = useState(false);
+
+  useEffect(() => {
+    // Show modal if redirected here because the account has no data
+    if (window.location.search.includes("new_account=1")) {
+      setShowNewAccountModal(true);
+      // Clean up the URL so refreshing doesn't re-show the modal
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const getProfile = async (userId) => {
     const { data } = await supabase
@@ -115,6 +125,45 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal: account has no data */}
+      {showNewAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="relative w-full max-w-md rounded-[2rem] bg-white p-8 shadow-2xl">
+            <button
+              onClick={() => setShowNewAccountModal(false)}
+              className="absolute top-4 right-4 rounded-full bg-slate-100 px-3 py-1.5 text-xl font-semibold text-slate-600 transition hover:bg-slate-200"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#ffebe9] text-3xl">
+                ⚠️
+              </div>
+              <h3 className="text-xl font-bold text-[#102A43]">
+                Account not found
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-[#42596b]">
+                Please sign up your account or choose an account with existing data.
+              </p>
+              <button
+                onClick={() => router.push("/signup")}
+                className="mt-6 w-full rounded-full bg-[#4f65ff] py-3.5 font-semibold text-white shadow-lg transition hover:bg-[#3d52e0]"
+              >
+                Sign up
+              </button>
+              <button
+                onClick={() => setShowNewAccountModal(false)}
+                className="mt-3 w-full rounded-full border border-slate-200 py-3.5 font-semibold text-[#102A43] transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

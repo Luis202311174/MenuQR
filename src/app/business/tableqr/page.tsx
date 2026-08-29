@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
-import BusinessOrdersNotifier from "@/components/business/BusinessOrdersNotifier";
 import PageShell from "@/components/PageShell";
 import jsPDF from "jspdf";
 import { hasStaffPermission } from "@/lib/staffPermissions";
@@ -27,7 +26,6 @@ export default function TableQRPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessSlug, setBusinessSlug] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
-  const [ordersCount, setOrdersCount] = useState(0);
 
   const [tables, setTables] = useState<ITable[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,11 +144,6 @@ export default function TableQRPage() {
 
     init();
   }, [auth, router]);
-
-  useEffect(() => {
-    if (!businessId) return;
-    setOrdersCount(0);
-  }, [businessId]);
 
   // =========================
   // FETCH TABLES
@@ -351,7 +344,6 @@ export default function TableQRPage() {
 
   return (
     <>
-      <BusinessOrdersNotifier businessId={businessId} onCountChange={setOrdersCount} />
       <PageShell
         title="Table QR"
         subtitle="Create and manage QR codes for each table."
