@@ -31,6 +31,8 @@ export type CreateOrderParams = {
   mostOrderedItem?: string;
   spendPerOrder?: number;
   customerBehavior?: any;
+  paymentMethod?: "cash" | "gcash";
+  gcashReceiptImageUrl?: string;
 };
 
 function getMostOrderedItem(cartItems: any[]) {
@@ -67,6 +69,8 @@ export async function createOrder({
   mostOrderedItem,
   spendPerOrder,
   customerBehavior,
+  paymentMethod,
+  gcashReceiptImageUrl,
 }: CreateOrderParams) {
   const qtyByMenuItemId = cartItems.reduce<Record<string, number>>((acc, item) => {
     const qty = Number(item.qty || 1);
@@ -161,6 +165,8 @@ export async function createOrder({
       discount_amount: discountAmount ?? 0,
       amount_received: amountReceived ?? null,
       change_amount: changeAmount ?? null,
+      ...(paymentMethod ? { payment_method: paymentMethod } : {}),
+      ...(gcashReceiptImageUrl ? { e_receipt_url: gcashReceiptImageUrl } : {}),
       ...(orderDurationMs !== undefined ? { order_duration_ms: orderDurationMs } : {}),
       ...(trackedMostOrderedItem ? { most_ordered_item: trackedMostOrderedItem } : {}),
       ...(spendPerOrder !== undefined ? { spend_per_order: spendPerOrder } : {}),

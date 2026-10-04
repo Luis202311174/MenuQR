@@ -13,6 +13,7 @@ export type Order = {
   session_id?: string | null;
   is_paid?: boolean;
   payment_method?: string | null;
+  e_receipt_url?: string | null;
 
   // Added to match usage when marking orders as paid
   amount_received?: number | null;

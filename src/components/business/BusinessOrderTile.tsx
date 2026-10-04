@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { getStatusColor, OrderStatus } from "@/utils/orderStatusManager";
 import ReceiptPrintModal from "@/components/ReceiptPrintModal";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowUpRightFromSquare, faReceipt, faXmark } from "@fortawesome/free-solid-svg-icons";
 
 type Order = {
   id: string;
@@ -14,6 +16,7 @@ type Order = {
   session_id?: string | null;
   is_paid?: boolean;
   payment_method?: string | null;
+  e_receipt_url?: string | null;
   table?: {
     id: string;
     table_number: string;
@@ -61,6 +64,7 @@ const BusinessOrderTile: React.FC<Props> = ({
   readOnly = false, // 👈 1. Destructure readOnly with a default value
 }) => {
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [paymentProofModalOpen, setPaymentProofModalOpen] = useState(false);
 
   // Quick helper variables to match your snippet's shorthand references
   const id = order.id;
@@ -97,6 +101,11 @@ const BusinessOrderTile: React.FC<Props> = ({
 
   const hasDiscountPendingApproval = (order.discount_amount || 0) > 0 && !order.discount_approved;
   const orderDiscountLabel = order.coupon_id ? "Coupon Discount" : order.senior_pwd_count ? "Senior/PWD Discount" : "Discount";
+  const paymentMethod = order.payment_method?.trim().toLowerCase();
+  const hasOnlinePaymentProof = Boolean(
+    order.e_receipt_url && paymentMethod && !["cash", "cod"].includes(paymentMethod),
+  );
+  const paymentMethodLabel = order.payment_method?.trim() || "Online payment";
 
   // 👈 2. Updated Memoized Actions with readOnly, isProcessing, and hover styles applied
   const actions = useMemo<Record<string, any[]>>(() => ({
@@ -263,6 +272,65 @@ const BusinessOrderTile: React.FC<Props> = ({
         onClose={() => setReceiptModalOpen(false)}
       />
 
+      {paymentProofModalOpen && order.e_receipt_url && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`payment-proof-title-${order.id}`}
+          onMouseDown={() => setPaymentProofModalOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">Payment verification</p>
+                <h2 id={`payment-proof-title-${order.id}`} className="mt-1 text-lg font-bold text-slate-900">
+                  {paymentMethodLabel} e-receipt
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentProofModalOpen(false)}
+                className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close e-receipt"
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+
+            <div className="max-h-[62vh] overflow-auto bg-slate-100 p-4">
+              <img
+                src={order.e_receipt_url}
+                alt={`${paymentMethodLabel} payment e-receipt for order ${orderNumber}`}
+                className="mx-auto max-w-full rounded-xl bg-white shadow-sm"
+              />
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setPaymentProofModalOpen(false)}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+              <a
+                href={order.e_receipt_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800"
+              >
+                <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
+                Open in new tab
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
         {/* HEADER */}
@@ -342,6 +410,30 @@ const BusinessOrderTile: React.FC<Props> = ({
             </div>
           </div>
         </div>
+
+        {hasOnlinePaymentProof && (
+          <div className="border-y border-violet-200 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-white px-4 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-700 text-white shadow-sm">
+                  <FontAwesomeIcon icon={faReceipt} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-violet-950">Online payment proof attached</p>
+                  <p className="text-xs text-violet-800">Verify this {paymentMethodLabel} e-receipt before marking the order as paid.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentProofModalOpen(true)}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 hover:shadow-md"
+              >
+                <FontAwesomeIcon icon={faReceipt} />
+                View e-receipt
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ITEMS */}
         <div className="p-4 space-y-3">

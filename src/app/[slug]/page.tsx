@@ -739,6 +739,7 @@ export default function BusinessPage() {
       seniorCount: number;
       discountAmount: number;
       paymentMethod: "cash" | "gcash";
+      gcashReceiptImage?: File;
       promoCode?: string;
       couponId?: string;
       amountReceived?: number;
@@ -782,7 +783,39 @@ export default function BusinessPage() {
           .sort((a, b) => b[1] - a[1])[0]?.[0] || undefined;
         const spendPerOrder = Number(Math.max(0, cartTotal - orderData.discountAmount).toFixed(2));
 
-        const order = await createOrder({
+        // GCash flow: validate the selected proof, upload it, then create the order
+        // with the resulting URL. Cash orders skip this and follow the same flow as before.
+        let gcashReceiptImageUrl: string | undefined;
+        let gcashReceiptStoragePath: string | undefined;
+        if (orderData.paymentMethod === "gcash") {
+          const receiptImage = orderData.gcashReceiptImage;
+          if (!receiptImage) {
+            throw new Error("Attach your GCash e-receipt before submitting the order.");
+          }
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(receiptImage.type)) {
+            throw new Error("The GCash e-receipt must be a JPG, PNG, or WebP image.");
+          }
+          if (receiptImage.size > 5 * 1024 * 1024) {
+            throw new Error("The GCash e-receipt image must be 5 MB or smaller.");
+          }
+
+          const extension = receiptImage.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const uploadId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          gcashReceiptStoragePath = `${business.id}/${sessionId}/${uploadId}.${extension}`;
+          const { error: uploadError } = await supabase.storage
+            .from('e-reciepts')
+            .upload(gcashReceiptStoragePath, receiptImage, { contentType: receiptImage.type, upsert: false });
+          if (uploadError) throw new Error(`Unable to upload GCash e-receipt: ${uploadError.message}`);
+
+          const { data: receiptUrl } = supabase.storage
+            .from('e-reciepts')
+            .getPublicUrl(gcashReceiptStoragePath);
+          gcashReceiptImageUrl = receiptUrl.publicUrl;
+        }
+
+        let order;
+        try {
+          order = await createOrder({
           businessId: business.id,
           cartItems,
           totalAmount: cartTotal,
@@ -799,7 +832,16 @@ export default function BusinessPage() {
           mostOrderedItem,
           spendPerOrder,
           customerBehavior: behaviorTrackerRef.current?.getPayload(),
-        });
+            paymentMethod: orderData.paymentMethod,
+            gcashReceiptImageUrl,
+          });
+        } catch (orderError) {
+          // Do not leave an orphaned receipt if order creation fails after upload.
+          if (gcashReceiptStoragePath) {
+            await supabase.storage.from('e-reciepts').remove([gcashReceiptStoragePath]);
+          }
+          throw orderError;
+        }
 
         // 🔥 Immediately decrement stock in local state for ordered items
         setMenuItems((prevItems) =>
@@ -904,6 +946,8 @@ export default function BusinessPage() {
           paymentMethod: orderData.paymentMethod,
         });
         setNotification({ message: errorMessage, type: "error" });
+        // Keep the checkout open so the customer can correct the receipt or retry.
+        throw error;
       } finally {
         setSubmittingOrder(false);
       }

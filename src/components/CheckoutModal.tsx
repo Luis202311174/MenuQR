@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faX,
@@ -12,6 +12,7 @@ import {
   faUsers,
   faCreditCard,
   faClipboardList,
+  faPaperclip,
 } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -85,6 +86,8 @@ interface CheckoutModalProps {
     seniorCount: number;
     discountAmount: number;
     paymentMethod: "cash" | "gcash";
+    // Required only for GCash. The page uploads this proof before creating the order.
+    gcashReceiptImage?: File;
     promoCode?: string;
     couponId?: string;
     amountReceived?: number;
@@ -122,6 +125,9 @@ export default function CheckoutModal({
   const [totalGuests, setTotalGuests] = useState(1);
   const [seniorCount, setSeniorCount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "gcash">("cash");
+  const [gcashReceiptImage, setGcashReceiptImage] = useState<File | null>(null);
+  const [gcashReceiptPreviewUrl, setGcashReceiptPreviewUrl] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [guestError, setGuestError] = useState<string | null>(null);
   const [cartError, setCartError] = useState<string | null>(null);
   const [localSubmitting, setLocalSubmitting] = useState(false);
@@ -132,6 +138,17 @@ export default function CheckoutModal({
     couponId?: string;
   } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!gcashReceiptImage) {
+      setGcashReceiptPreviewUrl(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(gcashReceiptImage);
+    setGcashReceiptPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [gcashReceiptImage]);
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -306,6 +323,16 @@ export default function CheckoutModal({
       setGuestError(null);
     }
 
+    // GCash orders need proof of payment before the customer can continue.
+    // The actual upload happens during submission, immediately before createOrder.
+    if (currentStep === "payment") {
+      if (paymentMethod === "gcash" && !gcashReceiptImage) {
+        setPaymentError("Attach your GCash e-receipt to continue.");
+        return;
+      }
+      setPaymentError(null);
+    }
+
     const steps: CheckoutStep[] = [
       "cart-review",
       "discount",
@@ -343,6 +370,7 @@ export default function CheckoutModal({
         seniorCount: seniorCountValue,
         discountAmount,
         paymentMethod,
+        gcashReceiptImage: paymentMethod === "gcash" ? gcashReceiptImage ?? undefined : undefined,
         // amount_received and change are only entered by staff/business side
         promoCode: promoCodeValue,
         couponId: couponIdValue,
@@ -866,7 +894,10 @@ export default function CheckoutModal({
                 <button
                   key={option.type}
                   onClick={() =>
-                    option.enabled && setPaymentMethod(option.type)
+                    option.enabled && (() => {
+                      setPaymentMethod(option.type);
+                      setPaymentError(null);
+                    })()
                   }
                   disabled={!option.enabled}
                   className={`w-full rounded-lg lg:rounded-2xl border-2 p-3 lg:p-4 text-left transition ${
@@ -890,6 +921,41 @@ export default function CheckoutModal({
                   </div>
                 </button>
               ))}
+              {paymentMethod === "gcash" && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                  <label className="block text-sm font-semibold text-slate-900" htmlFor="gcash-e-receipt">
+                    Attach GCash e-receipt
+                  </label>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Upload a screenshot or image of your successful GCash payment for the restaurant to verify.
+                  </p>
+                  <input
+                    id="gcash-e-receipt"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    capture="environment"
+                    className="mt-3 block w-full text-xs text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-[#4f65ff] file:px-3 file:py-2 file:font-semibold file:text-white hover:file:bg-[#4257e8]"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      if (file && file.size > 5 * 1024 * 1024) {
+                        setGcashReceiptImage(null);
+                        setPaymentError("The e-receipt image must be 5 MB or smaller.");
+                        event.currentTarget.value = "";
+                        return;
+                      }
+                      setGcashReceiptImage(file);
+                      setPaymentError(null);
+                    }}
+                  />
+                  {gcashReceiptPreviewUrl && gcashReceiptImage && (
+                    <div className="mt-3 flex items-center gap-3">
+                      <img src={gcashReceiptPreviewUrl} alt="GCash e-receipt preview" className="h-16 w-16 rounded-lg border border-blue-200 object-cover" />
+                      <span className="min-w-0 truncate text-xs text-slate-700">{gcashReceiptImage.name}</span>
+                    </div>
+                  )}
+                  {paymentError && <p className="mt-2 text-xs text-red-600">{paymentError}</p>}
+                </div>
+              )}
               {/* Cash received is handled by business/staff when confirming payment; removed from customer flow */}
             </div>
           )}
@@ -904,6 +970,12 @@ export default function CheckoutModal({
                     ₱{cartTotal.toFixed(2)}
                   </span>
                 </div>
+                {paymentMethod === "gcash" && (
+                  <div className="flex items-center gap-2 text-xs lg:text-sm text-slate-600">
+                    <FontAwesomeIcon icon={faPaperclip} className="text-[#4f65ff]" />
+                    <span>{gcashReceiptImage ? `E-receipt attached: ${gcashReceiptImage.name}` : "E-receipt required"}</span>
+                  </div>
+                )}
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-xs lg:text-sm">
                     <span className="text-slate-600">

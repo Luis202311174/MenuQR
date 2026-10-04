@@ -76,6 +76,7 @@ type Order = {
   session_id?: string | null;
   is_paid?: boolean;
   payment_method?: string | null;
+  e_receipt_url?: string | null;
   table?: {
     id: string;
     table_number: string;
