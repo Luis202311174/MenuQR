@@ -79,6 +79,7 @@ export async function fetchOptionGroupsForItem(menuItemId: string): Promise<Link
     .from("option_groups")
     .select("id,business_id,name,is_required,min_select,max_select,sort_order,is_active,is_reusable,created_at,updated_at,option_choices(id,group_id,name,price_modifier,is_available,sort_order,created_at)")
     .in("id", groupIds)
+    .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
   if (groupsError) throw groupsError;

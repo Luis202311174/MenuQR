@@ -25,16 +25,15 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   if ("response" in access) return access.response;
 
   if (payload.action === "archive" || payload.action === "restore") {
-    const { data, error } = await access.supabase
-      .from("option_groups")
-      .update({ is_active: payload.action === "restore", updated_at: new Date().toISOString() })
-      .eq("id", groupId)
-      .eq("business_id", access.businessId)
-      .select("id,is_active")
-      .maybeSingle();
+    const { data, error } = await access.supabase.rpc("archive_option_group_and_detach", {
+      p_group_id: groupId,
+      p_business_id: access.businessId,
+      p_archived: payload.action === "archive",
+    });
 
     if (error || !data) {
-      return NextResponse.json({ error: error?.message || "Option group not found." }, { status: error ? 500 : 404 });
+      const status = error?.code === "P0002" ? 404 : 500;
+      return NextResponse.json({ error: error?.message || "Option group not found." }, { status });
     }
     return NextResponse.json(data);
   }

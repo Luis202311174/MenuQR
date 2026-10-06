@@ -23,7 +23,31 @@ import { CustomerBehaviorTracker } from "@/utils/customerBehaviorTracker";
   import dynamic from 'next/dynamic';
   const CheckoutModal = dynamic(() => import('@/components/CheckoutModal'), { ssr: false });
 
-  type Business = {
+type PublicMenuCategory = Pick<MenuCategory, "name" | "sort_order">;
+
+const fetchActiveMenuCategories = async (businessId: string): Promise<PublicMenuCategory[]> => {
+  const { data, error } = await supabase
+    .from("menu_categories")
+    .select("name,sort_order")
+    .eq("business_id", businessId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+};
+
+const filterMenuItemsToActiveCategories = (items: any[], activeCategoryNames: string[]) => {
+  const activeNames = new Set(
+    activeCategoryNames.map((name) => name.trim().toLocaleLowerCase()),
+  );
+  return items.filter((item) =>
+    activeNames.has((item.category || "").trim().toLocaleLowerCase()),
+  );
+};
+
+type Business = {
     id: string;
     slug: string;
     name: string;
@@ -94,7 +118,7 @@ export default function BusinessPage() {
     const [pageLoadError, setPageLoadError] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const [menuItems, setMenuItems] = useState<any[]>([]);
-    const [menuCategories, setMenuCategories] = useState<Pick<MenuCategory, "name" | "sort_order">[]>([]);
+    const [menuCategories, setMenuCategories] = useState<PublicMenuCategory[]>([]);
     const [offlineMode, setOfflineMode] = useState(false);
     const [categoryFilter, setCategoryFilter] = useState<string[]>(["All"]);
     const [searchFilter, setSearchFilter] = useState("");
@@ -323,9 +347,11 @@ export default function BusinessPage() {
           if (!result.business) {
             const cached = loadOfflineMenu(slug as string);
             if (cached) {
+              const activeCategoryNames = cached.activeCategoryNames ?? [];
+              setMenuCategories(activeCategoryNames.map((name, sort_order) => ({ name, sort_order })));
               setOfflineMode(true);
               setBusiness(cached.business);
-              setMenuItems(cached.menuItems || []);
+              setMenuItems(filterMenuItemsToActiveCategories(cached.menuItems || [], activeCategoryNames));
               setSessionId(null);
               setTableInvalid(false);
               setNotification({ message: "Offline mode: showing last saved menu.", type: "success" });
@@ -348,23 +374,16 @@ export default function BusinessPage() {
             description: item.description || item.menu_desc || null,
           }));
 
+          const categories = await fetchActiveMenuCategories(result.business.id);
+          if (cancelled) return;
+          const activeCategoryNames = categories.map((category) => category.name);
+          const visibleItems = filterMenuItemsToActiveCategories(normalizedItems, activeCategoryNames);
+
           setOfflineMode(false);
           setBusiness(result.business);
-          setMenuItems(normalizedItems);
-          persistOfflineMenu(slug as string, result.business, normalizedItems);
-
-          const { data: categories, error: categoriesError } = await supabase
-            .from("menu_categories")
-            .select("name,sort_order")
-            .eq("business_id", result.business.id)
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true })
-            .order("name", { ascending: true });
-          if (cancelled) return;
-          if (categoriesError) {
-            console.warn("Could not load custom category order:", categoriesError.message);
-          }
-          setMenuCategories(categories ?? []);
+          setMenuCategories(categories);
+          setMenuItems(visibleItems);
+          persistOfflineMenu(slug as string, result.business, visibleItems, activeCategoryNames);
 
           setSessionId(result.sessionId);
           setTableInvalid(result.tableInvalid);
@@ -381,9 +400,11 @@ export default function BusinessPage() {
           const cached = loadOfflineMenu(slug as string);
 
           if (cached) {
+            const activeCategoryNames = cached.activeCategoryNames ?? [];
+            setMenuCategories(activeCategoryNames.map((name, sort_order) => ({ name, sort_order })));
             setOfflineMode(true);
             setBusiness(cached.business);
-            setMenuItems(cached.menuItems || []);
+            setMenuItems(filterMenuItemsToActiveCategories(cached.menuItems || [], activeCategoryNames));
             setSessionId(null);
             setTableInvalid(false);
             setNotification({
@@ -611,9 +632,13 @@ export default function BusinessPage() {
         ...item,
         description: item.description || item.menu_desc || null,
       }));
-      setMenuItems(normalizedItems);
+      const categories = await fetchActiveMenuCategories(business.id);
+      const activeCategoryNames = categories.map((category) => category.name);
+      const visibleItems = filterMenuItemsToActiveCategories(normalizedItems, activeCategoryNames);
+      setMenuCategories(categories);
+      setMenuItems(visibleItems);
       if (business.slug) {
-        persistOfflineMenu(business.slug, business, normalizedItems);
+        persistOfflineMenu(business.slug, business, visibleItems, activeCategoryNames);
       }
     };
 

@@ -27,20 +27,29 @@ export async function PATCH(req: NextRequest) {
   const businessId = access.businessId;
 
   if (kind === "categories") {
-    const { data, error } = await supabase
+    const { data: businessCategories, error: categoryError } = await supabase
       .from("menu_categories")
       .select("id")
-      .eq("business_id", businessId)
-      .in("id", ids);
-    if (error || data?.length !== ids.length) {
-      return NextResponse.json({ error: error?.message || "One or more categories do not belong to this business." }, { status: error ? 500 : 403 });
+      .eq("business_id", businessId);
+    if (categoryError) {
+      return NextResponse.json({ error: categoryError.message }, { status: 500 });
+    }
+    if (businessCategories?.length !== ids.length || businessCategories.some((category) => !ids.includes(category.id))) {
+      return NextResponse.json({ error: "The category list changed. Reload categories and try again." }, { status: 409 });
     }
 
-    const results = await Promise.all(ids.map((id, sort_order) =>
-      supabase.from("menu_categories").update({ sort_order }).eq("business_id", businessId).eq("id", id)
-    ));
-    const failed = results.find((result) => result.error);
-    if (failed?.error) return NextResponse.json({ error: failed.error.message }, { status: 500 });
+    for (const [sort_order, id] of ids.entries()) {
+      const { data: updatedCategory, error: updateError } = await supabase
+        .from("menu_categories")
+        .update({ sort_order })
+        .eq("business_id", businessId)
+        .eq("id", id)
+        .select("id,sort_order")
+        .single();
+      if (updateError || updatedCategory?.sort_order !== sort_order) {
+        return NextResponse.json({ error: updateError?.message || "Failed to save category order." }, { status: 500 });
+      }
+    }
   }
 
   if (kind === "menu-items") {

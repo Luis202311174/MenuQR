@@ -10,7 +10,6 @@ import {
   removeLowStockNotification,
 } from "@/utils/lowStockNotifications";
 import { storeNotification, removeNotification } from "@/utils/notificationManager";
-import { showSystemNotification } from "@/utils/notificationService";
 
 type Notif = {
   id: string;
@@ -23,7 +22,6 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
   const { checked, businessId } = useBusinessAuth();
   const [notifs, setNotifs] = useState<Notif[]>(() => getStoredLowStockNotifications());
   const [isOpen, setIsOpen] = useState(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const clearLowStockAlerts = (itemId: string) => {
     removeLowStockNotification(itemId);
@@ -80,19 +78,12 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
               data: { itemId: item.id, current_stock: item.current_stock },
             };
             storeNotification(notification);
-            void showSystemNotification(notification);
           });
           setNotifs((prev) => {
             const ids = new Set(prev.map((p) => p.id));
             return [...low.filter((l) => !ids.has(l.id)), ...prev];
           });
           setIsOpen(true);
-          try {
-            // play a short alert
-            playBeep(620, 0.18, 0.16);
-          } catch (e) {
-            /* no-op */
-          }
         }
       } catch (e) {
         console.error("Inventory notifier initial load failed", e);
@@ -135,17 +126,11 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
                 data: { itemId: notif.id, current_stock: notif.current_stock },
               };
               storeNotification(notification);
-              void showSystemNotification(notification);
               setNotifs((prev) => {
                 if (prev.some((p) => p.id === notif.id)) return prev;
                 return [notif, ...prev];
               });
               setIsOpen(true);
-              try {
-                playBeep(880, 0.12, 0.18);
-              } catch (err) {
-                /* no-op */
-              }
             }
 
             // If restocked above threshold or tracking disabled, clear the low stock alert
@@ -236,35 +221,4 @@ export default function BusinessInventoryNotifier({ lowThreshold = 5 }: { lowThr
       ) : null}
     </>
   );
-}
-
-// Play a short beep using Web Audio API. Safe to call repeatedly.
-function playBeep(freq = 880, duration = 0.12, volume = 0.2) {
-  try {
-    // respect user mute setting stored in localStorage
-    if (typeof window !== 'undefined' && localStorage.getItem('notifierMuted') === 'true') return;
-    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "sine";
-    o.frequency.value = freq;
-    g.gain.value = volume;
-    o.connect(g);
-    g.connect(ctx.destination);
-    const now = ctx.currentTime;
-    o.start(now);
-    g.gain.setValueAtTime(volume, now);
-    g.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    o.stop(now + duration + 0.02);
-    // close context shortly after to free resources
-    setTimeout(() => {
-      try {
-        ctx.close();
-      } catch (e) {}
-    }, (duration + 0.05) * 1000);
-  } catch (e) {
-    // ignore errors (e.g., autoplay restrictions)
-  }
 }

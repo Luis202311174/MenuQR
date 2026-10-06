@@ -3,6 +3,7 @@ const MENU_CACHE_KEY_PREFIX = "menuqr_offline_menu_";
 export type OfflineMenuSnapshot = {
   business: any;
   menuItems: any[];
+  activeCategoryNames?: string[];
   savedAt: string;
 };
 
@@ -19,13 +20,19 @@ export function loadOfflineMenu(slug: string): OfflineMenuSnapshot | null {
   }
 }
 
-export function persistOfflineMenu(slug: string, business: any, menuItems: any[]) {
+export function persistOfflineMenu(
+  slug: string,
+  business: any,
+  menuItems: any[],
+  activeCategoryNames: string[],
+) {
   if (typeof window === "undefined") return;
 
   try {
     const payload: OfflineMenuSnapshot = {
       business,
       menuItems,
+      activeCategoryNames,
       savedAt: new Date().toISOString(),
     };
     window.localStorage.setItem(`${MENU_CACHE_KEY_PREFIX}${slug}`, JSON.stringify(payload));

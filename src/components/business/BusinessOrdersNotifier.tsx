@@ -35,12 +35,13 @@ export default function BusinessOrdersNotifier({
   const [showModal, setShowModal] = useState(false);
   const [latestTableNumber, setLatestTableNumber] = useState("N/A");
   const audioRef = useRef<AudioContext | null>(null);
-  const lastNotifiedOrderIdRef = useRef<string | null>(null);
+  const notifiedOrderIdsRef = useRef<Set<string>>(new Set());
   const channelRef = useRef<any>(null);
   const router = useRouter();
 
   const playNewOrderSound = () => {
     if (typeof window === "undefined") return;
+    if (window.localStorage.getItem("notifierMuted") === "true") return;
 
     const AudioConstructor = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioConstructor) return;
@@ -55,19 +56,19 @@ export default function BusinessOrdersNotifier({
     }
 
     const gain = context.createGain();
-    gain.gain.value = 0.65;
+    gain.gain.value = 0.16;
     gain.connect(context.destination);
 
     const now = context.currentTime;
-    const tones = [880, 660, 1040];
+    const tones = [740, 880];
 
     tones.forEach((frequency, index) => {
       const oscillator = context.createOscillator();
-      oscillator.type = index === 1 ? "square" : "triangle";
+      oscillator.type = "sine";
       oscillator.frequency.value = frequency;
       oscillator.connect(gain);
-      oscillator.start(now + index * 0.05);
-      oscillator.stop(now + 0.22 + index * 0.05);
+      oscillator.start(now + index * 0.12);
+      oscillator.stop(now + 0.1 + index * 0.12);
     });
   };
 
@@ -167,13 +168,23 @@ export default function BusinessOrdersNotifier({
           if (!order) return;
 
           const isNewActiveOrder = payload.eventType === "INSERT" && isActiveOrderStatus(order.status);
+          const previousStatus = (payload.old as any)?.status;
           const becameActiveOrder =
             payload.eventType === "UPDATE" &&
-            !isActiveOrderStatus((payload.old as any)?.status) &&
+            typeof previousStatus === "string" &&
+            !isActiveOrderStatus(previousStatus) &&
             isActiveOrderStatus(order.status);
 
-          if ((isNewActiveOrder || becameActiveOrder) && order.id !== lastNotifiedOrderIdRef.current) {
-            lastNotifiedOrderIdRef.current = order.id;
+          if (
+            (isNewActiveOrder || becameActiveOrder) &&
+            typeof order.id === "string" &&
+            !notifiedOrderIdsRef.current.has(order.id)
+          ) {
+            notifiedOrderIdsRef.current.add(order.id);
+            if (notifiedOrderIdsRef.current.size > 250) {
+              const oldestOrderId = notifiedOrderIdsRef.current.values().next().value;
+              if (oldestOrderId) notifiedOrderIdsRef.current.delete(oldestOrderId);
+            }
             const tableNumber = (await resolveTableNumber(order)) || "N/A";
             setLatestTableNumber(tableNumber);
             playNewOrderSound();

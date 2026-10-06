@@ -9,6 +9,7 @@ import BusinessInventoryModal from "@/components/business/BusinessInventoryModal
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
 import SortableList from "@/components/business/SortableList";
+import MenuImageCropEditor from "@/components/business/MenuImageCropEditor";
 
 import {
   fetchMenuItems as loadMenuItems,
@@ -64,7 +65,7 @@ type NewOptionGroup = {
 };
 
 type ExistingGroupSaveMode = "reusable-copy" | "item-only";
-type MenuItemsTab = "all" | "available" | "unavailable";
+type MenuItemsTab = "all" | "available" | "unavailable" | "archived";
 
 function BusinessMenuPageWithSearchParams() {
   const router = useRouter();
@@ -188,12 +189,13 @@ function BusinessMenuPageWithSearchParams() {
   const loadMenuCategories = async () => {
     if (!businessId) return;
     try {
-      const categories = await fetchMenuCategories();
+      const categories = await fetchMenuCategories(true);
+      const activeCategories = categories.filter((category) => category.is_active);
       setMenuCategories(categories);
       setMenuCategory((current) =>
-        categories.some((category) => category.name === current)
+        activeCategories.some((category) => category.name === current)
           ? current
-          : categories[0]?.name || ""
+          : activeCategories[0]?.name || ""
       );
     } catch (error) {
       console.error("Failed to fetch menu categories:", error);
@@ -372,7 +374,7 @@ function BusinessMenuPageWithSearchParams() {
   const handleArchiveDraftGroup = async (group: NewOptionGroup) => {
     if (!group.globalGroupId) return;
     const confirmed = window.confirm(
-      `Archive "${group.name}" globally? It will disappear from all linked customer menus until restored.`,
+      `Archive "${group.name}" globally and remove it from all assigned menu items? Restoring it will not reassign it automatically.`,
     );
     if (!confirmed) return;
 
@@ -549,17 +551,28 @@ function BusinessMenuPageWithSearchParams() {
     return <div className="p-10">Loading...</div>;
   }
 
-  const availableMenuCount = menuItems.filter((item) => item.availability).length;
-  const unavailableMenuCount = menuItems.length - availableMenuCount;
+  const archivedCategoryNames = new Set(
+    menuCategories
+      .filter((category) => !category.is_active)
+      .map((category) => category.name.trim().toLocaleLowerCase()),
+  );
+  const isInArchivedCategory = (item: BusinessMenuCardItem) =>
+    archivedCategoryNames.has((item.category || "").trim().toLocaleLowerCase());
+  const activeMenuItems = menuItems.filter((item) => !isInArchivedCategory(item));
+  const archivedMenuItems = menuItems.filter(isInArchivedCategory);
+  const visibleMenuItems = menuItemsTab === "archived" ? archivedMenuItems : activeMenuItems;
+  const availableMenuCount = activeMenuItems.filter((item) => item.availability).length;
+  const unavailableMenuCount = activeMenuItems.length - availableMenuCount;
 
   return (
     <>
       <PageShell title="Menu" subtitle="Manage menu items, inventory, and availability." backHref="/business/dashboard">
-        <div role="tablist" aria-label="Menu item views" className="mb-4 grid min-w-0 grid-cols-3 border-b border-slate-200 sm:mb-6">
+        <div role="tablist" aria-label="Menu item views" className="mb-4 grid min-w-0 grid-cols-4 border-b border-slate-200 sm:mb-6">
           {([
-            { id: "all", label: "Your Menu Items", count: menuItems.length },
+            { id: "all", label: "Your Menu Items", count: activeMenuItems.length },
             { id: "available", label: "Available", count: availableMenuCount },
             { id: "unavailable", label: "Unavailable", count: unavailableMenuCount },
+            { id: "archived", label: "Archived", count: archivedMenuItems.length },
           ] as const).map((tab) => (
             <button
               key={tab.id}
@@ -569,7 +582,10 @@ function BusinessMenuPageWithSearchParams() {
               aria-label={`${tab.label}, ${tab.count}`}
               aria-selected={menuItemsTab === tab.id}
               aria-controls="menu-items-panel"
-              onClick={() => setMenuItemsTab(tab.id)}
+              onClick={() => {
+                setMenuItemsTab(tab.id);
+                setCategoryFilter("All");
+              }}
               className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-2.5 text-[10px] font-semibold leading-tight transition sm:px-4 sm:py-3 sm:text-sm sm:leading-normal ${menuItemsTab === tab.id ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
             >
               <span className="sm:hidden">{tab.id === "all" ? `All (${tab.count})` : `${tab.label} (${tab.count})`}</span>
@@ -578,7 +594,9 @@ function BusinessMenuPageWithSearchParams() {
           ))}
         </div>
         <div className="mb-3 flex items-center justify-between lg:hidden">
-          <p className="text-xs font-semibold text-slate-600 sm:text-sm">{menuItems.length} items</p>
+          <p className="text-xs font-semibold text-slate-600 sm:text-sm">
+            {visibleMenuItems.length} {menuItemsTab === "archived" ? "archived" : "active"} items
+          </p>
         </div>
 
         <div className="grid gap-4 sm:gap-8">
@@ -586,8 +604,10 @@ function BusinessMenuPageWithSearchParams() {
           <div id="menu-items-panel" role="tabpanel" aria-labelledby={`menu-tab-${menuItemsTab}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-[32px] sm:p-6">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-2 sm:mb-6 sm:gap-3">
               <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-bold text-slate-900 sm:text-2xl">Menu Items</h2>
-                <p className="text-xs text-slate-500 sm:text-sm">{menuItems.length} total items</p>
+                <h2 className="text-lg font-bold text-slate-900 sm:text-2xl">{menuItemsTab === "archived" ? "Archived Menu Items" : "Menu Items"}</h2>
+                <p className="text-xs text-slate-500 sm:text-sm">
+                  {visibleMenuItems.length} items
+                </p>
               </div>
 
               <div className="w-full">
@@ -614,7 +634,9 @@ function BusinessMenuPageWithSearchParams() {
                     className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white sm:rounded-[24px] sm:px-4 sm:py-3 sm:text-sm"
                   >
                     <option value="All">All Categories</option>
-                    {[...new Set(menuItems.map((item) => item.category).filter((category): category is string => Boolean(category)))]
+                    {[...new Set((menuItemsTab === "archived" ? archivedMenuItems : activeMenuItems)
+                      .map((item) => item.category)
+                      .filter((category): category is string => Boolean(category)))]
                       .sort((first, second) => first.localeCompare(second))
                       .map((category) => <option key={category} value={category}>{category}</option>)}
                   </select>
@@ -630,7 +652,7 @@ function BusinessMenuPageWithSearchParams() {
                   </button>
                 )}
 
-                <button
+                {menuItemsTab !== "archived" && <button
                   onClick={() => {
                     setAddMenuStep(1);
                     setShowAddModal(true);
@@ -640,16 +662,16 @@ function BusinessMenuPageWithSearchParams() {
                   className="w-full rounded-2xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-blue-700 sm:w-auto sm:rounded-[24px] sm:px-6 sm:py-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   + Add Item
-                </button>
+                </button>}
               </div>
             </div>
 
-            {menuItems.length > 0 ? (
+            {visibleMenuItems.length > 0 ? (
               (() => {
-                const filteredItems = menuItems.filter((item) => {
+                const filteredItems = visibleMenuItems.filter((item) => {
                   const categoryMatches =
                     categoryFilter === "All" || item.category === categoryFilter;
-                  const availabilityMatches = menuItemsTab === "all"
+                  const availabilityMatches = menuItemsTab === "all" || menuItemsTab === "archived"
                     || (menuItemsTab === "available" && item.availability)
                     || (menuItemsTab === "unavailable" && !item.availability);
                   const searchMatches =
@@ -666,9 +688,14 @@ function BusinessMenuPageWithSearchParams() {
                 }, {} as Record<string, typeof menuItems>);
 
                 const categoryKeys = [
-                  ...menuCategories.map((category) => category.name).filter((name) => grouped[name]),
+                  ...menuCategories
+                    .filter((category) => category.is_active === (menuItemsTab !== "archived"))
+                    .map((category) => category.name)
+                    .filter((name) => grouped[name]),
                   ...Object.keys(grouped)
-                    .filter((name) => !menuCategories.some((category) => category.name === name))
+                    .filter((name) => !menuCategories.some((category) =>
+                      category.name === name && category.is_active !== (menuItemsTab === "archived")
+                    ))
                     .sort((first, second) => first.localeCompare(second)),
                 ];
 
@@ -687,7 +714,7 @@ function BusinessMenuPageWithSearchParams() {
                 return categoryKeys.map((category) => {
                   const items = grouped[category];
                   return (
-                    <div key={category}>
+                    <div key={category} className="mb-8 sm:mb-8">
                       <div className="mb-3 border-b border-gray-300 pb-2 sm:mb-4 sm:pb-3">
                         <h3 className="text-sm font-bold text-gray-900 sm:text-xl">{category}</h3>
                         <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">
@@ -700,11 +727,18 @@ function BusinessMenuPageWithSearchParams() {
                         className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6"
                         disabled={!canEditMenu || menuItemsTab !== "all" || categoryFilter !== "All" || searchFilter.trim() !== "" || items.length < 2}
                         label={`Reorder ${category} menu items`}
-                        renderItem={(item) => (
+                        handleInside
+                        renderItem={(item, dragHandle) => (
                           <BusinessMenuCard
                             key={item.id}
                             item={item}
-                            categoryNames={menuCategories.map((category) => category.name)}
+                            dragHandle={dragHandle}
+                            categoryNames={[
+                              ...menuCategories.filter((category) => category.is_active).map((category) => category.name),
+                              ...(item.category && !menuCategories.some((category) =>
+                                category.is_active && category.name === item.category
+                              ) ? [item.category] : []),
+                            ]}
                             onUpdated={fetchMenuItems}
                           />
                         )}
@@ -715,8 +749,19 @@ function BusinessMenuPageWithSearchParams() {
               })()
             ) : (
               <div className="col-span-full text-center py-12 bg-slate-50 rounded-3xl border border-slate-200">
-                <p className="text-slate-500">No menu items yet</p>
-                <p className="text-sm text-slate-400 mt-2">Add your first item to get started</p>
+                <p className="text-slate-500">
+                  {menuItemsTab === "archived"
+                    ? "No archived menu items"
+                    : menuItems.length > 0
+                    ? "No menu items in active categories"
+                    : "No menu items yet"}
+                </p>
+                {menuItemsTab !== "archived" && menuItems.length === 0 && (
+                  <p className="text-sm text-slate-400 mt-2">Add your first item to get started</p>
+                )}
+                {menuItemsTab !== "archived" && menuItems.length > 0 && activeMenuItems.length === 0 && (
+                  <p className="text-sm text-slate-400 mt-2">Items in archived categories are listed in the Archived tab.</p>
+                )}
               </div>
             )}
           </div>
@@ -821,6 +866,32 @@ function BusinessMenuPageWithSearchParams() {
                           placeholder="₱0.00"
                         />
                       </label>
+                    </div>
+
+                    <div className="space-y-3 rounded-2xl border border-gray-200 bg-slate-50 p-4">
+                      <label className="flex items-center gap-3 text-sm font-semibold text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={menuTrackable}
+                          onChange={(e) => setMenuTrackable(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                        />
+                        Track inventory for this item
+                      </label>
+
+                      {menuTrackable && (
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Daily Limit
+                          <input
+                            type="number"
+                            min="0"
+                            value={menuDailyLimit}
+                            onChange={(e) => setMenuDailyLimit(e.target.value)}
+                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
+                            placeholder="0"
+                          />
+                        </label>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1012,29 +1083,6 @@ function BusinessMenuPageWithSearchParams() {
                       </div>
                     </div>
 
-                    <label className="flex items-center gap-3 text-sm font-semibold text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={menuTrackable}
-                        onChange={(e) => setMenuTrackable(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                      />
-                      Track inventory for this item
-                    </label>
-
-                    {menuTrackable && (
-                      <label className="block text-sm font-semibold text-gray-700">
-                        Daily Limit
-                        <input
-                          type="number"
-                          min="0"
-                          value={menuDailyLimit}
-                          onChange={(e) => setMenuDailyLimit(e.target.value)}
-                          className="mt-2 block w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
-                          placeholder="0"
-                        />
-                      </label>
-                    )}
                   </div>
                 )}
 
@@ -1076,48 +1124,32 @@ function BusinessMenuPageWithSearchParams() {
                           />
                         </div>
 
-                        <label className="block text-sm font-semibold text-gray-700">
-                          Image Position
-                          <select
-                            value={menuImagePosition}
-                            onChange={(e) => setMenuImagePosition(e.target.value)}
-                            className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
-                          >
-                            <option value="center">Center</option>
-                            <option value="top">Top</option>
-                            <option value="bottom">Bottom</option>
-                            <option value="left">Left</option>
-                            <option value="right">Right</option>
-                          </select>
-                        </label>
-
-                        <div className="rounded-3xl overflow-hidden border border-gray-200 bg-white">
-                          {imagePreview ? (
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="h-44 w-full object-cover"
-                              style={{ objectPosition: menuImagePosition }}
-                            />
-                          ) : (
-                            <div className="flex h-44 items-center justify-center bg-slate-50 px-4 text-sm text-gray-500">
-                              No image selected yet. Upload a file to preview it here.
-                            </div>
-                          )}
-                        </div>
+                        <MenuImageCropEditor
+                          src={imagePreview}
+                          onApply={(file, previewUrl) => {
+                            setImageFile(file);
+                            setImagePreview(previewUrl);
+                            setMenuImagePosition("center");
+                          }}
+                        />
+                        {!imagePreview && (
+                          <div className="flex h-32 items-center justify-center rounded-3xl border border-gray-200 bg-white px-4 text-sm text-gray-500">
+                            No image selected yet. Upload a file to crop and position it.
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div className="rounded-2xl border border-gray-200 bg-slate-50 p-5 shadow-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm uppercase tracking-[0.24em] font-semibold text-slate-500">
-                            Addons & Options
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Optional — only add groups if this menu item has add-ons.
-                          </p>
-                        </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.24em] font-semibold text-slate-500">
+                          Addons & Options
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Optional — only add groups if this menu item has add-ons.
+                        </p>
+                      </div>
                         <div className="flex flex-wrap gap-2">
                           <select
                             value={selectedOptionGroupId}

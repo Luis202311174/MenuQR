@@ -22,13 +22,14 @@ import { saveDisplayOrder } from "@/utils/reorderApi";
 
 type GroupDraft = Pick<GlobalOptionGroup, "name" | "is_required" | "min_select" | "max_select">;
 type ChoiceDraft = Pick<OptionChoice, "name" | "price_modifier" | "is_available">;
-type OptionGroupsTab = "create" | "groups" | "archives";
+type OptionGroupsTab = "groups" | "archives";
 
 const emptyData: OptionGroupData = { groups: [], items: [] };
 
 export default function BusinessOptionGroupsPage() {
   const auth = useBusinessAuth("menu", "view");
   const [activeTab, setActiveTab] = useState<OptionGroupsTab>("groups");
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [data, setData] = useState<OptionGroupData>(emptyData);
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set());
   const [groupDrafts, setGroupDrafts] = useState<Record<string, GroupDraft>>({});
@@ -109,6 +110,7 @@ export default function BusinessOptionGroupsPage() {
       setNewGroup({ name: "", is_required: false, min_select: 0, max_select: 1 });
       setNotice("Option group created.");
       setActiveTab("groups");
+      setShowCreateModal(false);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to create option group.");
     } finally {
@@ -118,16 +120,67 @@ export default function BusinessOptionGroupsPage() {
 
   const handleSaveGroup = async (groupId: string) => {
     const draft = groupDrafts[groupId];
-    if (!draft) return;
+    const group = data.groups.find((item) => item.id === groupId);
+    if (!draft || !group) return;
+
+    const choiceUpdates = group.choices.flatMap((choice) => {
+      const choiceDraft = choiceDrafts[choice.id] ?? {
+        name: choice.name,
+        price_modifier: Number(choice.price_modifier),
+        is_available: choice.is_available,
+      };
+      if (!choiceDraft.name.trim() || !Number.isFinite(Number(choiceDraft.price_modifier))) {
+        return [];
+      }
+      const changed = choiceDraft.name.trim() !== choice.name
+        || Number(choiceDraft.price_modifier) !== Number(choice.price_modifier);
+      return changed ? [{ choice, draft: choiceDraft }] : [];
+    });
+
+    if (!draft.name.trim()) {
+      setError("Enter a group name.");
+      return;
+    }
+    if (group.choices.some((choice) => {
+      const choiceDraft = choiceDrafts[choice.id] ?? choice;
+      return !choiceDraft.name.trim() || !Number.isFinite(Number(choiceDraft.price_modifier));
+    })) {
+      setError("Enter a choice name and a valid price modifier for every choice.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
-      const updatedGroup = await updateGlobalOptionGroup(groupId, draft);
-      updateGroup(groupId, (group) => ({ ...group, ...updatedGroup }));
-      setGroupDrafts((current) => ({ ...current, [groupId]: draft }));
-      setNotice("Option group updated.");
+      const [updatedGroup, updatedChoices] = await Promise.all([
+        updateGlobalOptionGroup(groupId, { ...draft, name: draft.name.trim() }),
+        Promise.all(choiceUpdates.map(({ choice, draft: choiceDraft }) =>
+          updateOptionChoice(groupId, choice.id, {
+            ...choiceDraft,
+            name: choiceDraft.name.trim(),
+            price_modifier: Number(choiceDraft.price_modifier),
+          }),
+        )),
+      ]);
+      const choicesById = new Map(updatedChoices.map((choice) => [choice.id, choice]));
+      updateGroup(groupId, (current) => ({
+        ...current,
+        ...updatedGroup,
+        choices: current.choices.map((choice) => choicesById.get(choice.id) ?? choice),
+      }));
+      setGroupDrafts((current) => ({ ...current, [groupId]: { ...draft, name: updatedGroup.name } }));
+      setChoiceDrafts((current) => ({
+        ...current,
+        ...Object.fromEntries(updatedChoices.map((choice) => [choice.id, {
+          name: choice.name,
+          price_modifier: Number(choice.price_modifier),
+          is_available: choice.is_available,
+        }])),
+      }));
+      setNotice("Option group and choice details saved.");
     } catch (updateError) {
+      await loadData();
       setError(updateError instanceof Error ? updateError.message : "Failed to update option group.");
     } finally {
       setSaving(false);
@@ -161,8 +214,8 @@ export default function BusinessOptionGroupsPage() {
   const handleArchiveGroup = async (group: GlobalOptionGroup) => {
     const nextArchivedState = group.is_active;
     const message = nextArchivedState
-      ? `Archive "${group.name}"? It will be hidden from every linked menu until restored.`
-      : `Restore "${group.name}" to linked menus?`;
+      ? `Archive "${group.name}" and remove it from all assigned menu items? Restoring it will not reassign it automatically.`
+      : `Restore "${group.name}"? Assign it to menu items again from its details.`;
     if (!window.confirm(message)) return;
 
     setSaving(true);
@@ -170,7 +223,14 @@ export default function BusinessOptionGroupsPage() {
     setNotice(null);
     try {
       const updatedGroup = await setOptionGroupArchived(group.id, nextArchivedState);
-      updateGroup(group.id, (current) => ({ ...current, is_active: updatedGroup.is_active }));
+      updateGroup(group.id, (current) => ({
+        ...current,
+        is_active: updatedGroup.is_active,
+        menu_item_ids: updatedGroup.is_active ? current.menu_item_ids : [],
+      }));
+      if (!updatedGroup.is_active) {
+        setAssignedItems((current) => ({ ...current, [group.id]: [] }));
+      }
       setNotice(nextArchivedState ? "Option group archived." : "Option group restored.");
     } catch (archiveError) {
       setError(archiveError instanceof Error ? archiveError.message : "Failed to update option group status.");
@@ -293,14 +353,20 @@ export default function BusinessOptionGroupsPage() {
   };
 
   const handleToggleChoice = async (groupId: string, choice: OptionChoice) => {
+    const draft = choiceDrafts[choice.id] ?? {
+      name: choice.name,
+      price_modifier: Number(choice.price_modifier),
+      is_available: choice.is_available,
+    };
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
       const updatedChoice = await updateOptionChoice(groupId, choice.id, {
-        name: choice.name,
-        price_modifier: Number(choice.price_modifier),
-        is_available: !choice.is_available,
+        ...draft,
+        name: draft.name.trim(),
+        price_modifier: Number(draft.price_modifier),
+        is_available: !draft.is_available,
       });
       updateGroup(groupId, (group) => ({
         ...group,
@@ -314,7 +380,7 @@ export default function BusinessOptionGroupsPage() {
           is_available: updatedChoice.is_available,
         },
       }));
-      setNotice(choice.is_available ? `${choice.name} is now unavailable.` : `${choice.name} is available again.`);
+      setNotice(draft.is_available ? `${choice.name} is now unavailable.` : `${choice.name} is available again.`);
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : "Failed to change choice availability.");
     } finally {
@@ -374,22 +440,7 @@ export default function BusinessOptionGroupsPage() {
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
         {notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
-        <div role="tablist" aria-label="Option group views" className="grid min-w-0 grid-cols-3 border-b border-slate-200">
-          {canCreate && (
-            <button
-              id="option-group-tab-create"
-              type="button"
-              role="tab"
-              aria-label="Create Option Group"
-              aria-selected={activeTab === "create"}
-              aria-controls="option-group-panel-create"
-              onClick={() => setActiveTab("create")}
-              className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-3 text-[10px] font-semibold leading-tight transition sm:px-4 sm:text-sm sm:leading-normal ${activeTab === "create" ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
-            >
-              <span className="sm:hidden">Create</span>
-              <span className="hidden sm:inline">Create Option Group</span>
-            </button>
-          )}
+        <div role="tablist" aria-label="Option group views" className="grid min-w-0 grid-cols-2 border-b border-slate-200">
           <button
             id="option-group-tab-groups"
             type="button"
@@ -418,43 +469,6 @@ export default function BusinessOptionGroupsPage() {
           </button>
         </div>
 
-        {canCreate && activeTab === "create" && (
-          <section id="option-group-panel-create" role="tabpanel" aria-labelledby="option-group-tab-create">
-          <form onSubmit={(event) => void handleCreateGroup(event)} className="rounded-xl border border-slate-200 bg-white p-3 sm:p-6">
-            <h2 className="text-sm font-bold text-slate-900 sm:text-lg">Create option group</h2>
-            <div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-              <label className="text-xs font-semibold text-slate-700 sm:text-sm sm:col-span-2">
-                Group name
-                <input
-                  required
-                  maxLength={80}
-                  value={newGroup.name}
-                  onChange={(event) => setNewGroup((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="e.g. Wing Flavors"
-                  className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600"
-                />
-              </label>
-              <label className="text-xs font-semibold text-slate-700 sm:text-sm">
-                Minimum selections
-                <input type="number" min="0" value={newGroup.min_select} onChange={(event) => setNewGroup((current) => ({ ...current, min_select: Number(event.target.value) }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600" />
-              </label>
-              <label className="text-xs font-semibold text-slate-700 sm:text-sm">
-                Maximum selections
-                <input type="number" min="1" value={newGroup.max_select} onChange={(event) => setNewGroup((current) => ({ ...current, max_select: Number(event.target.value) }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600" />
-              </label>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sm:mt-4 sm:gap-3">
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 sm:text-sm">
-                <input type="checkbox" checked={newGroup.is_required} onChange={(event) => setNewGroup((current) => ({ ...current, is_required: event.target.checked }))} className="h-4 w-4 accent-blue-700" />
-                Required selection
-              </label>
-              <button type="submit" disabled={saving || !newGroup.name.trim()} className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-sm">Create group</button>
-            </div>
-          </form>
-          </section>
-        )}
-
-        {activeTab !== "create" && (
         <section id={`option-group-panel-${activeTab}`} role="tabpanel" aria-labelledby={`option-group-tab-${activeTab}`}>
           <div className="mb-2 flex items-baseline justify-between border-b border-slate-200 pb-2 sm:mb-3 sm:pb-3">
             <h2 id={activeTab === "archives" ? "archives-heading" : "groups-heading"} className="text-sm font-bold text-slate-900 sm:text-lg">
@@ -462,6 +476,15 @@ export default function BusinessOptionGroupsPage() {
             </h2>
             <span className="text-xs text-slate-500 sm:text-sm">{visibleGroups.length}</span>
           </div>
+          {activeTab === "groups" && canCreate && (
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="mb-4 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Create New Group
+            </button>
+          )}
           {loading ? <p className="py-6 text-sm text-slate-500">Loading option groups...</p> : visibleGroups.length === 0 ? (
             <p className="py-6 text-sm text-slate-500">{activeTab === "archives" ? "No archived option groups." : "No option groups yet."}</p>
           ) : (
@@ -604,13 +627,13 @@ export default function BusinessOptionGroupsPage() {
                     <div className="mt-6 border-t border-slate-200 pt-5">
                       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                         <h4 className="text-sm font-bold text-slate-900">Assigned menu items</h4>
-                        {canEdit && <button type="button" disabled={saving} onClick={() => void handleAssignItems(group.id)} className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">Save assignments</button>}
+                        {canEdit && group.is_active && <button type="button" disabled={saving} onClick={() => void handleAssignItems(group.id)} className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">Save assignments</button>}
                       </div>
                       {data.items.length === 0 ? <p className="text-sm text-slate-500">Add menu items before assigning this group.</p> : (
                         <div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
                           {data.items.map((item) => (
                             <label key={item.id} className="flex min-w-0 items-start gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                              <input disabled={!canEdit} type="checkbox" checked={(assignedItems[group.id] ?? []).includes(item.id)} onChange={() => toggleAssignedItem(group.id, item.id)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-700" />
+                              <input disabled={!canEdit || !group.is_active} type="checkbox" checked={(assignedItems[group.id] ?? []).includes(item.id)} onChange={() => toggleAssignedItem(group.id, item.id)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-700" />
                               <span className="min-w-0 break-words">{item.name}<span className="block text-xs text-slate-500">{item.category || "Uncategorized"}</span></span>
                             </label>
                           ))}
@@ -625,6 +648,97 @@ export default function BusinessOptionGroupsPage() {
             />
           )}
         </section>
+        {showCreateModal && canCreate && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !saving) setShowCreateModal(false);
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="create-option-group-title"
+              className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-4 shadow-xl sm:p-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="create-option-group-title" className="text-lg font-bold text-slate-900">Create New Group</h2>
+                  <p className="mt-1 text-sm text-slate-500">Set up the group rules. Add choices after creating it.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={saving}
+                  aria-label="Close create option group dialog"
+                  className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+                >
+                  ×
+                </button>
+              </div>
+              <form onSubmit={(event) => void handleCreateGroup(event)} className="mt-5 space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">
+                  Group name
+                  <input
+                    required
+                    maxLength={80}
+                    value={newGroup.name}
+                    onChange={(event) => setNewGroup((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="e.g. Wing Flavors"
+                    className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Minimum selections
+                    <input
+                      type="number"
+                      min="0"
+                      value={newGroup.min_select}
+                      onChange={(event) => setNewGroup((current) => ({ ...current, min_select: Number(event.target.value) }))}
+                      className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600"
+                    />
+                  </label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    Maximum selections
+                    <input
+                      type="number"
+                      min="1"
+                      value={newGroup.max_select}
+                      onChange={(event) => setNewGroup((current) => ({ ...current, max_select: Number(event.target.value) }))}
+                      className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600"
+                    />
+                  </label>
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={newGroup.is_required}
+                    onChange={(event) => setNewGroup((current) => ({ ...current, is_required: event.target.checked }))}
+                    className="h-4 w-4 accent-blue-700"
+                  />
+                  Required selection
+                </label>
+                <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    disabled={saving}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || !newGroup.name.trim()}
+                    className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                  >
+                    {saving ? "Creating..." : "Create group"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
         )}
       </div>
     </PageShell>

@@ -13,7 +13,7 @@ import {
   updateMenuCategory,
 } from "@/utils/menuCategoriesApi";
 
-type CategoriesTab = "create" | "categories" | "archives";
+type CategoriesTab = "categories" | "archives";
 
 export default function BusinessCategoriesPage() {
   const auth = useBusinessAuth("menu", "view");
@@ -22,6 +22,7 @@ export default function BusinessCategoriesPage() {
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,12 +121,44 @@ export default function BusinessCategoriesPage() {
     }
   };
 
-  const handleReorderCategories = async (orderedCategories: MenuCategory[]) => {
+  const handleReorderCategories = (orderedCategories: MenuCategory[]) => {
+    const isActiveOrder = orderedCategories[0]?.is_active ?? true;
+    let nextIndex = 0;
+    setCategories((current) => current.map((category) =>
+      category.is_active === isActiveOrder
+        ? orderedCategories[nextIndex++]
+        : category
+    ));
+    setError(null);
+    setNotice(null);
+  };
+
+  const handleEditModeToggle = async () => {
+    if (!editMode) {
+      setError(null);
+      setNotice(null);
+      setEditingId(null);
+      setEditMode(true);
+      return;
+    }
+
+    if (categories.length === 0) {
+      setEditMode(false);
+      return;
+    }
+
     setSaving(true);
     setError(null);
+    setNotice(null);
     try {
-      await saveDisplayOrder("categories", orderedCategories.map((category) => category.id));
+      await saveDisplayOrder("categories", [
+        ...activeCategories,
+        ...archivedCategories,
+      ].map((category) => category.id));
       await loadCategories();
+      setEditingId(null);
+      setEditMode(false);
+      setNotice("Category order saved.");
     } catch (reorderError) {
       setError(reorderError instanceof Error ? reorderError.message : "Failed to reorder categories.");
     } finally {
@@ -137,7 +170,22 @@ export default function BusinessCategoriesPage() {
 
   const activeCategories = categories.filter((category) => category.is_active);
   const archivedCategories = categories.filter((category) => !category.is_active);
-  const visibleCategories = activeTab === "archives" ? archivedCategories : activeCategories;
+  const renderEditButton = () => canEdit && (
+    <button
+      type="button"
+      disabled={saving}
+      aria-pressed={editMode}
+      onClick={() => void handleEditModeToggle()}
+      aria-label={editMode ? "Save category order" : "Edit category order"}
+      className={`rounded-lg px-3 py-1.5 text-xs font-semibold sm:text-sm ${
+        editMode
+          ? "bg-blue-700 text-white hover:bg-blue-800"
+          : "border border-slate-300 text-slate-700 hover:bg-slate-50"
+      } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      {editMode ? "Done" : "Edit"}
+    </button>
+  );
 
   const renderCategory = (category: MenuCategory) => (
     <div className="border-b border-slate-200 last:border-b-0">
@@ -170,7 +218,7 @@ export default function BusinessCategoriesPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            {canEdit && (
+            {canEdit && editMode && (
               <button
                 type="button"
                 disabled={saving}
@@ -231,33 +279,18 @@ export default function BusinessCategoriesPage() {
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
         {notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
-        <div role="tablist" aria-label="Category views" className="grid min-w-0 grid-cols-3 border-b border-slate-200">
-          <button
-            id="categories-tab-create"
-            type="button"
-            role="tab"
-            aria-label="Create Category"
-            disabled={!canCreate}
-            aria-selected={activeTab === "create"}
-            aria-controls="categories-panel-create"
-            onClick={() => setActiveTab("create")}
-            className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-3 text-[10px] font-semibold leading-tight transition sm:px-4 sm:text-sm sm:leading-normal disabled:cursor-not-allowed disabled:opacity-40 ${activeTab === "create" ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
-          >
-            <span className="sm:hidden">Create</span>
-            <span className="hidden sm:inline">Create Category</span>
-          </button>
+        <div role="tablist" aria-label="Category views" className="grid min-w-0 grid-cols-2 border-b border-slate-200">
           <button
             id="categories-tab-list"
             type="button"
             role="tab"
-            aria-label={`Your Categories, ${activeCategories.length}`}
+            aria-label={`Categories, ${activeCategories.length} active`}
             aria-selected={activeTab === "categories"}
             aria-controls="categories-panel-list"
             onClick={() => setActiveTab("categories")}
             className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-3 text-[10px] font-semibold leading-tight transition sm:px-4 sm:text-sm sm:leading-normal ${activeTab === "categories" ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
           >
-            <span className="sm:hidden">Categories ({activeCategories.length})</span>
-            <span className="hidden sm:inline">Your Categories ({activeCategories.length})</span>
+            Categories ({activeCategories.length})
           </button>
           <button
             id="categories-tab-archives"
@@ -274,53 +307,84 @@ export default function BusinessCategoriesPage() {
           </button>
         </div>
 
-        {canCreate && activeTab === "create" && (
-          <section id="categories-panel-create" role="tabpanel" aria-labelledby="categories-tab-create">
-          <form onSubmit={(event) => void handleCreate(event)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="min-w-0 flex-1 text-sm font-semibold text-slate-700">
-              New category
-              <input
-                maxLength={60}
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-                placeholder="e.g. Breakfast"
-                className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal outline-none focus:border-blue-600"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={saving || !newName.trim()}
-              className="inline-flex h-[42px] w-full items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            >
-              Add category
-            </button>
-          </form>
-          </section>
-        )}
-
-        {activeTab !== "create" && (
+        {activeTab === "categories" && (
           <section
-            id={`categories-panel-${activeTab === "archives" ? "archives" : "list"}`}
+            id="categories-panel-list"
             role="tabpanel"
-            aria-labelledby={`categories-tab-${activeTab === "archives" ? "archives" : "list"}`}
+            aria-labelledby="categories-tab-list"
           >
-            <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-slate-200 pb-2 sm:mb-3 sm:gap-3 sm:pb-3">
-              <h2 className="text-sm font-bold text-slate-900 sm:text-lg">{activeTab === "archives" ? "Archived Categories" : "Active Categories"}</h2>
-              <span className="text-xs text-slate-500 sm:text-sm">{visibleCategories.length}</span>
+            {canCreate && (
+              <form onSubmit={(event) => void handleCreate(event)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <label className="min-w-0 flex-1 text-sm font-semibold text-slate-700">
+                  New category
+                  <input
+                    maxLength={60}
+                    value={newName}
+                    onChange={(event) => setNewName(event.target.value)}
+                    placeholder="e.g. Breakfast"
+                    className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal outline-none focus:border-blue-600"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={saving || !newName.trim()}
+                  className="inline-flex h-[42px] w-full items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  Add category
+                </button>
+              </form>
+            )}
+            <div className="mt-6 flex items-center justify-between gap-2 border-t border-slate-200 pt-4">
+              <h2 className="text-sm font-bold text-slate-900 sm:text-lg">Active Categories</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 sm:text-sm">{activeCategories.length}</span>
+                {renderEditButton()}
+              </div>
             </div>
             {loading ? (
               <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">Loading categories...</p>
-            ) : visibleCategories.length ? (
+            ) : activeCategories.length ? (
               <SortableList
-                items={visibleCategories}
+                items={activeCategories}
                 onReorder={handleReorderCategories}
                 renderItem={renderCategory}
                 className="divide-y divide-slate-200"
-                disabled={!canEdit || saving || visibleCategories.length < 2}
-                label={activeTab === "archives" ? "Reorder archived categories" : "Reorder categories"}
+                disabled={!canEdit || !editMode || saving || activeCategories.length < 2}
+                label="Reorder categories"
+                showHandle={editMode}
               />
             ) : (
-              <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">{activeTab === "archives" ? "No archived categories." : "No active categories yet."}</p>
+              <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">No active categories yet.</p>
+            )}
+          </section>
+        )}
+        {activeTab === "archives" && (
+          <section
+            id="categories-panel-archives"
+            role="tabpanel"
+            aria-labelledby="categories-tab-archives"
+          >
+            <div className="mb-2 flex items-center justify-between gap-2 border-b border-slate-200 pb-2 sm:mb-3 sm:gap-3 sm:pb-3">
+              <h2 className="text-sm font-bold text-slate-900 sm:text-lg">Archived Categories</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 sm:text-sm">{archivedCategories.length}</span>
+                {renderEditButton()}
+              </div>
+            </div>
+            {loading ? (
+              <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">Loading categories...</p>
+            ) : archivedCategories.length ? (
+              <SortableList
+                items={archivedCategories}
+                onReorder={handleReorderCategories}
+                renderItem={renderCategory}
+                className="divide-y divide-slate-200"
+                disabled={!canEdit || !editMode || saving || archivedCategories.length < 2}
+                label="Reorder archived categories"
+                showHandle={editMode}
+              />
+            ) : (
+              <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">No archived categories.</p>
             )}
           </section>
         )}
