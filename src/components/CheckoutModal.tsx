@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faX,
@@ -127,6 +127,8 @@ export default function CheckoutModal({
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "gcash">("cash");
   const [gcashReceiptImage, setGcashReceiptImage] = useState<File | null>(null);
   const [gcashReceiptPreviewUrl, setGcashReceiptPreviewUrl] = useState<string | null>(null);
+  const cameraReceiptInputRef = useRef<HTMLInputElement>(null);
+  const fileReceiptInputRef = useRef<HTMLInputElement>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [guestError, setGuestError] = useState<string | null>(null);
   const [cartError, setCartError] = useState<string | null>(null);
@@ -138,6 +140,22 @@ export default function CheckoutModal({
     couponId?: string;
   } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  const handleGcashReceiptSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0] ?? null;
+    input.value = "";
+
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setGcashReceiptImage(null);
+      setPaymentError("The e-receipt image must be 5 MB or smaller.");
+      return;
+    }
+
+    setGcashReceiptImage(file);
+    setPaymentError(null);
+  };
 
   useEffect(() => {
     if (!gcashReceiptImage) {
@@ -923,30 +941,55 @@ export default function CheckoutModal({
               ))}
               {paymentMethod === "gcash" && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
-                  <label className="block text-sm font-semibold text-slate-900" htmlFor="gcash-e-receipt">
-                    Attach GCash e-receipt
-                  </label>
-                  <p className="mt-1 text-xs text-slate-600">
-                    Upload a screenshot or image of your successful GCash payment for the restaurant to verify.
+                  <p className="text-sm font-semibold text-slate-900">
+                    Pay with GCash
                   </p>
+                  <ol className="mt-2 space-y-1.5 text-xs text-slate-700">
+                    <li>
+                      <span className="font-semibold text-slate-900">1.</span>{" "}
+                      Scan the restaurant&apos;s GCash QR code and pay the total shown.
+                    </li>
+                    <li>
+                      <span className="font-semibold text-slate-900">2.</span>{" "}
+                      Upload a screenshot or photo of your successful payment below.
+                    </li>
+                  </ol>
                   <input
-                    id="gcash-e-receipt"
+                    ref={cameraReceiptInputRef}
+                    id="gcash-camera-receipt"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={handleGcashReceiptSelect}
+                  />
+                  <input
+                    ref={fileReceiptInputRef}
+                    id="gcash-file-receipt"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    capture="environment"
-                    className="mt-3 block w-full text-xs text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-[#4f65ff] file:px-3 file:py-2 file:font-semibold file:text-white hover:file:bg-[#4257e8]"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      if (file && file.size > 5 * 1024 * 1024) {
-                        setGcashReceiptImage(null);
-                        setPaymentError("The e-receipt image must be 5 MB or smaller.");
-                        event.currentTarget.value = "";
-                        return;
-                      }
-                      setGcashReceiptImage(file);
-                      setPaymentError(null);
-                    }}
+                    className="sr-only"
+                    onChange={handleGcashReceiptSelect}
                   />
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-slate-900">Upload GCash receipt</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cameraReceiptInputRef.current?.click()}
+                        className="rounded-lg bg-[#4f65ff] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#4257e8]"
+                      >
+                        Take photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileReceiptInputRef.current?.click()}
+                        className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-blue-100"
+                      >
+                        Choose from files
+                      </button>
+                    </div>
+                  </div>
                   {gcashReceiptPreviewUrl && gcashReceiptImage && (
                     <div className="mt-3 flex items-center gap-3">
                       <img src={gcashReceiptPreviewUrl} alt="GCash e-receipt preview" className="h-16 w-16 rounded-lg border border-blue-200 object-cover" />
