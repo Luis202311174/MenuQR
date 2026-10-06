@@ -993,7 +993,18 @@ export default function CheckoutModal({
                   {gcashReceiptPreviewUrl && gcashReceiptImage && (
                     <div className="mt-3 flex items-center gap-3">
                       <img src={gcashReceiptPreviewUrl} alt="GCash e-receipt preview" className="h-16 w-16 rounded-lg border border-blue-200 object-cover" />
-                      <span className="min-w-0 truncate text-xs text-slate-700">{gcashReceiptImage.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{gcashReceiptImage.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGcashReceiptImage(null);
+                          setPaymentError(null);
+                        }}
+                        className="shrink-0 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+                        aria-label="Remove uploaded GCash receipt"
+                      >
+                        Remove
+                      </button>
                     </div>
                   )}
                   {paymentError && <p className="mt-2 text-xs text-red-600">{paymentError}</p>}
