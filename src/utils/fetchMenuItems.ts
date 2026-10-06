@@ -5,7 +5,9 @@ export async function fetchMenuItems(businessId: string) {
     .from("menu_items")
     .select("*")
     .eq("business_id", businessId)
-    .eq("availability", true); // ✅ ADD THIS
+    .eq("availability", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     console.error("Error fetching menu:", error.message);

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
@@ -20,12 +20,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "MenuQR",
   description: "Dynamic QR Menu Platform",
-  themeColor: "#0f172a",
   icons: [
     { rel: "icon", url: "/logo.png", type: "image/png" },
     { rel: "apple-touch-icon", url: "/logo.png", sizes: "512x512" },
   ],
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({

@@ -11,6 +11,7 @@
   import { loadBusinessPageData } from "@/utils/loadBusinessPageData";
   import { fetchActiveOrderByTable, fetchUnpaidOrdersBySession, fetchAllOrdersBySession, OrderData } from "@/utils/fetchActiveOrder";
   import { fetchMenuItems } from "@/utils/fetchMenuItems";
+  import type { MenuCategory } from "@/utils/menuCategoriesApi";
   import { createOrder } from "@/utils/createOrder";
   import { endTableSession } from "@/utils/endTableSession";
   import { loadOfflineMenu, persistOfflineMenu } from "@/utils/offlineMenuCache";
@@ -89,7 +90,11 @@ export default function BusinessPage() {
     const tableId = typeof rawTableId === "string" ? rawTableId : undefined;
 
     const [business, setBusiness] = useState<Business | null>(null);
+    const [pageLoading, setPageLoading] = useState(true);
+    const [pageLoadError, setPageLoadError] = useState<string | null>(null);
+    const [loadAttempt, setLoadAttempt] = useState(0);
     const [menuItems, setMenuItems] = useState<any[]>([]);
+    const [menuCategories, setMenuCategories] = useState<Pick<MenuCategory, "name" | "sort_order">[]>([]);
     const [offlineMode, setOfflineMode] = useState(false);
     const [categoryFilter, setCategoryFilter] = useState<string[]>(["All"]);
     const [searchFilter, setSearchFilter] = useState("");
@@ -296,11 +301,23 @@ export default function BusinessPage() {
     }, [tableId, sessionId]);
 
     useEffect(() => {
-      if (!slug) return;
+      if (!slug) {
+        setPageLoading(false);
+        setPageLoadError("This menu address is invalid.");
+        return;
+      }
+
+      let cancelled = false;
 
       const loadPage = async () => {
+        setPageLoading(true);
+        setPageLoadError(null);
+        setBusiness(null);
+        setMenuItems([]);
         try {
+          setMenuCategories([]);
           const result = await loadBusinessPageData(slug as string, tableId);
+          if (cancelled) return;
 
           // If the API returned no business (likely offline or 404), try cached snapshot
           if (!result.business) {
@@ -319,6 +336,10 @@ export default function BusinessPage() {
             invalidateSession(result.notification?.message);
             setBusiness(null);
             setMenuItems([]);
+            setPageLoadError(
+              result.notification?.message ??
+                "We couldn't find this menu. Check the link and try again."
+            );
             return;
           }
 
@@ -331,6 +352,19 @@ export default function BusinessPage() {
           setBusiness(result.business);
           setMenuItems(normalizedItems);
           persistOfflineMenu(slug as string, result.business, normalizedItems);
+
+          const { data: categories, error: categoriesError } = await supabase
+            .from("menu_categories")
+            .select("name,sort_order")
+            .eq("business_id", result.business.id)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true })
+            .order("name", { ascending: true });
+          if (cancelled) return;
+          if (categoriesError) {
+            console.warn("Could not load custom category order:", categoriesError.message);
+          }
+          setMenuCategories(categories ?? []);
 
           setSessionId(result.sessionId);
           setTableInvalid(result.tableInvalid);
@@ -363,11 +397,19 @@ export default function BusinessPage() {
             message: "Unable to load menu offline. Please connect to the internet.",
             type: "error",
           });
+          setPageLoadError(
+            "We couldn't load this menu. Check your connection and try again."
+          );
+        } finally {
+          if (!cancelled) setPageLoading(false);
         }
       };
 
-      loadPage();
-    }, [slug, tableId]);
+      void loadPage();
+      return () => {
+        cancelled = true;
+      };
+    }, [slug, tableId, loadAttempt]);
 
     useEffect(() => {
       if (!sessionId) return;
@@ -617,8 +659,6 @@ export default function BusinessPage() {
       return categoryMatches && searchMatches && item.availability;
     });
 
-    const orderedCategories = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
-
     const allGroupedMenuItems = displayedMenuItems.reduce((grouped, item) => {
       const category = item.category || "Other";
       if (!grouped[category]) grouped[category] = [];
@@ -627,8 +667,10 @@ export default function BusinessPage() {
     }, {} as Record<string, typeof menuItems>);
 
     const categoryKeys = [
-      ...orderedCategories.filter((cat) => allGroupedMenuItems[cat]),
-      ...Object.keys(allGroupedMenuItems).filter((cat) => !orderedCategories.includes(cat)).sort(),
+      ...menuCategories.map((category) => category.name).filter((name) => allGroupedMenuItems[name]),
+      ...Object.keys(allGroupedMenuItems)
+        .filter((name) => !menuCategories.some((category) => category.name === name))
+        .sort((first, second) => first.localeCompare(second)),
     ];
 
     const groupedMenuItems = filteredMenuItems.reduce((grouped, item) => {
@@ -1193,20 +1235,44 @@ export default function BusinessPage() {
       };
     }, [sessionId, slug]);
 
-    if (!business) return <div className="p-6 text-center">Loading...</div>;
+    if (pageLoading) {
+      return (
+        <div className="p-6 text-center" role="status">
+          Loading menu...
+        </div>
+      );
+    }
+
+    if (!business) {
+      return (
+        <section className="mx-auto my-12 max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-semibold text-slate-900">Menu unavailable</h1>
+          <p className="mt-3 text-slate-600">
+            {pageLoadError ?? "We couldn't load this menu right now."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+            className="mt-6 rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800"
+          >
+            Try again
+          </button>
+        </section>
+      );
+    }
 
     return (
-      <div className="min-h-screen bg-[#FCFBF4] px-4 py-6 pb-44 sm:pb-28 sm:px-6 md:px-10">
+      <div className="min-h-screen bg-[#FCFBF4] px-3 py-4 pb-28 sm:px-6 sm:py-6 sm:pb-28 md:px-10">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <main className="space-y-6 lg:order-2">
             <BusinessHeader business={business} />
 
-            <section className="bg-white border border-gray-300 rounded-2xl shadow-lg p-6">
-              <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-                <h2 className="text-2xl font-bold w-full">Menu</h2>
+            <section className="rounded-2xl border border-gray-300 bg-white p-4 shadow-lg sm:p-6">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-2 sm:mb-6 sm:gap-3">
+                <h2 className="w-full text-xl font-bold sm:text-2xl">Menu</h2>
 
-                <div className="flex flex-wrap items-end gap-3 w-full">
-                  <div className="min-w-0 flex-1">
+                <div className="w-full space-y-3">
+                  <div className="min-w-0 w-full">
                     <label className="hidden text-sm text-gray-700 sm:block">
                       Search menu
                     </label>
@@ -1220,44 +1286,50 @@ export default function BusinessPage() {
                         });
                       }}
                       placeholder="Search menu..."
-                      className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
+                      className="mt-0 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-600 sm:mt-2 sm:py-3"
                     />
                   </div>
 
-                  <div className="hidden w-[140px] min-w-[140px] sm:block sm:w-[220px]">
-                    <label className="hidden text-sm text-gray-700 sm:block">
-                      Category
-                    </label>
-                    <select
-                      value={categoryFilter[0] || "All"}
-                      onChange={(e) => {
-                        setCategoryFilter([e.target.value]);
-                        trackCustomerEvent("category_filter", {
-                          category: e.target.value,
-                        });
-                      }}
-                      className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600"
-                    >
-                      <option value="All">All Categories</option>
-                      <option value="Meals">Meals</option>
-                      <option value="Beverage">Beverage</option>
-                      <option value="Solo">Solo</option>
-                      <option value="Extras">Extras</option>
-                      <option value="Dessert">Dessert</option>
-                    </select>
-                  </div>
+                  <nav
+                    aria-label="Filter menu by category"
+                    className="-mx-1 hidden w-full overflow-x-auto overscroll-x-contain scroll-smooth whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:block"
+                    style={{ scrollbarWidth: "none" }}
+                  >
+                    <div className="flex w-max min-w-full items-center gap-2 px-1 py-1">
+                      {["All", ...categoryKeys].map((category) => {
+                        const isActive = categoryFilter.includes(category);
+                        return (
+                          <button
+                            key={category}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() => {
+                              setCategoryFilter([category]);
+                              trackCustomerEvent("category_filter", { category });
+                            }}
+                            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition ${isActive
+                              ? "border-blue-700 bg-blue-700 text-white shadow-sm"
+                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            {category === "All" ? "All" : category}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </nav>
                 </div>
               </div>
 
               {filteredMenuItems.length > 0 ? (
-                <div className="space-y-8">
+                <div className="space-y-5 sm:space-y-8">
                   {categoryKeys.filter((category) => groupedMenuItems[category] && groupedMenuItems[category].length > 0).map((category) => {
                     const items = groupedMenuItems[category];
                     return (
                       <div key={category}>
-                        <div className="mb-4 pb-3 border-b border-gray-300">
-                          <h3 className="text-xl font-bold text-gray-900">{category}</h3>
-                          <p className="text-sm text-gray-500 mt-1">
+                        <div className="mb-3 border-b border-gray-300 pb-2 sm:mb-4 sm:pb-3">
+                          <h3 className="text-lg font-bold text-gray-900 sm:text-xl">{category}</h3>
+                          <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">
                             {items.length} item{items.length !== 1 ? 's' : ''}
                           </p>
                         </div>
@@ -1332,9 +1404,12 @@ export default function BusinessPage() {
               </div>
             </button>
             {orderInProgress && (
-              <div className="fixed bottom-36 md:bottom-24 right-5 z-40 w-[220px] rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 shadow-lg">
+              <div className="fixed bottom-[calc(8rem+env(safe-area-inset-bottom))] right-3 z-40 w-[min(220px,calc(100vw-1.5rem))] rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-900 shadow-lg sm:bottom-24 sm:right-5 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
                 <p className="font-semibold">Order in Progress</p>
-                <p className="mt-1 text-xs text-yellow-800">A current order is still active. New orders can be placed once your existing order is served.</p>
+                <p className="mt-0.5 text-[11px] text-yellow-800 sm:mt-1 sm:text-xs">
+                  <span className="sm:hidden">Order again after your current order is served.</span>
+                  <span className="hidden sm:inline">A current order is still active. New orders can be placed once your existing order is served.</span>
+                </p>
               </div>
             )}
           </>
@@ -1377,12 +1452,14 @@ export default function BusinessPage() {
         />
 
         {categoryKeys.length > 0 && (
-          <div className="fixed inset-x-0 bottom-0 z-40 sm:hidden bg-white border-t border-gray-200 shadow-[0_-12px_50px_rgba(15,23,42,0.08)]">
-            <div className="max-w-[1400px] mx-auto px-2 py-3 overflow-x-auto scrollbar-hide">
-              <div className="flex items-center gap-1 whitespace-nowrap min-w-max">
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_50px_rgba(15,23,42,0.08)] sm:hidden">
+            <div className="mx-auto max-w-[1400px] overflow-x-auto px-2 py-2 scrollbar-hide">
+              <div className="flex min-w-max items-center gap-1 whitespace-nowrap">
                 {['All', ...categoryKeys].map((category) => (
                   <button
                     key={category}
+                    type="button"
+                    aria-pressed={categoryFilter.includes(category)}
                     onClick={() => {
                       if (category === 'All') {
                         setCategoryFilter(['All']);

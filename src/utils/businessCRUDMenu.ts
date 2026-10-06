@@ -1,4 +1,14 @@
 import { supabase } from "@/lib/supabaseClient";
+import {
+  createGlobalOptionGroup,
+  createOptionChoice,
+  deleteGlobalOptionGroup,
+  deleteOptionChoice,
+  detachOptionGroupFromItem,
+  fetchOptionGroupsForItem,
+  updateGlobalOptionGroup,
+  updateOptionChoice,
+} from "@/utils/optionGroupsApi";
 
 export type MenuItemPayload = {
   business_id: string;
@@ -52,7 +62,8 @@ export async function fetchMenuItems(businessId: string) {
     .from("menu_items")
     .select("*")
     .eq("business_id", businessId)
-    .order("created_at", { ascending: false });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     throw error;
@@ -104,12 +115,24 @@ export async function uploadMenuImage(file: File) {
 export async function createMenuItem(payload: MenuItemPayload) {
   const createdAt = new Date().toISOString();
   const currentStock = payload.current_stock ?? payload.daily_limit ?? 0;
+  const { data: lastItem, error: orderError } = await supabase
+    .from("menu_items")
+    .select("sort_order")
+    .eq("business_id", payload.business_id)
+    .eq("category", payload.category)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (orderError) throw orderError;
+
   const { data, error } = await supabase
     .from("menu_items")
     .insert({
       business_id: payload.business_id,
       name: payload.name,
       category: payload.category,
+      sort_order: (lastItem?.sort_order ?? -1) + 1,
       price: payload.price,
       availability: payload.availability ?? true,
       image_url: payload.image_url ?? null,
@@ -268,20 +291,12 @@ export async function createOptionGroup(
   minSelect: number = 0,
   maxSelect: number = 1
 ) {
-  const { data, error } = await supabase
-    .from("menu_item_option_groups")
-    .insert({
-      menu_item_id: menuItemId,
+  return createGlobalOptionGroup({
       name,
       is_required: isRequired,
       min_select: minSelect,
       max_select: maxSelect,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+    }, [menuItemId]);
 }
 
 export async function updateOptionGroup(
@@ -291,53 +306,20 @@ export async function updateOptionGroup(
   minSelect: number,
   maxSelect: number
 ) {
-  const { error } = await supabase
-    .from("menu_item_option_groups")
-    .update({
-      name,
-      is_required: isRequired,
-      min_select: minSelect,
-      max_select: maxSelect,
-    })
-    .eq("id", groupId);
-
-  if (error) throw error;
-  return true;
+  return updateGlobalOptionGroup(groupId, {
+    name,
+    is_required: isRequired,
+    min_select: minSelect,
+    max_select: maxSelect,
+  });
 }
 
-export async function deleteOptionGroup(groupId: string) {
-  const { error } = await supabase
-    .from("menu_item_option_groups")
-    .delete()
-    .eq("id", groupId);
-
-  if (error) throw error;
-  return true;
+export async function deleteOptionGroup(menuItemId: string, groupId: string) {
+  return detachOptionGroupFromItem(groupId, menuItemId);
 }
 
 export async function fetchOptionGroups(menuItemId: string) {
-  const { data, error } = await supabase
-    .from("menu_item_option_groups")
-    .select(
-      `
-      id,
-      name,
-      is_required,
-      min_select,
-      max_select,
-      menu_item_options (
-        id,
-        name,
-        price_modifier,
-        is_available
-      )
-    `
-    )
-    .eq("menu_item_id", menuItemId)
-    .order("created_at", { ascending: true });
-
-  if (error) throw error;
-  return data || [];
+  return fetchOptionGroupsForItem(menuItemId);
 }
 
 // ===== OPTION OPERATIONS =====
@@ -348,48 +330,29 @@ export async function createOption(
   priceModifier: number = 0,
   isAvailable: boolean = true
 ) {
-  const { data, error } = await supabase
-    .from("menu_item_options")
-    .insert({
-      group_id: groupId,
-      name,
-      price_modifier: priceModifier,
-      is_available: isAvailable,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  return createOptionChoice(groupId, {
+    name,
+    price_modifier: priceModifier,
+    is_available: isAvailable,
+  });
 }
 
 export async function updateOption(
+  groupId: string,
   optionId: string,
   name: string,
   priceModifier: number,
   isAvailable: boolean
 ) {
-  const { error } = await supabase
-    .from("menu_item_options")
-    .update({
-      name,
-      price_modifier: priceModifier,
-      is_available: isAvailable,
-    })
-    .eq("id", optionId);
-
-  if (error) throw error;
-  return true;
+  return updateOptionChoice(groupId, optionId, {
+    name,
+    price_modifier: priceModifier,
+    is_available: isAvailable,
+  });
 }
 
-export async function deleteOption(optionId: string) {
-  const { error } = await supabase
-    .from("menu_item_options")
-    .delete()
-    .eq("id", optionId);
-
-  if (error) throw error;
-  return true;
+export async function deleteOption(groupId: string, optionId: string) {
+  return deleteOptionChoice(groupId, optionId);
 }
 
 export async function deleteMenuItem(itemId: string) {

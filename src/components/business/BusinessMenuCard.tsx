@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import {
+  fetchOptionGroupData,
+  linkOptionGroupToItem,
+  type GlobalOptionGroup,
+} from "@/utils/optionGroupsApi";
 import { uploadMenuImage,
   updateMenuItem,
   deleteMenuItem,
@@ -66,15 +73,21 @@ type Option = {
   is_available: boolean;
 };
 
+type OptionDraft = {
+  name: string;
+  price: string;
+};
+
 type BusinessMenuCardProps = {
   item: BusinessMenuCardItem;
+  categoryNames: string[];
   onUpdated: () => Promise<void> | void;
 };
 
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import { hasStaffPermission } from "@/lib/staffPermissions";
 
-export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardProps) {
+export default function BusinessMenuCard({ item, categoryNames, onUpdated }: BusinessMenuCardProps) {
   const auth = useBusinessAuth("menu", "view");
 
   const canEditThisMenuItem = auth.owner ? true : !!auth.staffSession &&
@@ -123,6 +136,9 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
 
   // Addon management state
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+  const [availableGlobalGroups, setAvailableGlobalGroups] = useState<GlobalOptionGroup[]>([]);
+  const [selectedGlobalGroupId, setSelectedGlobalGroupId] = useState("");
+  const [loadingGlobalGroups, setLoadingGlobalGroups] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupRequired, setNewGroupRequired] = useState(false);
   const [newGroupMinSelect, setNewGroupMinSelect] = useState(0);
@@ -130,6 +146,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [newOptionName, setNewOptionName] = useState<Record<string, string>>({});
   const [newOptionPrice, setNewOptionPrice] = useState<Record<string, string>>({});
+  const [optionDrafts, setOptionDrafts] = useState<Record<string, OptionDraft>>({});
 
   useEffect(() => {
     if (!showDeleteModal) return;
@@ -151,11 +168,31 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   }, [showAddonsTab]);
 
   const loadOptionGroups = async () => {
+    setLoadingGlobalGroups(true);
     try {
-      const groups = await fetchOptionGroups(item.id);
+      const [groups, globalData] = await Promise.all([
+        fetchOptionGroups(item.id),
+        fetchOptionGroupData(),
+      ]);
       setOptionGroups(groups);
+      setAvailableGlobalGroups(globalData.groups);
     } catch (error) {
       console.error("Failed to load option groups:", error);
+    } finally {
+      setLoadingGlobalGroups(false);
+    }
+  };
+
+  const handleAttachGlobalGroup = async () => {
+    if (!selectedGlobalGroupId) return;
+
+    try {
+      await linkOptionGroupToItem(selectedGlobalGroupId, item.id);
+      setSelectedGlobalGroupId("");
+      await loadOptionGroups();
+    } catch (error) {
+      console.error("Failed to attach option group:", error);
+      alert(error instanceof Error ? error.message : "Failed to attach option group.");
     }
   };
 
@@ -338,10 +375,10 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
   };
 
   const handleDeleteOptionGroup = async (groupId: string) => {
-    if (!window.confirm("Delete this option group?")) return;
+    if (!window.confirm("Remove this shared option group from this menu item?")) return;
 
     try {
-      await deleteOptionGroup(groupId);
+      await deleteOptionGroup(item.id, groupId);
       await loadOptionGroups();
     } catch (error) {
       console.error("Failed to delete option group:", error);
@@ -375,11 +412,11 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
     }
   };
 
-  const handleDeleteOption = async (optionId: string) => {
+  const handleDeleteOption = async (groupId: string, optionId: string) => {
     if (!window.confirm("Delete this option?")) return;
 
     try {
-      await deleteOption(optionId);
+      await deleteOption(groupId, optionId);
       await loadOptionGroups();
     } catch (error) {
       console.error("Failed to delete option:", error);
@@ -403,7 +440,13 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
     }
   };
 
-  const handleUpdateOption = async (groupId: string, option: Option, newName: string, newPrice: string) => {
+  const handleUpdateOption = async (
+    groupId: string,
+    option: Option,
+    newName: string,
+    newPrice: string,
+    isAvailable = option.is_available,
+  ) => {
     if (!newName.trim()) {
       alert("Option name is required");
       return;
@@ -416,12 +459,22 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
     }
 
     try {
-      await updateOption(option.id, newName, priceModifier, option.is_available);
+      await updateOption(groupId, option.id, newName.trim(), priceModifier, isAvailable);
       await loadOptionGroups();
     } catch (error) {
       console.error("Failed to update option:", error);
       alert("Failed to update option");
     }
+  };
+
+  const handleToggleOptionAvailability = async (groupId: string, option: Option) => {
+    await handleUpdateOption(
+      groupId,
+      option,
+      optionDrafts[option.id]?.name ?? option.name,
+      optionDrafts[option.id]?.price ?? String(option.price_modifier),
+      !option.is_available,
+    );
   };
 
   const toggleGroupExpand = (groupId: string) => {
@@ -451,7 +504,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
             </div>
           )}
 
-          <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-sm">
+          <div className="absolute left-4 top-4 max-w-[calc(100%-2rem)] truncate rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-700 shadow-sm sm:text-[11px] sm:tracking-[0.18em]">
             {item.category || "Other"}
           </div>
         </div>
@@ -512,10 +565,10 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="w-full max-w-4xl rounded-[32px] bg-white shadow-[0_40px_120px_rgba(0,0,0,0.15)] overflow-hidden border border-gray-200 max-h-[90vh] overflow-y-auto">
             {/* Tab buttons */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 flex">
+            <div className="sticky top-0 z-20 flex items-stretch border-b border-gray-200 bg-white pr-2">
               <button
                 onClick={() => setShowAddonsTab(false)}
-                className={`flex-1 px-6 py-4 font-semibold text-sm transition ${
+                className={`flex-1 whitespace-nowrap px-2 py-3 text-xs font-semibold transition sm:px-6 sm:py-4 sm:text-sm ${
                   !showAddonsTab
                     ? "text-blue-600 border-b-2 border-blue-600"
                     : "text-gray-600 hover:text-gray-900"
@@ -524,8 +577,9 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                 Item Details
               </button>
               <button
+                type="button"
                 onClick={() => setShowAddonsTab(true)}
-                className={`flex-1 px-6 py-4 font-semibold text-sm transition ${
+                className={`flex-1 whitespace-nowrap px-2 py-3 text-xs font-semibold transition sm:px-6 sm:py-4 sm:text-sm ${
                   showAddonsTab
                     ? "text-blue-600 border-b-2 border-blue-600"
                     : "text-gray-600 hover:text-gray-900"
@@ -533,9 +587,18 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
               >
                 Addons & Options
               </button>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                aria-label="Close menu item editor"
+                title="Close"
+                className="my-auto grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              >
+                <FontAwesomeIcon icon={faXmark} className="text-base" aria-hidden="true" />
+              </button>
             </div>
 
-            <div className="p-6 lg:p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
               {!showAddonsTab ? (
                 // Item Details Tab
                 <div className="space-y-5">
@@ -543,7 +606,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                     <p className="text-sm uppercase tracking-[0.24em] text-gray-500 font-semibold">
                       Edit Menu Item
                     </p>
-                    <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                       Update item details
                     </h2>
                     <p className="mt-2 text-sm text-gray-600">
@@ -580,11 +643,10 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                           onChange={(e) => setEditCategory(e.target.value)}
                           className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
                         >
-                          <option value="Meals">Meals</option>
-                          <option value="Beverage">Beverage</option>
-                          <option value="Solo">Solo</option>
-                          <option value="Extras">Extras</option>
-                          <option value="Dessert">Dessert</option>
+                          {item.category && !categoryNames.includes(item.category) && (
+                            <option value={item.category}>{item.category} (archived)</option>
+                          )}
+                          {categoryNames.map((category) => <option key={category} value={category}>{category}</option>)}
                         </select>
                       </label>
 
@@ -879,17 +941,45 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                     <p className="text-sm uppercase tracking-[0.24em] text-gray-500 font-semibold">
                       Customize Menu Item
                     </p>
-                    <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                       Add Option Groups
                     </h2>
                     <p className="mt-2 text-sm text-gray-600">
-                      Create addon groups like Size, Drinks, Extras etc. and add options with price modifiers.
+                      Attach a reusable group or create one for this item. Changes to shared groups affect every linked item.
                     </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
+                    <h3 className="font-semibold text-slate-900">Use an Existing Option Group</h3>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <label className="min-w-0 text-sm font-medium text-slate-700">
+                        Reusable group
+                        <select
+                          value={selectedGlobalGroupId}
+                          onChange={(event) => setSelectedGlobalGroupId(event.target.value)}
+                          disabled={loadingGlobalGroups || !canCreateOptionGroups}
+                          className="mt-1 block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600 disabled:opacity-60"
+                        >
+                          <option value="">{loadingGlobalGroups ? "Loading groups..." : "Choose a group"}</option>
+                          {availableGlobalGroups
+                            .filter((group) => group.is_active && !optionGroups.some((attachedGroup) => attachedGroup.id === group.id))
+                            .map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void handleAttachGlobalGroup()}
+                        disabled={!canCreateOptionGroups || loadingGlobalGroups || !selectedGlobalGroupId}
+                        className="self-end whitespace-nowrap rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Attach Group
+                      </button>
+                    </div>
                   </div>
 
                   {/* Add New Option Group */}
                   <div className="bg-gray-50 rounded-2xl border border-gray-200 p-5 space-y-4">
-                    <h3 className="font-semibold text-slate-900">Add New Option Group</h3>
+                    <h3 className="font-semibold text-slate-900">Create a New Option Group</h3>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <label className="block text-sm font-semibold text-gray-700">
                         Group Name
@@ -960,7 +1050,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                         <div key={group.id} className="border border-gray-200 rounded-2xl overflow-hidden">
                           <button
                             onClick={() => toggleGroupExpand(group.id)}
-                            className="w-full bg-gray-50 hover:bg-gray-100 px-5 py-4 flex items-center justify-between transition"
+                            className="w-full bg-gray-50 hover:bg-gray-100 px-3 py-3 sm:px-5 sm:py-4 flex items-center justify-between transition"
                           >
                             <div className="text-left">
                               <p className="font-semibold text-slate-900">{group.name}</p>
@@ -987,7 +1077,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                           </button>
 
                           {expandedGroups.has(group.id) && (
-                            <div className="px-5 py-5 space-y-5 border-t border-gray-200 bg-white">
+                            <div className="px-3 py-4 space-y-5 border-t border-gray-200 bg-white sm:px-5 sm:py-5">
                               {/* Options List */}
                               <div>
                                 <h4 className="text-sm font-semibold text-slate-900 mb-3">Options</h4>
@@ -995,29 +1085,72 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                                   <p className="text-sm text-gray-500">No options yet</p>
                                 ) : (
                                   <div className="space-y-3">
-                                    {group.menu_item_options.map((option) => (
-                                      <div key={option.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg group">
-                                        <div className="flex-1 text-sm">
-                                          <p className="font-medium text-slate-900">{option.name}</p>
-                                          <p className="text-gray-600">
-                                            {option.price_modifier > 0
-                                              ? `+₱${option.price_modifier}`
-                                              : option.price_modifier < 0
-                                              ? `₱${option.price_modifier}`
-                                              : "Free"}
-                                          </p>
+                                    {group.menu_item_options.map((option) => {
+                                      const draft = optionDrafts[option.id] ?? {
+                                        name: option.name,
+                                        price: String(option.price_modifier),
+                                      };
+
+                                      return (
+                                        <div key={option.id} className="grid min-w-0 gap-2 rounded-lg bg-gray-50 p-3 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end sm:gap-3">
+                                          <label className="min-w-0 text-xs font-semibold text-slate-600">
+                                            Choice name
+                                            <input
+                                              type="text"
+                                              value={draft.name}
+                                              disabled={!canManageOptions}
+                                              onChange={(event) => setOptionDrafts((current) => ({
+                                                ...current,
+                                                [option.id]: { ...draft, name: event.target.value },
+                                              }))}
+                                              className="mt-1 block w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-blue-600 disabled:bg-slate-100"
+                                            />
+                                          </label>
+                                          <label className="text-xs font-semibold text-slate-600">
+                                            Price modifier
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={draft.price}
+                                              disabled={!canManageOptions}
+                                              onChange={(event) => setOptionDrafts((current) => ({
+                                                ...current,
+                                                [option.id]: { ...draft, price: event.target.value },
+                                              }))}
+                                              className="mt-1 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-blue-600 disabled:bg-slate-100"
+                                            />
+                                          </label>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <button
+                                              type="button"
+                                              disabled={!canManageOptions}
+                                              onClick={() => void handleToggleOptionAvailability(group.id, option)}
+                                              className={`rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${option.is_available ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}
+                                            >
+                                              {option.is_available ? "Available" : "Out of stock"}
+                                            </button>
+                                            {canManageOptions && (
+                                              <button
+                                                type="button"
+                                                onClick={() => void handleUpdateOption(group.id, option, draft.name, draft.price)}
+                                                className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+                                              >
+                                                Save
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => void handleDeleteOption(group.id, option.id)}
+                                              disabled={!canManageOptions}
+                                              aria-label={`Remove ${option.name}`}
+                                              className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
                                         </div>
-                                        <button
-                                          onClick={() => handleDeleteOption(option.id)}
-                                          disabled={!canManageOptions}
-                                          className="text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition p-2 disabled:cursor-not-allowed disabled:opacity-40"
-                                        >
-                                          ✕
-                                        </button>
-
-
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
@@ -1066,7 +1199,7 @@ export default function BusinessMenuCard({ item, onUpdated }: BusinessMenuCardPr
                                 onClick={() => handleDeleteOptionGroup(group.id)}
                                 className="w-full text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl font-semibold text-sm transition border border-red-200"
                               >
-                                Delete Group
+                                Remove from this item
                               </button>
                             </div>
                           )}

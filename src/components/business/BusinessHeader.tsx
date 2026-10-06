@@ -119,11 +119,11 @@ export default function BusinessHeader({ business }: { business: Business }) {
   const gr = business.gr || relatedSocials?.gr;
 
   return (
-    <section className="bg-slate-900 border border-slate-800 text-white rounded-[28px] shadow-sm p-4 sm:p-5">
-      <div className="flex flex-col md:flex-row gap-4 md:gap-5 items-start">
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-white shadow-sm sm:rounded-[28px] sm:p-5">
+      <div className="flex flex-col items-start gap-3 sm:gap-4 md:flex-row md:gap-5">
 
         {/* LEFT SIDE */}
-        <div className="flex-1 flex gap-3 sm:gap-4">
+        <div className="flex flex-1 gap-2.5 sm:gap-4">
 
           {/* FLIP CARD */}
           <div
@@ -132,7 +132,7 @@ export default function BusinessHeader({ business }: { business: Business }) {
             onClick={() => setIsFlipped((prev) => !prev)}
           >
             <div
-              className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl transition-transform duration-500"
+              className="relative h-20 w-20 rounded-2xl transition-transform duration-500 sm:h-32 sm:w-32 sm:rounded-3xl"
               style={{
                 transformStyle: "preserve-3d",
                 transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
@@ -186,11 +186,11 @@ export default function BusinessHeader({ business }: { business: Business }) {
 
           {/* TEXT CONTENT */}
           <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight">
+            <h1 className="mb-1 text-lg font-bold leading-tight sm:text-2xl">
               {business.name}
             </h1>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-white/90 mb-2">
+          <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px] text-white/90 sm:mb-2 sm:text-sm">
               {typeof business.view_count === "number" && (
                 <p className="flex items-center gap-1">
                   👁 {business.view_count.toLocaleString()} views
@@ -206,25 +206,25 @@ export default function BusinessHeader({ business }: { business: Business }) {
             </div>
 
             {business.address && (
-              <p className="text-white/90 mb-1 text-xs sm:text-sm">
+              <p className="mb-0.5 text-[11px] text-white/90 sm:mb-1 sm:text-sm">
                 {business.address}
               </p>
             )}
 
             {business.contact_info && (
-              <p className="text-white/90 mb-1 text-xs sm:text-sm">
+              <p className="mb-0.5 text-[11px] text-white/90 sm:mb-1 sm:text-sm">
                 {business.contact_info}
               </p>
             )}
 
             {business.email && (
-              <p className="text-white/90 mb-1 text-xs sm:text-sm">
+              <p className="mb-0.5 text-[11px] text-white/90 sm:mb-1 sm:text-sm">
                 {business.email}
               </p>
             )}
 
             {(business.store_hours || business.store_category) && (
-              <p className="text-white/90 text-xs sm:text-sm">
+              <p className="text-[11px] text-white/90 sm:text-sm">
                 {formatStoreHours(business.store_hours)}
                 {business.store_hours && business.store_category ? " • " : ""}
                 {business.store_category || ""}

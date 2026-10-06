@@ -317,10 +317,10 @@ export default function MenuItemModal({
   if (!viewItem) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-2 sm:p-3">
-      <div className="w-full max-w-lg max-h-[90vh] rounded-lg sm:rounded-[28px] border border-blue-200/50 bg-white shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm sm:p-3">
+      <div className="flex max-h-[82dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-blue-200/50 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[28px]">
         {/* Header */}
-        <div className="shrink-0 bg-blue-600 px-2 py-2 sm:px-4 sm:py-3 flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between bg-blue-600 px-3 py-2 sm:px-4 sm:py-3">
           <h3 className="text-sm sm:text-lg font-bold text-white tracking-tight truncate">
             {viewItem.name}
           </h3>
@@ -333,27 +333,27 @@ export default function MenuItemModal({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-2 sm:space-y-4">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 sm:space-y-4 sm:p-4">
           {/* Item Image & Nutrition Info */}
-          <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-2 sm:gap-4">
-            <div className="w-full rounded-lg sm:rounded-2xl border border-gray-300 bg-gray-100 overflow-hidden flex-shrink-0">
+          <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-2 sm:grid-cols-[140px_1fr] sm:gap-4">
+            <div className="h-[104px] w-full overflow-hidden rounded-xl border border-gray-300 bg-gray-100 sm:h-[140px] sm:rounded-2xl">
               {viewItem.image_url ? (
                 <img
                   src={viewItem.image_url}
                   alt={viewItem.name}
-                  className="h-full w-full object-cover min-h-[120px] sm:min-h-[180px]"
+                  className="h-full w-full object-cover"
                   style={{
                     objectPosition: viewItem.image_position || "center",
                   }}
                 />
               ) : (
-                <div className="flex min-h-[120px] sm:min-h-[180px] items-center justify-center text-xs font-semibold text-gray-500">
+                <div className="flex h-full items-center justify-center text-[10px] font-semibold text-gray-500 sm:text-xs">
                   No image
                 </div>
               )}
             </div>
 
-            <div className="rounded-xl sm:rounded-3xl border border-gray-200 bg-slate-50 p-2 sm:p-3">
+            <div className="min-w-0 rounded-xl border border-gray-200 bg-slate-50 p-2 sm:rounded-3xl sm:p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-slate-900 mb-1 sm:mb-2">
                   Nutrition Facts
@@ -361,7 +361,7 @@ export default function MenuItemModal({
                 <button
                   type="button"
                   onClick={() => setShowNutritionMobile((prev) => !prev)}
-                  className="sm:hidden rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-slate-700 hover:bg-slate-100"
+                  className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-slate-700 hover:bg-slate-100 sm:hidden"
                 >
                   {showNutritionMobile ? "Hide" : "Show"}
                 </button>
@@ -411,13 +411,13 @@ export default function MenuItemModal({
             </div>
           </div>
 
-          <div className="rounded-lg sm:rounded-3xl border border-gray-200 bg-white p-2 sm:p-4 shadow-sm">
-            <div className="grid gap-2 sm:gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-2.5 sm:rounded-3xl sm:p-4 sm:shadow-sm">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div>
                 <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                   Base Price
                 </p>
-                <p className="text-xl sm:text-3xl font-black text-blue-600 mt-1 sm:mt-2">
+                <p className="mt-0.5 text-base font-black text-blue-600 sm:mt-2 sm:text-3xl">
                   ₱{viewItem.price}
                 </p>
               </div>
@@ -425,14 +425,14 @@ export default function MenuItemModal({
                 <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                   Category
                 </p>
-                <p className="text-xs sm:text-base text-gray-700 font-semibold mt-1 sm:mt-2">
+                <p className="mt-0.5 text-[11px] font-semibold text-gray-700 sm:mt-2 sm:text-base">
                   {viewItem.category || "Unknown"}
                 </p>
               </div>
             </div>
 
             <div
-              className="mt-2 sm:mt-4 cursor-pointer"
+              className="mt-2 cursor-pointer sm:mt-4"
               onClick={() => setShowFullDescription((current) => !current)}
               role="button"
               tabIndex={0}
@@ -446,7 +446,7 @@ export default function MenuItemModal({
               <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-[0.15em]">
                 Description
               </p>
-              <p className="text-xs sm:text-base text-gray-700 leading-4 sm:leading-6 mt-1 sm:mt-2">
+              <p className={`mt-1 text-[11px] leading-4 text-gray-700 sm:mt-2 sm:text-base sm:leading-6 ${showFullDescription ? "" : "line-clamp-2"}`}>
                 {(() => {
                   const description =
                     viewItem.description ||
@@ -460,8 +460,8 @@ export default function MenuItemModal({
                   return formatted;
                 })()}
               </p>
-              {((viewItem.description || viewItem.menu_desc) ?? "").length > 180 ? (
-                <p className="mt-2 text-sm font-semibold text-blue-600 hover:text-blue-800">
+              {((viewItem.description || viewItem.menu_desc) ?? "").length > 80 ? (
+                <p className="mt-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 sm:mt-2 sm:text-sm">
                   {showFullDescription ? "Show less" : "See more"}
                 </p>
               ) : null}
@@ -471,7 +471,7 @@ export default function MenuItemModal({
           {/* Option Groups (stable - no flicker) */}
           {(isLoadingOptions || hasAddons) && (
             <div
-              className={`space-y-2 sm:space-y-4 border-t border-gray-200 pt-2 sm:pt-4 ${isLoadingOptions || hasAddons ? "min-h-[200px]" : ""}`}
+              className="space-y-2 border-t border-gray-200 pt-2 sm:space-y-4 sm:pt-4"
             >
               {isLoadingOptions ? (
                 // ✅ LOADING SKELETON (prevents layout jump)
@@ -484,10 +484,10 @@ export default function MenuItemModal({
                 // ✅ REAL ADDONS
                 <>
                   <div>
-                    <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                    <h4 className="text-xs font-bold text-slate-900 sm:text-base">
                       Customize Your Order
                     </h4>
-                    <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">
+                    <p className="mt-0.5 text-[10px] text-gray-500 sm:mt-1 sm:text-xs">
                       Tap add-ons to select or deselect them. Multiple
                       selections are allowed where available.
                     </p>
@@ -501,9 +501,9 @@ export default function MenuItemModal({
                     return (
                       <div
                         key={group.id}
-                        className="border border-gray-300 rounded-lg sm:rounded-2xl p-2 sm:p-4 bg-gray-50"
+                        className="rounded-lg border border-gray-300 bg-gray-50 p-2 sm:rounded-2xl sm:p-4"
                       >
-                        <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
+                        <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-3">
                           <div>
                             <h5 className="font-semibold text-slate-900 text-xs sm:text-sm">
                               {group.name}
@@ -530,7 +530,7 @@ export default function MenuItemModal({
                             return (
                               <label
                                 key={option.id}
-                                className={`flex items-center gap-2 p-2 sm:p-3 border rounded-lg sm:rounded-2xl cursor-pointer ${
+                                className={`flex cursor-pointer items-center gap-2 rounded-lg border p-1.5 sm:rounded-2xl sm:p-3 ${
                                   !option.is_available
                                     ? "opacity-50 cursor-not-allowed border-gray-300 bg-white"
                                     : isSelected
@@ -586,7 +586,7 @@ export default function MenuItemModal({
           )}
 
           {/* Sticky Footer — Price Breakdown & Add to Cart */}
-          <div className="shrink-0 border-t border-gray-200 bg-white p-2 sm:p-4 space-y-2 sm:space-y-3">
+          <div className="sticky bottom-0 shrink-0 space-y-1.5 border-t border-gray-200 bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:space-y-3 sm:p-4">
             {hasAddons && addonsTotal !== 0 && (
               <>
                 <div className="flex items-center justify-between text-xs sm:text-sm">
@@ -606,11 +606,11 @@ export default function MenuItemModal({
               </>
             )}
 
-            <div className="flex items-center justify-between bg-gray-100 px-2 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-2xl">
-              <span className="font-semibold text-slate-900 text-xs sm:text-base">
+            <div className="flex items-center justify-between rounded-lg bg-gray-100 px-2 py-1.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <span className="text-xs font-semibold text-slate-900 sm:text-base">
                 Total
               </span>
-              <span className="text-lg sm:text-2xl font-black text-blue-600">
+              <span className="text-base font-black text-blue-600 sm:text-2xl">
                 ₱{totalPrice}
               </span>
             </div>
@@ -646,8 +646,8 @@ export default function MenuItemModal({
                 </p>
               )}
 
-              <div className="flex flex-col gap-2 sm:hidden">
-                <div className="flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+              <div className="flex flex-col gap-1.5 sm:hidden">
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-semibold text-gray-700">
                   {viewItem.is_trackable ? (
                     <div className="flex items-center gap-2">
                       <span className="text-lg">
@@ -668,7 +668,7 @@ export default function MenuItemModal({
                     <button
                       onClick={() => handleQtyChange(qty - 1)}
                       disabled={qty <= 1}
-                      className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50 text-sm"
+                      className="h-7 w-7 rounded-full border border-gray-200 bg-white text-sm disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       -
                     </button>
@@ -679,14 +679,14 @@ export default function MenuItemModal({
                       max={availableStock ?? undefined}
                       value={qtyInput}
                       onChange={(e) => handleQtyInputChange(e.target.value)}
-                      className="w-14 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
+                      className="w-12 rounded-xl border border-gray-200 bg-white px-1.5 py-1 text-center text-sm font-semibold text-slate-900 outline-none"
                     />
                     <button
                       onClick={() => handleQtyChange(qty + 1)}
                       disabled={
                         availableStock !== null && qty >= availableStock
                       }
-                      className="w-8 h-8 rounded-full bg-white border border-gray-200 disabled:cursor-not-allowed disabled:opacity-50 text-sm"
+                      className="h-7 w-7 rounded-full border border-gray-200 bg-white text-sm disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       +
                     </button>
@@ -696,7 +696,7 @@ export default function MenuItemModal({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewItem(null)}
-                    className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                    className="hidden rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                   >
                     Cancel
                   </button>

@@ -8,6 +8,7 @@ import { useBusinessAuth } from "@/hooks/useBusinessAuth";
 import BusinessInventoryModal from "@/components/business/BusinessInventoryModal";
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
+import SortableList from "@/components/business/SortableList";
 
 import {
   fetchMenuItems as loadMenuItems,
@@ -16,6 +17,16 @@ import {
   createOptionGroup,
   createOption
 } from "@/utils/businessCRUDMenu";
+import { fetchMenuCategories, MenuCategory } from "@/utils/menuCategoriesApi";
+import { saveDisplayOrder } from "@/utils/reorderApi";
+import {
+  createGlobalOptionGroup,
+  createOptionChoice,
+  fetchOptionGroupData,
+  GlobalOptionGroup,
+  linkOptionGroupToItem,
+  setOptionGroupArchived,
+} from "@/utils/optionGroupsApi";
 
 const COMMON_ALLERGENS = [
   "Peanuts",
@@ -36,12 +47,15 @@ const COMMON_ALLERGENS = [
 
 type NewMenuOption = {
   id: string;
+  globalChoiceId?: string;
   name: string;
   price: string;
+  isAvailable?: boolean;
 };
 
 type NewOptionGroup = {
   id: string;
+  globalGroupId?: string;
   name: string;
   isRequired: boolean;
   minSelect: number;
@@ -49,7 +63,8 @@ type NewOptionGroup = {
   options: NewMenuOption[];
 };
 
-const ORDERED_CATEGORIES = ["Meals", "Beverage", "Solo", "Extras", "Dessert"];
+type ExistingGroupSaveMode = "reusable-copy" | "item-only";
+type MenuItemsTab = "all" | "available" | "unavailable";
 
 function BusinessMenuPageWithSearchParams() {
   const router = useRouter();
@@ -67,6 +82,9 @@ function BusinessMenuPageWithSearchParams() {
   const canCreateMenu = hasMenuPermission("can_create");
   const canEditMenu = hasMenuPermission("can_edit");
   const canDeleteMenu = hasMenuPermission("can_delete");
+  const canManageCategories = auth.owner || staffPermissions.some((permission: any) =>
+    permission.module_name === "menu" && (permission.can_create || permission.can_edit || permission.can_delete)
+  );
 
   const [businessId, setBusinessId] = useState<string | null>(null);
 
@@ -87,13 +105,14 @@ function BusinessMenuPageWithSearchParams() {
   }, [auth.checked, auth.owner, auth.businessId, auth.staffSession]);
 
   const [menuItems, setMenuItems] = useState<BusinessMenuCardItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMenuStep, setAddMenuStep] = useState(1);
   const [menuName, setMenuName] = useState("");
-  const [menuCategory, setMenuCategory] = useState("Meals");
+  const [menuCategory, setMenuCategory] = useState("");
+  const [menuItemsTab, setMenuItemsTab] = useState<MenuItemsTab>("all");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [availabilityFilter, setAvailabilityFilter] = useState("All");
   const [searchFilter, setSearchFilter] = useState("");
   const [menuPrice, setMenuPrice] = useState("");
   const [menuDescription, setMenuDescription] = useState("");
@@ -103,6 +122,10 @@ function BusinessMenuPageWithSearchParams() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [menuImagePosition, setMenuImagePosition] = useState("center");
   const [menuOptionGroups, setMenuOptionGroups] = useState<NewOptionGroup[]>([]);
+  const [showGroupSaveChoice, setShowGroupSaveChoice] = useState(false);
+  const [availableOptionGroups, setAvailableOptionGroups] = useState<GlobalOptionGroup[]>([]);
+  const [loadingOptionGroups, setLoadingOptionGroups] = useState(false);
+  const [selectedOptionGroupId, setSelectedOptionGroupId] = useState("");
   const addonsSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Nutrition facts state
@@ -153,8 +176,54 @@ function BusinessMenuPageWithSearchParams() {
     }
   };
 
+  const handleReorderMenuItems = async (orderedItems: BusinessMenuCardItem[]) => {
+    try {
+      await saveDisplayOrder("menu-items", orderedItems.map((item) => item.id));
+      await fetchMenuItems();
+    } catch (reorderError) {
+      alert(reorderError instanceof Error ? reorderError.message : "Failed to reorder menu items.");
+    }
+  };
+
+  const loadMenuCategories = async () => {
+    if (!businessId) return;
+    try {
+      const categories = await fetchMenuCategories();
+      setMenuCategories(categories);
+      setMenuCategory((current) =>
+        categories.some((category) => category.name === current)
+          ? current
+          : categories[0]?.name || ""
+      );
+    } catch (error) {
+      console.error("Failed to fetch menu categories:", error);
+    }
+  };
+
   useEffect(() => {
-    if (businessId) fetchMenuItems();
+    if (!showAddModal || addMenuStep !== 3) return;
+
+    let active = true;
+    setLoadingOptionGroups(true);
+    fetchOptionGroupData()
+      .then((result) => {
+        if (active) setAvailableOptionGroups(result.groups);
+      })
+      .catch((error) => console.error("Failed to load option groups:", error))
+      .finally(() => {
+        if (active) setLoadingOptionGroups(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [showAddModal, addMenuStep]);
+
+  useEffect(() => {
+    if (businessId) {
+      void fetchMenuItems();
+      void loadMenuCategories();
+    }
   }, [businessId]);
 
   useEffect(() => {
@@ -271,9 +340,82 @@ function BusinessMenuPageWithSearchParams() {
     ]);
   };
 
-  const handleSaveMenuItem = async () => {
+  const handleSelectExistingOptionGroup = (groupId: string) => {
+    if (!groupId) return;
+    const group = availableOptionGroups.find((optionGroup) => optionGroup.id === groupId && optionGroup.is_active);
+    if (!group || menuOptionGroups.some((draft) => draft.globalGroupId === group.id)) {
+      setSelectedOptionGroupId("");
+      return;
+    }
+
+    setMenuOptionGroups((current) => [
+      ...current,
+      {
+        id: `global-${group.id}`,
+        globalGroupId: group.id,
+        name: group.name,
+        isRequired: group.is_required,
+        minSelect: group.min_select,
+        maxSelect: group.max_select,
+        options: group.choices.map((choice) => ({
+          id: `global-${choice.id}`,
+          globalChoiceId: choice.id,
+          name: choice.name,
+          price: String(choice.price_modifier),
+          isAvailable: choice.is_available,
+        })),
+      },
+    ]);
+    setSelectedOptionGroupId("");
+  };
+
+  const handleArchiveDraftGroup = async (group: NewOptionGroup) => {
+    if (!group.globalGroupId) return;
+    const confirmed = window.confirm(
+      `Archive "${group.name}" globally? It will disappear from all linked customer menus until restored.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await setOptionGroupArchived(group.globalGroupId, true);
+      setAvailableOptionGroups((current) => current.map((optionGroup) =>
+        optionGroup.id === group.globalGroupId ? { ...optionGroup, is_active: false } : optionGroup
+      ));
+      setMenuOptionGroups((current) => current.filter((draft) => draft.id !== group.id));
+    } catch (error) {
+      console.error("Failed to archive option group:", error);
+      alert(error instanceof Error ? error.message : "Failed to archive option group.");
+    }
+  };
+
+  const hasEditedExistingOptionGroup = menuOptionGroups.some((draft) => {
+    if (!draft.globalGroupId) return false;
+    const original = availableOptionGroups.find((group) => group.id === draft.globalGroupId);
+    if (!original) return false;
+
+    return draft.name.trim() !== original.name
+      || draft.isRequired !== original.is_required
+      || draft.minSelect !== original.min_select
+      || draft.maxSelect !== original.max_select
+      || draft.options.length !== original.choices.length
+      || draft.options.some((option) => {
+        if (!option.globalChoiceId) return true;
+        const originalChoice = original.choices.find((choice) => choice.id === option.globalChoiceId);
+        return !originalChoice
+          || option.name.trim() !== originalChoice.name
+          || Number(option.price) !== Number(originalChoice.price_modifier)
+          || (option.isAvailable ?? true) !== originalChoice.is_available;
+      });
+  });
+
+  const handleSaveMenuItem = async (saveMode?: ExistingGroupSaveMode) => {
     if (!menuName || !menuPrice || !businessId) {
       alert("Missing required fields");
+      return;
+    }
+
+    if (hasEditedExistingOptionGroup && !saveMode) {
+      setShowGroupSaveChoice(true);
       return;
     }
 
@@ -316,6 +458,48 @@ function BusinessMenuPageWithSearchParams() {
 
       for (const group of menuOptionGroups) {
         if (!group.name.trim()) continue;
+
+        if (group.globalGroupId) {
+          const originalGroup = availableOptionGroups.find((optionGroup) => optionGroup.id === group.globalGroupId);
+          const isModified = Boolean(originalGroup && (
+            group.name.trim() !== originalGroup.name
+            || group.isRequired !== originalGroup.is_required
+            || group.minSelect !== originalGroup.min_select
+            || group.maxSelect !== originalGroup.max_select
+            || group.options.length !== originalGroup.choices.length
+            || group.options.some((option) => {
+              if (!option.globalChoiceId) return true;
+              const originalChoice = originalGroup.choices.find((choice) => choice.id === option.globalChoiceId);
+              return !originalChoice
+                || option.name.trim() !== originalChoice.name
+                || Number(option.price) !== Number(originalChoice.price_modifier)
+                || (option.isAvailable ?? true) !== originalChoice.is_available;
+            })
+          ));
+
+          if (isModified) {
+            const saveAsReusable = saveMode === "reusable-copy";
+            const createdGroup = await createGlobalOptionGroup({
+              name: saveAsReusable ? `${group.name.trim()} (Copy)` : group.name.trim(),
+              is_required: group.isRequired,
+              min_select: group.minSelect,
+              max_select: group.maxSelect,
+            }, [createdItem.id], saveAsReusable);
+
+            for (const option of group.options) {
+              if (!option.name.trim()) continue;
+              await createOptionChoice(createdGroup.id, {
+                name: option.name.trim(),
+                price_modifier: Number(option.price) || 0,
+                is_available: option.isAvailable ?? true,
+              });
+            }
+            continue;
+          }
+
+          await linkOptionGroupToItem(group.globalGroupId, createdItem.id);
+          continue;
+        }
 
         const createdGroup = await createOptionGroup(
           createdItem.id,
@@ -365,16 +549,41 @@ function BusinessMenuPageWithSearchParams() {
     return <div className="p-10">Loading...</div>;
   }
 
+  const availableMenuCount = menuItems.filter((item) => item.availability).length;
+  const unavailableMenuCount = menuItems.length - availableMenuCount;
+
   return (
     <>
       <PageShell title="Menu" subtitle="Manage menu items, inventory, and availability." backHref="/business/dashboard">
+        <div role="tablist" aria-label="Menu item views" className="mb-6 grid min-w-0 grid-cols-3 border-b border-slate-200">
+          {([
+            { id: "all", label: "Your Menu Items", count: menuItems.length },
+            { id: "available", label: "Available", count: availableMenuCount },
+            { id: "unavailable", label: "Unavailable", count: unavailableMenuCount },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              id={`menu-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-label={`${tab.label}, ${tab.count}`}
+              aria-selected={menuItemsTab === tab.id}
+              aria-controls="menu-items-panel"
+              onClick={() => setMenuItemsTab(tab.id)}
+              className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-3 text-[10px] font-semibold leading-tight transition sm:px-4 sm:text-sm sm:leading-normal ${menuItemsTab === tab.id ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            >
+              <span className="sm:hidden">{tab.id === "all" ? `All (${tab.count})` : `${tab.label} (${tab.count})`}</span>
+              <span className="hidden sm:inline">{tab.label} ({tab.count})</span>
+            </button>
+          ))}
+        </div>
         <div className="mb-4 flex items-center justify-between lg:hidden">
           <p className="text-sm font-semibold text-slate-600">{menuItems.length} items</p>
         </div>
 
         <div className="grid gap-8">
           <main className="space-y-8">
-          <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+          <div id="menu-items-panel" role="tabpanel" aria-labelledby={`menu-tab-${menuItemsTab}`} className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
               <div className="flex flex-col gap-1">
                 <h2 className="text-2xl font-bold text-slate-900">Menu Items</h2>
@@ -405,28 +614,21 @@ function BusinessMenuPageWithSearchParams() {
                     className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
                   >
                     <option value="All">All Categories</option>
-                    <option value="Meals">Meals</option>
-                    <option value="Beverage">Beverage</option>
-                    <option value="Solo">Solo</option>
-                    <option value="Extras">Extras</option>
-                    <option value="Dessert">Dessert</option>
+                    {[...new Set(menuItems.map((item) => item.category).filter((category): category is string => Boolean(category)))]
+                      .sort((first, second) => first.localeCompare(second))
+                      .map((category) => <option key={category} value={category}>{category}</option>)}
                   </select>
                 </div>
 
-                <div className="w-[140px] min-w-[140px] sm:w-[200px]">
-                  <label className="hidden text-sm text-slate-600 sm:block">
-                    Availability
-                  </label>
-                  <select
-                    value={availabilityFilter}
-                    onChange={(e) => setAvailabilityFilter(e.target.value)}
-                    className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
+                {canManageCategories && (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/business/categories")}
+                    className="rounded-[24px] border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 w-full sm:w-auto"
                   >
-                    <option value="All">All Items</option>
-                    <option value="Available">Available</option>
-                    <option value="Not Available">Not Available</option>
-                  </select>
-                </div>
+                    Manage Categories
+                  </button>
+                )}
 
                 <button
                   onClick={() => {
@@ -447,10 +649,9 @@ function BusinessMenuPageWithSearchParams() {
                 const filteredItems = menuItems.filter((item) => {
                   const categoryMatches =
                     categoryFilter === "All" || item.category === categoryFilter;
-                  const availabilityMatches =
-                    availabilityFilter === "All" ||
-                    (availabilityFilter === "Available" && item.availability) ||
-                    (availabilityFilter === "Not Available" && !item.availability);
+                  const availabilityMatches = menuItemsTab === "all"
+                    || (menuItemsTab === "available" && item.availability)
+                    || (menuItemsTab === "unavailable" && !item.availability);
                   const searchMatches =
                     searchFilter === "" ||
                     item.name.toLowerCase().includes(searchFilter.toLowerCase());
@@ -465,8 +666,10 @@ function BusinessMenuPageWithSearchParams() {
                 }, {} as Record<string, typeof menuItems>);
 
                 const categoryKeys = [
-                  ...ORDERED_CATEGORIES.filter((cat) => grouped[cat]),
-                  ...Object.keys(grouped).filter((cat) => !ORDERED_CATEGORIES.includes(cat)).sort(),
+                  ...menuCategories.map((category) => category.name).filter((name) => grouped[name]),
+                  ...Object.keys(grouped)
+                    .filter((name) => !menuCategories.some((category) => category.name === name))
+                    .sort((first, second) => first.localeCompare(second)),
                 ];
 
                 if (filteredItems.length === 0) {
@@ -491,11 +694,21 @@ function BusinessMenuPageWithSearchParams() {
                           {items.length} item{items.length !== 1 ? 's' : ''}
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                        {items.map((item) => (
-                          <BusinessMenuCard key={item.id} item={item} onUpdated={fetchMenuItems} />
-                        ))}
-                      </div>
+                      <SortableList
+                        items={items}
+                        onReorder={handleReorderMenuItems}
+                        className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6"
+                        disabled={!canEditMenu || menuItemsTab !== "all" || categoryFilter !== "All" || searchFilter.trim() !== "" || items.length < 2}
+                        label={`Reorder ${category} menu items`}
+                        renderItem={(item) => (
+                          <BusinessMenuCard
+                            key={item.id}
+                            item={item}
+                            categoryNames={menuCategories.map((category) => category.name)}
+                            onUpdated={fetchMenuItems}
+                          />
+                        )}
+                      />
                     </div>
                   );
                 });
@@ -512,8 +725,8 @@ function BusinessMenuPageWithSearchParams() {
 
         {showAddModal && canCreateMenu && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-            <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-[0_40px_120px_rgba(0,0,0,0.15)] overflow-hidden border border-gray-200">
-              <div className="max-h-[90vh] overflow-y-auto p-6 lg:p-8 space-y-6">
+            <div className="w-full max-w-3xl rounded-2xl bg-white shadow-[0_40px_120px_rgba(0,0,0,0.15)] overflow-hidden border border-gray-200 sm:rounded-[32px]">
+              <div className="max-h-[90vh] overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm uppercase tracking-[0.24em] text-gray-500 font-semibold">
@@ -545,7 +758,7 @@ function BusinessMenuPageWithSearchParams() {
                           key={step.id}
                           type="button"
                           onClick={() => setAddMenuStep(step.id)}
-                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                          className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
                             addMenuStep === step.id
                               ? "bg-blue-600 text-white"
                               : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
@@ -591,11 +804,10 @@ function BusinessMenuPageWithSearchParams() {
                           onChange={(e) => setMenuCategory(e.target.value)}
                           className="mt-2 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600"
                         >
-                          <option value="Meals">Meals</option>
-                          <option value="Beverage">Beverage</option>
-                          <option value="Solo">Solo</option>
-                          <option value="Extras">Extras</option>
-                          <option value="Dessert">Dessert</option>
+                          {menuCategories.length === 0 && <option value="">No active categories</option>}
+                          {menuCategories.map((category) => (
+                            <option key={category.id} value={category.name}>{category.name}</option>
+                          ))}
                         </select>
                       </label>
 
@@ -906,34 +1118,56 @@ function BusinessMenuPageWithSearchParams() {
                             Optional — only add groups if this menu item has add-ons.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleAddNewOptionGroup}
-                          className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
-                        >
-                          + Add Group
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <select
+                            value={selectedOptionGroupId}
+                            onChange={(event) => handleSelectExistingOptionGroup(event.target.value)}
+                            disabled={loadingOptionGroups}
+                            aria-label="Select an existing option group"
+                            className="max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60"
+                          >
+                            <option value="">{loadingOptionGroups ? "Loading groups..." : "Use existing group"}</option>
+                            {availableOptionGroups
+                              .filter((group) => group.is_active && !menuOptionGroups.some((draft) => draft.globalGroupId === group.id))
+                              .map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={handleAddNewOptionGroup}
+                            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 transition"
+                          >
+                            + New Group
+                          </button>
+                        </div>
                       </div>
 
                       {menuOptionGroups.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 text-center">
-                          No option groups yet. Add one only if this item has add-ons.
+                          No groups selected. Reuse a group or create one; new groups are saved to Option Groups when this item is saved.
                         </div>
                       ) : (
                         <div className="space-y-4">
                           {menuOptionGroups.map((group, groupIndex) => (
                             <div key={group.id} className="rounded-2xl border border-gray-200 bg-white p-4">
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <h4 className="font-semibold text-slate-900">Group {groupIndex + 1}</h4>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setMenuOptionGroups((prev) => prev.filter((g) => g.id !== group.id))
-                                  }
-                                  className="text-blue-600 hover:text-blue-800 text-sm"
-                                >
-                                  Remove group
-                                </button>
+                                <div>
+                                  <h4 className="font-semibold text-slate-900">{group.name || `Group ${groupIndex + 1}`}</h4>
+                                  {group.globalGroupId && <p className="text-xs text-blue-700">Shared group · edits apply to every linked item</p>}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {group.globalGroupId && canEditMenu && (
+                                    <button type="button" onClick={() => void handleArchiveDraftGroup(group)} className="rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-50">
+                                      Archive globally
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setMenuOptionGroups((prev) => prev.filter((g) => g.id !== group.id))}
+                                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                  >
+                                    {group.globalGroupId ? "Remove from this item" : "Discard group"}
+                                  </button>
+                                </div>
                               </div>
 
                               <div className="grid gap-3 sm:grid-cols-2">
@@ -941,6 +1175,7 @@ function BusinessMenuPageWithSearchParams() {
                                   Group Name
                                   <input
                                     type="text"
+                                    disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                     value={group.name}
                                     onChange={(e) =>
                                       setMenuOptionGroups((prev) =>
@@ -957,6 +1192,7 @@ function BusinessMenuPageWithSearchParams() {
                                 <label className="block text-sm text-gray-700">
                                   Required selection
                                   <select
+                                    disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                     value={group.isRequired ? "yes" : "no"}
                                     onChange={(e) =>
                                       setMenuOptionGroups((prev) =>
@@ -980,6 +1216,7 @@ function BusinessMenuPageWithSearchParams() {
                                   Min Select
                                   <input
                                     type="number"
+                                    disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                     min={0}
                                     value={group.minSelect}
                                     onChange={(e) =>
@@ -998,6 +1235,7 @@ function BusinessMenuPageWithSearchParams() {
                                   Max Select
                                   <input
                                     type="number"
+                                    disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                     min={1}
                                     value={group.maxSelect}
                                     onChange={(e) =>
@@ -1019,6 +1257,7 @@ function BusinessMenuPageWithSearchParams() {
                                   <p className="text-sm font-semibold text-slate-900">Group Options</p>
                                   <button
                                     type="button"
+                                    disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                     onClick={() =>
                                       setMenuOptionGroups((prev) =>
                                         prev.map((g) =>
@@ -1050,6 +1289,7 @@ function BusinessMenuPageWithSearchParams() {
                                       <div key={option.id} className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                         <input
                                           type="text"
+                                          disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                           value={option.name}
                                           onChange={(e) =>
                                             setMenuOptionGroups((prev) =>
@@ -1072,6 +1312,7 @@ function BusinessMenuPageWithSearchParams() {
                                         />
                                         <input
                                           type="number"
+                                          disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                           value={option.price}
                                           onChange={(e) =>
                                             setMenuOptionGroups((prev) =>
@@ -1094,6 +1335,7 @@ function BusinessMenuPageWithSearchParams() {
                                         />
                                         <button
                                           type="button"
+                                          disabled={Boolean(group.globalGroupId) && !canEditMenu}
                                           onClick={() =>
                                             setMenuOptionGroups((prev) =>
                                               prev.map((g) =>
@@ -1127,6 +1369,7 @@ function BusinessMenuPageWithSearchParams() {
                   <button
                     onClick={() => {
                       setShowAddModal(false);
+                      setShowGroupSaveChoice(false);
                       setAddMenuStep(1);
                       setMenuOptionGroups([]);
                       setMenuName("");
@@ -1167,7 +1410,7 @@ function BusinessMenuPageWithSearchParams() {
                       </button>
                     ) : (
                       <button
-                        onClick={handleSaveMenuItem}
+                        onClick={() => void handleSaveMenuItem()}
                         className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={loading || !canCreateMenu}
                       >
@@ -1178,6 +1421,57 @@ function BusinessMenuPageWithSearchParams() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {showGroupSaveChoice && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="group-save-choice-title"
+              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            >
+              <h2 id="group-save-choice-title" className="text-xl font-bold text-slate-900">
+                Save your group edits?
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                The original reusable group will stay unchanged. Choose how to use your edited version.
+              </p>
+              <div className="mt-6 grid gap-3">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setShowGroupSaveChoice(false);
+                    void handleSaveMenuItem("reusable-copy");
+                  }}
+                  className="rounded-xl bg-blue-700 px-4 py-3 text-left text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                >
+                  Save as another Option Group
+                  <span className="mt-1 block text-xs font-normal text-blue-100">Create a reusable copy for future menu items.</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setShowGroupSaveChoice(false);
+                    void handleSaveMenuItem("item-only");
+                  }}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-left text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Only this menu item
+                  <span className="mt-1 block text-xs font-normal text-slate-600">Keep the edited copy out of Option Groups.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGroupSaveChoice(false)}
+                  className="justify-self-end rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            </section>
           </div>
         )}
 

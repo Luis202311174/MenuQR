@@ -8,9 +8,12 @@ type MenuItem = {
   id: string;
   name: string;
   price: number;
+  original_price?: number | null;
   category?: string;
   image_url?: string;
   image_position?: string;
+  prep_time?: number | string | null;
+  rating?: number | null;
   availability?: boolean;
   description?: string;
   menu_desc?: string;
@@ -60,7 +63,7 @@ export default function MenuGrid({
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 flex-1">
+    <div className="grid flex-1 grid-cols-2 gap-x-3 gap-y-4 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
       {items.map((item) => (
         <MenuItemWithInventory
           key={item.id}
@@ -106,90 +109,81 @@ function MenuItemWithInventory({
   const isAvailable = availability && !isOutOfStock;
 
   return (
-    <div className="border border-gray-200 rounded-[28px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-white transform hover:-translate-y-0.5">
-      <div className="h-28 w-full bg-gray-100 overflow-hidden sm:h-32">
+    <article className="min-w-0 overflow-hidden rounded-2xl bg-white sm:rounded-3xl">
+      <div className="group relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-100 sm:rounded-3xl">
         {item.image_url ? (
           <img
             src={item.image_url}
-            className="w-full h-full object-cover"
+            alt={item.name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             style={{ objectPosition: item.image_position || "center" }}
           />
         ) : (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">
-            No image available
+          <div className="flex h-full w-full items-center justify-center bg-slate-100 px-2 text-center text-[10px] text-slate-400 sm:text-xs">
+            No image
           </div>
+        )}
+
+        {item.prep_time != null && item.prep_time !== "" && (
+          <span className="absolute bottom-2 left-2 max-w-[calc(100%-3.5rem)] truncate rounded-md bg-black/65 px-2 py-1 text-[9px] font-medium text-white backdrop-blur-sm sm:bottom-3 sm:left-3 sm:text-xs">
+            {typeof item.prep_time === "number" ? `${item.prep_time} min` : item.prep_time}
+          </span>
+        )}
+
+        {isDineIn && (
+          <button
+            type="button"
+            onClick={() => onOpenItem(item)}
+            disabled={!isAvailable}
+            aria-label={`Add ${item.name}`}
+            className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-blue-600 px-2.5 py-1.5 text-white shadow-md transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400 sm:bottom-3 sm:right-3 sm:gap-2 sm:px-3 sm:py-2"
+          >
+            <span aria-hidden="true" className="text-base font-medium leading-none sm:text-xl">+</span>
+            <span className="text-[9px] font-semibold leading-none sm:text-xs">Add to order</span>
+          </button>
+        )}
+
+        {!isAvailable && (
+          <span className="absolute left-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[9px] font-semibold text-white sm:left-3 sm:top-3 sm:text-xs">
+            Sold out
+          </span>
         )}
       </div>
 
-      <div className="p-3 sm:p-4 flex flex-col gap-3">
-        <div>
-          <h3 className="font-black text-xs sm:text-sm leading-snug text-gray-900">
-            {item.name}
-          </h3>
-          <p className="mt-1 text-[10px] sm:text-xs text-red-600 uppercase tracking-[0.24em] font-semibold">
+      <div className="min-w-0 pt-2 sm:pt-3">
+        <h3 className="line-clamp-1 text-[11px] font-semibold leading-snug text-slate-900 sm:text-sm">
+          {item.name}
+        </h3>
+
+        <div className="mt-1 flex min-w-0 items-center justify-between gap-1">
+          <p className="min-w-0 truncate text-[9px] text-slate-500 sm:text-xs">
             {item.category || "Menu"}
+            {item.rating != null && Number.isFinite(Number(item.rating)) && (
+              <span className="ml-1 inline-flex items-center gap-0.5 whitespace-nowrap text-amber-600">
+                <span aria-hidden="true">★</span>
+                {Number(item.rating).toFixed(1)}
+              </span>
+            )}
           </p>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-          <div>
-            <p className="text-base sm:text-xl font-black text-blue-600">₱{item.price}</p>
-            {item.calories != null && (
-              <p className="text-[11px] text-gray-500 mt-1">
-                ~{item.calories} cal
-              </p>
-            )}
-            {isTrackable && (
-              <p className="text-[11px] text-gray-500 mt-1">
-                Stock: {loading ? "..." : currentStock}
-              </p>
-            )}
-          </div>
-          <span
-            className={`text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full ${
-              isAvailable
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
-          >
-            {isAvailable ? "Available" : "Sold out"}
-          </span>
-        </div>
-
-        <div className="flex gap-2">
-          {isDineIn ? (
-            <>
-              <button
-                onClick={() => onOpenItem(item)}
-                disabled={!isAvailable}
-                className={`flex-1 rounded-2xl px-2 py-2 text-[10px] sm:text-sm font-semibold text-white transition ${
-                  isAvailable
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "bg-gray-300 cursor-not-allowed"
-                }`}
-              >
-                View
-              </button>
-              <button
-                onClick={() => onOpenItem(item)}
-                disabled={!isAvailable}
-                className={`flex-1 rounded-2xl px-2 py-2 text-[10px] sm:text-sm font-semibold text-blue-600 border border-blue-600 bg-white transition ${
-                  isAvailable
-                    ? "hover:bg-blue-50"
-                    : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300"
-                }`}
-              >
-                Add
-              </button>
-            </>
-          ) : (
-            <div className="flex-1 rounded-2xl bg-gray-100 border border-gray-200 px-2 py-2 text-[10px] sm:text-xs font-semibold text-gray-700 text-center flex items-center justify-center">
-              Scan QR to order
-            </div>
+          {isTrackable && (
+            <span className="shrink-0 text-[9px] text-slate-500 sm:text-[11px]">
+              {loading ? "…" : `${currentStock} left`}
+            </span>
           )}
         </div>
+
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+          <span className="text-xs font-bold text-slate-900 sm:text-base">
+            ₱{item.price}
+          </span>
+          {item.original_price != null &&
+            Number(item.original_price) > Number(item.price) && (
+              <span className="text-[9px] text-slate-400 line-through sm:text-xs">
+                ₱{item.original_price}
+              </span>
+            )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
-

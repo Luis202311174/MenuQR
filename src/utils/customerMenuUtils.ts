@@ -17,26 +17,55 @@ export type CustomerOption = {
 };
 
 export async function fetchMenuItemWithOptions(itemId: string) {
-  const { data, error } = await supabase
-    .from("menu_item_option_groups")
-    .select(
-      `
+  const { data: links, error: linksError } = await supabase
+    .from("item_option_groups")
+    .select("option_group_id,position")
+    .eq("menu_item_id", itemId)
+    .order("position");
+
+  if (linksError) throw linksError;
+  const groupIds = (links ?? []).map((link) => link.option_group_id);
+  if (groupIds.length === 0) return [];
+
+  const { data: groups, error: groupsError } = await supabase
+    .from("option_groups")
+    .select(`
       id,
       name,
       is_required,
       min_select,
       max_select,
-      menu_item_options (
+      sort_order,
+      option_choices (
         id,
         name,
         price_modifier,
-        is_available
+        is_available,
+        sort_order
       )
-    `
-    )
-    .eq("menu_item_id", itemId)
-    .order("created_at", { ascending: true });
+    `)
+    .in("id", groupIds)
+    .order("sort_order", { ascending: true })
+    .eq("is_active", true);
 
-  if (error) throw error;
-  return data || [];
+  if (groupsError) throw groupsError;
+  const groupsById = new Map((groups ?? []).map((group) => [group.id, group]));
+
+  return (groups ?? []).flatMap((groupIdRow) => {
+    const group = groupsById.get(groupIdRow.id);
+    if (!group) return [];
+    return [{
+      id: group.id,
+      name: group.name,
+      is_required: group.is_required,
+      min_select: group.min_select,
+      max_select: group.max_select,
+      menu_item_options: [...(group.option_choices ?? [])]
+        .sort((first, second) => first.sort_order - second.sort_order)
+        .map((choice) => ({
+        ...choice,
+        price_modifier: Number(choice.price_modifier),
+      })),
+    }];
+  });
 }

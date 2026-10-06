@@ -20,11 +20,13 @@ import {
   faBox,
   faTags,
   faUsers,
+  faLayerGroup,
+  faSliders,
 } from "@fortawesome/free-solid-svg-icons";
 
 type BusinessSidebarProps = {
-  onClose?: () => void;
   ordersCount?: number;
+  variant?: "desktop" | "mobile";
 };
 
 type SidebarItem = {
@@ -35,7 +37,7 @@ type SidebarItem = {
   requiredAction?: StaffPermissionAction;
 };
 
-export default function BusinessSidebar({ onClose, ordersCount }: BusinessSidebarProps) {
+export default function BusinessSidebar({ ordersCount, variant = "desktop" }: BusinessSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { staffSession } = useStaffSession();
@@ -46,6 +48,8 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
     { label: "Dashboard", path: "/business/dashboard", icon: faGaugeHigh, module: "dashboard" },
     ...(staffSession ? [{ label: "Staff Dashboard", path: "/business/staff-dashboard", icon: faGaugeHigh, module: "dashboard" as const }] : []),
     { label: "Menu", path: "/business/menu", icon: faBagShopping, module: "menu" },
+    { label: "Categories", path: "/business/categories", icon: faLayerGroup, module: "menu" },
+    { label: "Option Groups", path: "/business/options", icon: faSliders, module: "menu" },
     { label: "Inventory", path: "/business/inventory", icon: faBox, module: "inventory" },
     { label: ordersLabel, path: "/business/orders", icon: faShoppingCart, module: "orders" },
     { label: "Promotions", path: "/business/promotions", icon: faTags, module: "promotions" },
@@ -55,6 +59,69 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
     { label: "Staff", path: "/business/settings/staff", icon: faUsers, module: "settings", requiredAction: "manageStaff" },
 
   ];
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.label === "Staff Dashboard" && staffSession) return true;
+    if (!staffSession) return true;
+    if (item.requiredAction) {
+      return hasStaffPermission(staffSession, item.module, item.requiredAction);
+    }
+    return getSidebarVisibility(staffSession, item.module);
+  });
+
+  const renderNavItem = (item: SidebarItem) => {
+    const isActive = pathname === item.path || (item.path !== "/business/dashboard" && pathname.startsWith(`${item.path}/`));
+
+    if (variant === "mobile") {
+      return (
+        <button
+          key={item.path + item.label}
+          type="button"
+          aria-current={isActive ? "page" : undefined}
+          onClick={() => router.push(item.path)}
+          className={`inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 py-2 text-[11px] font-semibold whitespace-nowrap transition ${
+            isActive
+              ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          <FontAwesomeIcon icon={item.icon} className="text-[10px]" />
+          <span>{item.label}</span>
+        </button>
+      );
+    }
+
+    return (
+      <button
+        key={item.path + item.label}
+        type="button"
+        aria-current={isActive ? "page" : undefined}
+        onClick={() => router.push(item.path)}
+        className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-1.5 text-left text-[11px] sm:text-xs font-semibold transition ${
+          isActive
+            ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white shadow-md shadow-[#4f65ff]/15"
+            : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+        }`}
+      >
+        <span className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg transition ${
+          isActive ? "bg-white/15 text-white" : "bg-white text-slate-600 group-hover:bg-slate-200"
+        }`}>
+          <FontAwesomeIcon icon={item.icon} className="text-[11px] sm:text-xs" />
+        </span>
+        <span className="capitalize text-[11px] sm:text-xs">{item.label}</span>
+      </button>
+    );
+  };
+
+  if (variant === "mobile") {
+    return (
+      <nav aria-label="Business navigation" className="w-full overflow-x-auto overscroll-x-contain scroll-smooth">
+        <div className="flex w-max min-w-full snap-x snap-mandatory items-center gap-2 px-3 py-2">
+          {visibleNavItems.map(renderNavItem)}
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full lg:sticky lg:top-0 lg:self-start">
@@ -66,53 +133,9 @@ export default function BusinessSidebar({ onClose, ordersCount }: BusinessSideba
       </div>
 
       <nav className="space-y-2">
-        {navItems
-          .filter((item) => {
-            // Staff Dashboard is always visible for staff members
-            if (item.label === "Staff Dashboard" && staffSession) return true;
-            
-            if (!staffSession) return true;
-            if (item.requiredAction) {
-              return hasStaffPermission(staffSession, item.module, item.requiredAction);
-            }
-            return getSidebarVisibility(staffSession, item.module);
-          })
-          .map((item) => {
-            const isActive = pathname === item.path;
-
-            return (
-              <button
-                key={item.path + item.label}
-                type="button"
-                onClick={() => router.push(item.path)}
-                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-1.5 text-left text-[11px] sm:text-xs font-semibold transition ${
-                  isActive
-                    ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white shadow-md shadow-[#4f65ff]/15"
-                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                <span className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg transition ${
-                  isActive ? "bg-white/15 text-white" : "bg-white text-slate-600 group-hover:bg-slate-200"
-                }`}>
-                  <FontAwesomeIcon icon={item.icon} className="text-[11px] sm:text-xs" />
-                </span>
-                <span className="capitalize text-[11px] sm:text-xs">{item.label}</span>
-              </button>
-            );
-          })}
+        {visibleNavItems.map(renderNavItem)}
       </nav>
 
-      {onClose && (
-        <div className="mt-4 lg:hidden">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            Close
-          </button>
-        </div>
-      )}
     </aside>
   );
 }
