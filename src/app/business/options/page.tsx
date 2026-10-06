@@ -370,7 +370,7 @@ export default function BusinessOptionGroupsPage() {
       subtitle="Build reusable modifiers and assign them to menu items."
       backHref="/business/menu"
     >
-      <div className="mx-auto max-w-5xl space-y-8">
+      <div className="mx-auto max-w-5xl space-y-4 sm:space-y-8">
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
         {notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
@@ -420,10 +420,10 @@ export default function BusinessOptionGroupsPage() {
 
         {canCreate && activeTab === "create" && (
           <section id="option-group-panel-create" role="tabpanel" aria-labelledby="option-group-tab-create">
-          <form onSubmit={(event) => void handleCreateGroup(event)} className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-            <h2 className="text-lg font-bold text-slate-900">Create option group</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+          <form onSubmit={(event) => void handleCreateGroup(event)} className="rounded-xl border border-slate-200 bg-white p-3 sm:p-6">
+            <h2 className="text-sm font-bold text-slate-900 sm:text-lg">Create option group</h2>
+            <div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+              <label className="text-xs font-semibold text-slate-700 sm:text-sm sm:col-span-2">
                 Group name
                 <input
                   required
@@ -434,21 +434,21 @@ export default function BusinessOptionGroupsPage() {
                   className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600"
                 />
               </label>
-              <label className="text-sm font-semibold text-slate-700">
+              <label className="text-xs font-semibold text-slate-700 sm:text-sm">
                 Minimum selections
                 <input type="number" min="0" value={newGroup.min_select} onChange={(event) => setNewGroup((current) => ({ ...current, min_select: Number(event.target.value) }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600" />
               </label>
-              <label className="text-sm font-semibold text-slate-700">
+              <label className="text-xs font-semibold text-slate-700 sm:text-sm">
                 Maximum selections
                 <input type="number" min="1" value={newGroup.max_select} onChange={(event) => setNewGroup((current) => ({ ...current, max_select: Number(event.target.value) }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600" />
               </label>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sm:mt-4 sm:gap-3">
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 sm:text-sm">
                 <input type="checkbox" checked={newGroup.is_required} onChange={(event) => setNewGroup((current) => ({ ...current, is_required: event.target.checked }))} className="h-4 w-4 accent-blue-700" />
                 Required selection
               </label>
-              <button type="submit" disabled={saving || !newGroup.name.trim()} className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">Create group</button>
+              <button type="submit" disabled={saving || !newGroup.name.trim()} className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-sm">Create group</button>
             </div>
           </form>
           </section>
@@ -456,11 +456,11 @@ export default function BusinessOptionGroupsPage() {
 
         {activeTab !== "create" && (
         <section id={`option-group-panel-${activeTab}`} role="tabpanel" aria-labelledby={`option-group-tab-${activeTab}`}>
-          <div className="mb-3 flex items-baseline justify-between border-b border-slate-200 pb-3">
-            <h2 id={activeTab === "archives" ? "archives-heading" : "groups-heading"} className="text-lg font-bold text-slate-900">
+          <div className="mb-2 flex items-baseline justify-between border-b border-slate-200 pb-2 sm:mb-3 sm:pb-3">
+            <h2 id={activeTab === "archives" ? "archives-heading" : "groups-heading"} className="text-sm font-bold text-slate-900 sm:text-lg">
               {activeTab === "archives" ? "Archives" : "Your Option Group"}
             </h2>
-            <span className="text-sm text-slate-500">{visibleGroups.length}</span>
+            <span className="text-xs text-slate-500 sm:text-sm">{visibleGroups.length}</span>
           </div>
           {loading ? <p className="py-6 text-sm text-slate-500">Loading option groups...</p> : visibleGroups.length === 0 ? (
             <p className="py-6 text-sm text-slate-500">{activeTab === "archives" ? "No archived option groups." : "No option groups yet."}</p>
@@ -468,7 +468,7 @@ export default function BusinessOptionGroupsPage() {
             <SortableList
               items={visibleGroups}
               onReorder={handleReorderGroups}
-              className="space-y-5"
+              className="space-y-3 sm:space-y-5"
               disabled={!canEdit || saving || visibleGroups.length < 2}
               label={activeTab === "archives" ? "Reorder archived option groups" : "Reorder option groups"}
               renderItem={(group) => {
@@ -493,62 +493,63 @@ export default function BusinessOptionGroupsPage() {
                       }
                       toggleExpanded();
                     }}
-                    className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
+                    className="cursor-pointer rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-6"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
                       <button
                         type="button"
                         aria-expanded={isExpanded}
                         aria-controls={`option-group-details-${group.id}`}
                         onClick={toggleExpanded}
-                        className="min-w-0 flex-1 cursor-pointer rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                        className="min-w-0 cursor-pointer rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
                       >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-bold text-slate-900">{group.name}</h3>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <h3 className="break-words text-sm font-bold text-slate-900 sm:text-base">{group.name}</h3>
                           {!group.is_active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Archived</span>}
                         </div>
-                        <p className="mt-1 text-sm text-slate-500">{group.choices.length} choices · linked to {group.menu_item_ids.length} menu {group.menu_item_ids.length === 1 ? "item" : "items"}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">{group.choices.length} choices <span aria-hidden="true">·</span> linked to {group.menu_item_ids.length} menu {group.menu_item_ids.length === 1 ? "item" : "items"}</p>
                       </button>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                      <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:justify-end sm:gap-2">
                         <button
                           type="button"
                           aria-expanded={isExpanded}
                           aria-controls={`option-group-details-${group.id}`}
                           onClick={toggleExpanded}
-                          className="whitespace-nowrap rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-sm"
+                          className="w-full whitespace-nowrap rounded-lg border border-slate-300 px-1.5 py-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto sm:px-3 sm:text-sm"
                         >
-                          {isExpanded ? "Hide details" : "Edit details"}
+                          <span className="sm:hidden">{isExpanded ? "Hide" : "Edit"}</span>
+                          <span className="hidden sm:inline">{isExpanded ? "Hide details" : "Edit details"}</span>
                         </button>
-                        {canEdit && <button type="button" disabled={saving} onClick={() => void handleArchiveGroup(group)} className="whitespace-nowrap rounded-lg border border-amber-300 px-2.5 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50 sm:px-3 sm:text-sm">{group.is_active ? "Archive" : "Restore"}</button>}
-                        {canDelete && <button type="button" disabled={saving} onClick={() => void handleDeleteGroup(group)} className="whitespace-nowrap rounded-lg border border-rose-300 px-2.5 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50 sm:px-3 sm:text-sm">Delete group</button>}
+                        {canEdit && <button type="button" disabled={saving} onClick={() => void handleArchiveGroup(group)} className="w-full whitespace-nowrap rounded-lg border border-amber-300 px-1.5 py-2 text-[10px] font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:px-3 sm:text-sm">{group.is_active ? "Archive" : "Restore"}</button>}
+                        {canDelete && <button type="button" disabled={saving} onClick={() => void handleDeleteGroup(group)} className="w-full whitespace-nowrap rounded-lg border border-rose-300 px-1.5 py-2 text-[10px] font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50 sm:w-auto sm:px-3 sm:text-sm">Delete group</button>}
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div id={`option-group-details-${group.id}`} data-option-group-details className="mt-5">
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+                      <div id={`option-group-details-${group.id}`} data-option-group-details className="mt-3 sm:mt-5">
+                    <div className="mt-3 grid gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+                      <label className="text-xs font-semibold text-slate-700 sm:text-sm sm:col-span-2">
                         Group name
                         <input disabled={!canEdit} maxLength={80} value={draft.name} onChange={(event) => setGroupDrafts((current) => ({ ...current, [group.id]: { ...draft, name: event.target.value } }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 disabled:bg-slate-100" />
                       </label>
-                      <label className="text-sm font-semibold text-slate-700">
+                      <label className="text-xs font-semibold text-slate-700 sm:text-sm">
                         Minimum selections
                         <input disabled={!canEdit} type="number" min="0" value={draft.min_select} onChange={(event) => setGroupDrafts((current) => ({ ...current, [group.id]: { ...draft, min_select: Number(event.target.value) } }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 disabled:bg-slate-100" />
                       </label>
-                      <label className="text-sm font-semibold text-slate-700">
+                      <label className="text-xs font-semibold text-slate-700 sm:text-sm">
                         Maximum selections
                         <input disabled={!canEdit} type="number" min="1" value={draft.max_select} onChange={(event) => setGroupDrafts((current) => ({ ...current, [group.id]: { ...draft, max_select: Number(event.target.value) } }))} className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-600 disabled:bg-slate-100" />
                       </label>
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sm:mt-4 sm:gap-3">
+                      <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 sm:text-sm">
                         <input disabled={!canEdit} type="checkbox" checked={draft.is_required} onChange={(event) => setGroupDrafts((current) => ({ ...current, [group.id]: { ...draft, is_required: event.target.checked } }))} className="h-4 w-4 accent-blue-700" />
                         Required selection
                       </label>
-                      {canEdit && <button type="button" disabled={saving} onClick={() => void handleSaveGroup(group.id)} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">Save group</button>}
+                      {canEdit && <button type="button" disabled={saving} onClick={() => void handleSaveGroup(group.id)} className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm">Save group</button>}
                     </div>
 
-                      <div className="mt-6 border-t border-slate-200 pt-5">
+                      <div className="mt-4 border-t border-slate-200 pt-3 sm:mt-6 sm:pt-5">
                       <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <h4 className="text-sm font-bold text-slate-900">Choices</h4>
                         <span className="text-xs text-slate-500">Unavailable choices stay saved, but customers cannot select them.</span>
@@ -563,17 +564,17 @@ export default function BusinessOptionGroupsPage() {
                           renderItem={(choice) => {
                             const choiceDraft = choiceDrafts[choice.id] ?? choice;
                             return (
-                              <div key={choice.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
+                              <div key={choice.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:gap-3 sm:py-4 sm:items-end">
                                 <label className="text-xs font-semibold text-slate-600">
                                   Choice
-                                  <input disabled={!canEdit} value={choiceDraft.name} onChange={(event) => setChoiceDrafts((current) => ({ ...current, [choice.id]: { ...choiceDraft, name: event.target.value } }))} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900 disabled:bg-slate-100" />
+                                  <input disabled={!canEdit} value={choiceDraft.name} onChange={(event) => setChoiceDrafts((current) => ({ ...current, [choice.id]: { ...choiceDraft, name: event.target.value } }))} className="mt-1 block w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-normal text-slate-900 disabled:bg-slate-100 sm:px-3 sm:py-2 sm:text-sm" />
                                 </label>
                                 <label className="text-xs font-semibold text-slate-600">
                                   Price modifier
-                                  <input disabled={!canEdit} type="number" step="0.01" value={choiceDraft.price_modifier} onChange={(event) => setChoiceDrafts((current) => ({ ...current, [choice.id]: { ...choiceDraft, price_modifier: Number(event.target.value) } }))} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900 disabled:bg-slate-100" />
+                                  <input disabled={!canEdit} type="number" step="0.01" value={choiceDraft.price_modifier} onChange={(event) => setChoiceDrafts((current) => ({ ...current, [choice.id]: { ...choiceDraft, price_modifier: Number(event.target.value) } }))} className="mt-1 block w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-normal text-slate-900 disabled:bg-slate-100 sm:px-3 sm:py-2 sm:text-sm" />
                                 </label>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                                  <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 sm:text-sm">
                                     <input disabled={!canEdit || saving} type="checkbox" checked={choice.is_available} onChange={() => void handleToggleChoice(group.id, choice)} className="h-4 w-4 accent-emerald-700" />
                                     Available
                                   </label>
@@ -595,7 +596,7 @@ export default function BusinessOptionGroupsPage() {
                             Price modifier
                             <input type="number" step="0.01" value={newChoices[group.id]?.price ?? ""} onChange={(event) => setNewChoices((current) => ({ ...current, [group.id]: { ...current[group.id], name: current[group.id]?.name ?? "", price: event.target.value } }))} placeholder="0.00" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900" />
                           </label>
-                          <button type="submit" disabled={saving || !newChoices[group.id]?.name.trim()} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">Add choice</button>
+                          <button type="submit" disabled={saving || !newChoices[group.id]?.name.trim()} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-sm">Add choice</button>
                         </form>
                       )}
                     </div>

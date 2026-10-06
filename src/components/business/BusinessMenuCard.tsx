@@ -489,8 +489,8 @@ export default function BusinessMenuCard({ item, categoryNames, onUpdated }: Bus
 
   return (
     <>
-      <div className="group bg-white rounded-[28px] border border-slate-200 shadow-sm overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
-        <div className="relative h-40 bg-slate-100 overflow-hidden">
+      <div className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg sm:rounded-[28px]">
+        <div className="relative h-32 overflow-hidden bg-slate-100 sm:h-40">
           {item.image_url ? (
             <img
               src={item.image_url}
@@ -504,44 +504,44 @@ export default function BusinessMenuCard({ item, categoryNames, onUpdated }: Bus
             </div>
           )}
 
-          <div className="absolute left-4 top-4 max-w-[calc(100%-2rem)] truncate rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-700 shadow-sm sm:text-[11px] sm:tracking-[0.18em]">
+          <div className="absolute left-2.5 top-2.5 max-w-[calc(100%-1.25rem)] truncate rounded-full bg-white/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-700 shadow-sm sm:left-4 sm:top-4 sm:max-w-[calc(100%-2rem)] sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
             {item.category || "Other"}
           </div>
         </div>
 
-        <div className="p-4 flex flex-col gap-3 h-full">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-3">
+        <div className="flex h-full flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
+          <div className="flex flex-col gap-2.5 sm:gap-3">
+            <div className="flex items-start justify-between gap-2 sm:gap-3">
               <div className="min-w-0">
-                <h3 className="text-base font-semibold text-slate-900 leading-tight line-clamp-2">
+                <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-slate-900 sm:text-base">
                   {item.name}
                 </h3>
-                <p className="mt-1 text-xs text-slate-500 line-clamp-3">
+                <p className="mt-1 line-clamp-2 text-[11px] text-slate-500 sm:line-clamp-3 sm:text-xs">
                   {item.menu_desc || "No description"}
                 </p>
               </div>
 
               <div className="flex flex-col items-end gap-2">
                 <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                  className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] sm:px-2.5 sm:text-[11px] sm:tracking-[0.16em] ${
                     item.availability
                       ? "bg-emerald-100 text-emerald-700"
                       : "bg-rose-100 text-rose-700"
                   }`}>
                   {item.availability ? "Active" : "Sold out"}
                 </span>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 sm:gap-2">
                   <button
                     onClick={openEdit}
                     disabled={!canEditThisMenuItem}
-                    className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-xl bg-slate-900 px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => setShowDeleteModal(true)}
                     disabled={!canDeleteThisMenuItem}
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
                   >
                     Delete
                   </button>
@@ -551,7 +551,7 @@ export default function BusinessMenuCard({ item, categoryNames, onUpdated }: Bus
 
             <div className="mt-auto flex items-center justify-between gap-3">
               <div>
-                <p className="text-lg font-bold text-slate-900">₱{item.price != null ? Number(item.price).toFixed(2) : "0.00"}</p>
+                <p className="text-base font-bold text-slate-900 sm:text-lg">₱{item.price != null ? Number(item.price).toFixed(2) : "0.00"}</p>
                 {item.calories != null && (
                   <p className="text-xs text-slate-500">~{item.calories} cal</p>
                 )}

@@ -650,47 +650,47 @@ export default function BusinessOrdersPage() {
       ) : (
         <div>
           <div>
-            <main className="space-y-4 sm:space-y-8">
-              <section className="space-y-4 sm:space-y-6">
+            <main className="space-y-3 sm:space-y-8">
+              <section className="space-y-3 sm:space-y-6">
 
                   <div>
                     <p className="text-xs sm:text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">Overview</p>
-                    <h2 className="text-lg sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2">
+                    <h2 className="mt-1 text-base font-bold text-slate-900 sm:mt-2 sm:text-2xl">
                       Order Queue Status
                     </h2>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                    <div className="rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-[#FCEAEA] to-[#F5C6C6] text-[#9B1C1C] p-4 sm:p-8 shadow-sm hover:shadow-md transition">
-                      <p className="text-xs sm:text-sm font-medium">To Confirm</p>
-                      <p className="text-2xl sm:text-5xl font-black mt-2 sm:mt-4">{pendingCount}</p>
-                      <p className="text-xs mt-1 sm:mt-3 font-medium">New orders</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+                    <div className="rounded-2xl bg-gradient-to-br from-[#FCEAEA] to-[#F5C6C6] p-3 text-[#9B1C1C] shadow-sm transition hover:shadow-md sm:rounded-[24px] sm:p-8">
+                      <p className="text-[11px] font-medium sm:text-sm">To Confirm</p>
+                      <p className="mt-1 text-xl font-black sm:mt-4 sm:text-5xl">{pendingCount}</p>
+                      <p className="mt-0.5 text-[10px] font-medium sm:mt-3 sm:text-xs">New orders</p>
                     </div>  
-                    <div className="rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-[#FFF7E0] to-[#F3D87B] text-[#8F5A00] p-4 sm:p-8 shadow-sm hover:shadow-md transition">
-                      <p className="text-xs sm:text-sm font-medium">Unpaid</p>
-                      <p className="text-2xl sm:text-5xl font-black mt-2 sm:mt-4">{receivedCount}</p>
-                      <p className="text-xs mt-1 sm:mt-3 font-medium">Pay later</p>
+                    <div className="rounded-2xl bg-gradient-to-br from-[#FFF7E0] to-[#F3D87B] p-3 text-[#8F5A00] shadow-sm transition hover:shadow-md sm:rounded-[24px] sm:p-8">
+                      <p className="text-[11px] font-medium sm:text-sm">Unpaid</p>
+                      <p className="mt-1 text-xl font-black sm:mt-4 sm:text-5xl">{receivedCount}</p>
+                      <p className="mt-0.5 text-[10px] font-medium sm:mt-3 sm:text-xs">Pay later</p>
                     </div>
-                    <div className="rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-[#E0F2FE] to-[#7DD3FC] text-[#0C4A6E] p-4 sm:p-8 shadow-sm hover:shadow-md transition">
-                      <p className="text-xs sm:text-sm font-medium">Paid</p>
-                      <p className="text-2xl sm:text-5xl font-black mt-2 sm:mt-4">{paidCount}</p>
-                      <p className="text-xs mt-1 sm:mt-3 font-medium">Payment received</p>
+                    <div className="rounded-2xl bg-gradient-to-br from-[#E0F2FE] to-[#7DD3FC] p-3 text-[#0C4A6E] shadow-sm transition hover:shadow-md sm:rounded-[24px] sm:p-8">
+                      <p className="text-[11px] font-medium sm:text-sm">Paid</p>
+                      <p className="mt-1 text-xl font-black sm:mt-4 sm:text-5xl">{paidCount}</p>
+                      <p className="mt-0.5 text-[10px] font-medium sm:mt-3 sm:text-xs">Payment received</p>
                     </div>
-                    <div className="rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-[#ECFDF5] to-[#A7F3D0] text-[#065F46] p-4 sm:p-8 shadow-sm hover:shadow-md transition">
-                      <p className="text-xs sm:text-sm font-medium">In Progress</p>
-                      <p className="text-2xl sm:text-5xl font-black mt-2 sm:mt-4">{preparingCount + readyCount}</p>
-                      <p className="text-xs mt-1 sm:mt-3 font-medium">Kitchen & serving</p>
+                    <div className="rounded-2xl bg-gradient-to-br from-[#ECFDF5] to-[#A7F3D0] p-3 text-[#065F46] shadow-sm transition hover:shadow-md sm:rounded-[24px] sm:p-8">
+                      <p className="text-[11px] font-medium sm:text-sm">In Progress</p>
+                      <p className="mt-1 text-xl font-black sm:mt-4 sm:text-5xl">{preparingCount + readyCount}</p>
+                      <p className="mt-0.5 text-[10px] font-medium sm:mt-3 sm:text-xs">Kitchen & serving</p>
                     </div>
                   </div>
                 </section>
 
               {orders.length > 0 ? (
-                <div className="rounded-[28px] border border-slate-200 bg-white p-4 sm:p-8 shadow-sm">
-                  <div className="mb-4 sm:mb-6">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-[28px] sm:p-8">
+                  <div className="mb-3 sm:mb-6">
                     <h2 className="text-base sm:text-xl font-semibold text-slate-900">Order Queue</h2>
                     <p className="text-xs sm:text-sm text-slate-500">Manage incoming orders in real-time</p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-2">
                     {orders.map((order) => (
                       <BusinessOrderTile
                         key={order.id}
@@ -714,7 +714,7 @@ export default function BusinessOrdersPage() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-[28px] sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-[32px] sm:p-8">
                   <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-xs sm:text-sm uppercase tracking-[0.3em] font-semibold text-slate-500">

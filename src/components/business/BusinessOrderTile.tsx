@@ -331,16 +331,16 @@ const BusinessOrderTile: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
 
         {/* HEADER */}
-        <div className="bg-slate-50 px-4 py-4">
+        <div className="bg-slate-50 px-3 py-3 sm:px-4 sm:py-4">
           <div className="flex justify-between">
             <div>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {/* ORDER STATUS */}
                 <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold leading-none ${getStatusColor(
+                  className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-semibold leading-none sm:px-2.5 sm:text-[10px] ${getStatusColor(
                     status as any,
                     order.is_paid
                   )}`}
@@ -350,7 +350,7 @@ const BusinessOrderTile: React.FC<Props> = ({
 
                 {/* PAYMENT STATUS */}
                 <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
+                  className={`inline-flex items-center rounded-full px-2 py-1 text-[9px] font-semibold leading-none sm:px-2.5 sm:text-[10px] ${
                     order.is_paid
                       ? "bg-green-100 text-green-700 border border-green-200"
                       : "bg-yellow-100 text-yellow-700 border border-yellow-200"
@@ -362,7 +362,7 @@ const BusinessOrderTile: React.FC<Props> = ({
                 {/* PAYMENT METHOD */}
                 {order.payment_method && (
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none ${
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-[9px] font-semibold leading-none sm:px-2.5 sm:text-[10px] ${
                       order.payment_method === "gcash"
                         ? "bg-blue-100 text-blue-700 border border-blue-200"
                         : "bg-emerald-100 text-emerald-700 border border-emerald-200"
@@ -394,13 +394,13 @@ const BusinessOrderTile: React.FC<Props> = ({
                 )}
               </div>
 
-              <div className="mt-2 text-xs text-slate-500">
+              <div className="mt-1.5 text-[10px] text-slate-500 sm:mt-2 sm:text-xs">
                 <p>{new Date(order.created_at).toLocaleString()}</p>
                 <p>Table: {order.table?.table_number || "N/A"}</p>
               </div>
             </div>
 
-            <div className="font-bold text-[#9B1C1C]">
+            <div className="shrink-0 text-sm font-bold text-[#9B1C1C] sm:text-base">
               ₱{(order.total_amount - (order.discount_amount || 0)).toFixed(2)}
               {(order.discount_amount || 0) > 0 && (
                 <div className="text-xs text-gray-500 font-normal">
@@ -436,7 +436,7 @@ const BusinessOrderTile: React.FC<Props> = ({
         )}
 
         {/* ITEMS */}
-        <div className="p-4 space-y-3">
+        <div className="space-y-2.5 p-3 sm:space-y-3 sm:p-4">
           {order.items?.map((item: any, i: number) => {
             const itemAddonsTotal =
               item.selected_options?.reduce(
@@ -453,7 +453,7 @@ const BusinessOrderTile: React.FC<Props> = ({
               <div key={i} className="border-b border-slate-100 pb-3 last:border-b-0">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1">
-                    <p className="font-semibold text-slate-900">{item.name}</p>
+                    <p className="text-sm font-semibold text-slate-900 sm:text-base">{item.name}</p>
                     <p className="text-xs text-slate-500">
                       ₱{itemBasePrice.toFixed(2)}
                     </p>
@@ -489,7 +489,7 @@ const BusinessOrderTile: React.FC<Props> = ({
         </div>
 
         {/* ACTIONS */}
-        <div className="p-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 p-3 sm:gap-2 sm:p-4">
           {(actions[status as keyof typeof actions] ?? []).map((btn, idx) => (
             <button
               key={idx}

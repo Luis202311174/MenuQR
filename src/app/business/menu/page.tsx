@@ -555,7 +555,7 @@ function BusinessMenuPageWithSearchParams() {
   return (
     <>
       <PageShell title="Menu" subtitle="Manage menu items, inventory, and availability." backHref="/business/dashboard">
-        <div role="tablist" aria-label="Menu item views" className="mb-6 grid min-w-0 grid-cols-3 border-b border-slate-200">
+        <div role="tablist" aria-label="Menu item views" className="mb-4 grid min-w-0 grid-cols-3 border-b border-slate-200 sm:mb-6">
           {([
             { id: "all", label: "Your Menu Items", count: menuItems.length },
             { id: "available", label: "Available", count: availableMenuCount },
@@ -570,24 +570,24 @@ function BusinessMenuPageWithSearchParams() {
               aria-selected={menuItemsTab === tab.id}
               aria-controls="menu-items-panel"
               onClick={() => setMenuItemsTab(tab.id)}
-              className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-3 text-[10px] font-semibold leading-tight transition sm:px-4 sm:text-sm sm:leading-normal ${menuItemsTab === tab.id ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+              className={`min-w-0 whitespace-nowrap border-b-2 px-1.5 py-2.5 text-[10px] font-semibold leading-tight transition sm:px-4 sm:py-3 sm:text-sm sm:leading-normal ${menuItemsTab === tab.id ? "border-blue-700 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
             >
               <span className="sm:hidden">{tab.id === "all" ? `All (${tab.count})` : `${tab.label} (${tab.count})`}</span>
               <span className="hidden sm:inline">{tab.label} ({tab.count})</span>
             </button>
           ))}
         </div>
-        <div className="mb-4 flex items-center justify-between lg:hidden">
-          <p className="text-sm font-semibold text-slate-600">{menuItems.length} items</p>
+        <div className="mb-3 flex items-center justify-between lg:hidden">
+          <p className="text-xs font-semibold text-slate-600 sm:text-sm">{menuItems.length} items</p>
         </div>
 
-        <div className="grid gap-8">
-          <main className="space-y-8">
-          <div id="menu-items-panel" role="tabpanel" aria-labelledby={`menu-tab-${menuItemsTab}`} className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div className="grid gap-4 sm:gap-8">
+          <main className="space-y-4 sm:space-y-8">
+          <div id="menu-items-panel" role="tabpanel" aria-labelledby={`menu-tab-${menuItemsTab}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-[32px] sm:p-6">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-2 sm:mb-6 sm:gap-3">
               <div className="flex flex-col gap-1">
-                <h2 className="text-2xl font-bold text-slate-900">Menu Items</h2>
-                <p className="text-sm text-slate-500">{menuItems.length} total items</p>
+                <h2 className="text-lg font-bold text-slate-900 sm:text-2xl">Menu Items</h2>
+                <p className="text-xs text-slate-500 sm:text-sm">{menuItems.length} total items</p>
               </div>
 
               <div className="w-full">
@@ -599,7 +599,7 @@ function BusinessMenuPageWithSearchParams() {
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
                   placeholder="Search by name..."
-                  className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
+                  className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white sm:rounded-[24px] sm:px-4 sm:py-3 sm:text-sm"
                 />
               </div>
 
@@ -611,7 +611,7 @@ function BusinessMenuPageWithSearchParams() {
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="mt-2 block w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white"
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white sm:rounded-[24px] sm:px-4 sm:py-3 sm:text-sm"
                   >
                     <option value="All">All Categories</option>
                     {[...new Set(menuItems.map((item) => item.category).filter((category): category is string => Boolean(category)))]
@@ -624,7 +624,7 @@ function BusinessMenuPageWithSearchParams() {
                   <button
                     type="button"
                     onClick={() => router.push("/business/categories")}
-                    className="rounded-[24px] border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 w-full sm:w-auto"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto sm:rounded-[24px] sm:px-5 sm:py-3 sm:text-sm"
                   >
                     Manage Categories
                   </button>
@@ -637,7 +637,7 @@ function BusinessMenuPageWithSearchParams() {
                   }}
                   disabled={!canCreateMenu}
                   aria-disabled={!canCreateMenu}
-                  className="rounded-[24px] bg-blue-600 text-white font-bold px-6 py-3 text-sm transition hover:bg-blue-700 w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-2xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-blue-700 sm:w-auto sm:rounded-[24px] sm:px-6 sm:py-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   + Add Item
                 </button>
@@ -688,16 +688,16 @@ function BusinessMenuPageWithSearchParams() {
                   const items = grouped[category];
                   return (
                     <div key={category}>
-                      <div className="mb-4 pb-3 border-b border-gray-300">
-                        <h3 className="text-xl font-bold text-gray-900">{category}</h3>
-                        <p className="text-sm text-gray-500 mt-1">
+                      <div className="mb-3 border-b border-gray-300 pb-2 sm:mb-4 sm:pb-3">
+                        <h3 className="text-sm font-bold text-gray-900 sm:text-xl">{category}</h3>
+                        <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">
                           {items.length} item{items.length !== 1 ? 's' : ''}
                         </p>
                       </div>
                       <SortableList
                         items={items}
                         onReorder={handleReorderMenuItems}
-                        className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6"
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6"
                         disabled={!canEditMenu || menuItemsTab !== "all" || categoryFilter !== "All" || searchFilter.trim() !== "" || items.length < 2}
                         label={`Reorder ${category} menu items`}
                         renderItem={(item) => (
@@ -1494,4 +1494,3 @@ export default function BusinessMenuPage() {
     </Suspense>
   );
 }
-

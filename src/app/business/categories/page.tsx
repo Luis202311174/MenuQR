@@ -144,7 +144,7 @@ export default function BusinessCategoriesPage() {
       {editingId === category.id ? (
         <form
           onSubmit={(event) => void handleRename(event, category.id)}
-          className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center"
+          className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3 sm:py-4"
         >
           <label className="sr-only" htmlFor={`rename-${category.id}`}>Category name</label>
           <input
@@ -153,7 +153,7 @@ export default function BusinessCategoriesPage() {
             maxLength={60}
             value={editingName}
             onChange={(event) => setEditingName(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-blue-600 sm:px-3 sm:text-sm"
           />
           <div className="flex gap-2">
             <button type="submit" disabled={saving || !editingName.trim()} className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save</button>
@@ -161,10 +161,10 @@ export default function BusinessCategoriesPage() {
           </div>
         </form>
       ) : (
-        <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-4">
           <div className="min-w-0">
-            <p className="break-words font-semibold text-slate-900">{category.name}</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="break-words text-sm font-semibold text-slate-900 sm:text-base">{category.name}</p>
+            <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">
               {category.item_count} menu {category.item_count === 1 ? "item" : "items"}
               {!category.is_active && " · Archived"}
             </p>
@@ -227,7 +227,7 @@ export default function BusinessCategoriesPage() {
       subtitle="Create and organize the categories used by your menu."
       backHref="/business/menu"
     >
-      <div className="mx-auto max-w-4xl space-y-8">
+      <div className="mx-auto max-w-4xl space-y-4 sm:space-y-8">
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
         {notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
 
@@ -304,12 +304,12 @@ export default function BusinessCategoriesPage() {
             role="tabpanel"
             aria-labelledby={`categories-tab-${activeTab === "archives" ? "archives" : "list"}`}
           >
-            <div className="mb-3 flex items-baseline justify-between gap-3 border-b border-slate-200 pb-3">
-              <h2 className="text-lg font-bold text-slate-900">{activeTab === "archives" ? "Archived Categories" : "Active Categories"}</h2>
-              <span className="text-sm text-slate-500">{visibleCategories.length}</span>
+            <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-slate-200 pb-2 sm:mb-3 sm:gap-3 sm:pb-3">
+              <h2 className="text-sm font-bold text-slate-900 sm:text-lg">{activeTab === "archives" ? "Archived Categories" : "Active Categories"}</h2>
+              <span className="text-xs text-slate-500 sm:text-sm">{visibleCategories.length}</span>
             </div>
             {loading ? (
-              <p className="py-6 text-sm text-slate-500">Loading categories...</p>
+              <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">Loading categories...</p>
             ) : visibleCategories.length ? (
               <SortableList
                 items={visibleCategories}
@@ -320,7 +320,7 @@ export default function BusinessCategoriesPage() {
                 label={activeTab === "archives" ? "Reorder archived categories" : "Reorder categories"}
               />
             ) : (
-              <p className="py-6 text-sm text-slate-500">{activeTab === "archives" ? "No archived categories." : "No active categories yet."}</p>
+              <p className="py-4 text-xs text-slate-500 sm:py-6 sm:text-sm">{activeTab === "archives" ? "No archived categories." : "No active categories yet."}</p>
             )}
           </section>
         )}
