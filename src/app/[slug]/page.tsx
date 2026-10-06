@@ -680,6 +680,11 @@ export default function BusinessPage() {
       return grouped;
     }, {} as Record<string, typeof menuItems>);
 
+    const selectCategory = (category: string) => {
+      setCategoryFilter([category]);
+      trackCustomerEvent("category_filter", { category });
+    };
+
     const handleViewItem = (item: any) => {
       if (!item) {
         setViewItem(null);
@@ -1268,58 +1273,51 @@ export default function BusinessPage() {
             <BusinessHeader business={business} />
 
             <section className="rounded-2xl border border-gray-300 bg-white p-4 shadow-lg sm:p-6">
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-2 sm:mb-6 sm:gap-3">
-                <h2 className="w-full text-xl font-bold sm:text-2xl">Menu</h2>
-
-                <div className="w-full space-y-3">
-                  <div className="min-w-0 w-full">
-                    <label className="hidden text-sm text-gray-700 sm:block">
-                      Search menu
-                    </label>
-                    <input
-                      type="text"
-                      value={searchFilter}
-                      onChange={(e) => {
-                        setSearchFilter(e.target.value);
-                        trackCustomerEvent("search_query", {
-                          query: e.target.value,
-                        });
-                      }}
-                      placeholder="Search menu..."
-                      className="mt-0 block w-full rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-600 sm:mt-2 sm:py-3"
-                    />
-                  </div>
-
-                  <nav
-                    aria-label="Filter menu by category"
-                    className="-mx-1 hidden w-full overflow-x-auto overscroll-x-contain scroll-smooth whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:block"
-                    style={{ scrollbarWidth: "none" }}
-                  >
-                    <div className="flex w-max min-w-full items-center gap-2 px-1 py-1">
-                      {["All", ...categoryKeys].map((category) => {
-                        const isActive = categoryFilter.includes(category);
-                        return (
-                          <button
-                            key={category}
-                            type="button"
-                            aria-pressed={isActive}
-                            onClick={() => {
-                              setCategoryFilter([category]);
-                              trackCustomerEvent("category_filter", { category });
-                            }}
-                            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition ${isActive
-                              ? "border-blue-700 bg-blue-700 text-white shadow-sm"
-                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                            }`}
-                          >
-                            {category === "All" ? "All" : category}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </nav>
-                </div>
+              <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
+                <h2 className="shrink-0 text-xl font-bold sm:text-2xl">Menu</h2>
+                <label className="min-w-0 flex-1 sm:max-w-xs">
+                  <span className="sr-only">Search menu</span>
+                  <input
+                    type="text"
+                    value={searchFilter}
+                    onChange={(e) => {
+                      setSearchFilter(e.target.value);
+                      trackCustomerEvent("search_query", {
+                        query: e.target.value,
+                      });
+                    }}
+                    placeholder="Search menu..."
+                    className="block w-full rounded-full border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 outline-none transition focus:border-blue-600 sm:px-4 sm:py-2.5 sm:text-sm"
+                  />
+                </label>
               </div>
+
+              {categoryKeys.length > 0 && (
+                <nav
+                  aria-label="Filter menu by category"
+                  className="-mx-1 mb-4 overflow-x-auto overscroll-x-contain scroll-smooth whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mb-6"
+                >
+                  <div className="flex w-max min-w-full items-center gap-1.5 px-1 py-1 sm:gap-2">
+                    {["All", ...categoryKeys].map((category) => {
+                      const isActive = categoryFilter.includes(category);
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          aria-pressed={isActive}
+                          onClick={() => selectCategory(category)}
+                          className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${isActive
+                            ? "border-blue-700 bg-blue-700 text-white shadow-sm"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </nav>
+              )}
 
               {filteredMenuItems.length > 0 ? (
                 <div className="space-y-5 sm:space-y-8">
@@ -1450,41 +1448,6 @@ export default function BusinessPage() {
           businessAddress={business?.address ?? undefined}
           menuData={displayedMenuItems}
         />
-
-        {categoryKeys.length > 0 && (
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_50px_rgba(15,23,42,0.08)] sm:hidden">
-            <div className="mx-auto max-w-[1400px] overflow-x-auto px-2 py-2 scrollbar-hide">
-              <div className="flex min-w-max items-center gap-1 whitespace-nowrap">
-                {['All', ...categoryKeys].map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    aria-pressed={categoryFilter.includes(category)}
-                    onClick={() => {
-                      if (category === 'All') {
-                        setCategoryFilter(['All']);
-                      } else if (categoryFilter.includes('All')) {
-                        setCategoryFilter([category]);
-                      } else if (categoryFilter.includes(category)) {
-                        const updated = categoryFilter.filter(cat => cat !== category);
-                        setCategoryFilter(updated.length === 0 ? ['All'] : updated);
-                      } else {
-                        setCategoryFilter([...categoryFilter, category]);
-                      }
-                    }}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition flex-shrink-0 ${
-                      categoryFilter.includes(category)
-                        ? 'border-blue-600 bg-blue-600 text-white'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         <CheckoutModal
           isOpen={showCheckoutModal}
