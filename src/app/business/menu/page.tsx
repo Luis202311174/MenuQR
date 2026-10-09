@@ -9,6 +9,7 @@ import BusinessInventoryModal from "@/components/business/BusinessInventoryModal
 import BusinessMenuCard, { BusinessMenuCardItem } from "@/components/business/BusinessMenuCard";
 import PageShell from "@/components/PageShell";
 import SortableList from "@/components/business/SortableList";
+import { rectSortingStrategy } from "@dnd-kit/sortable";
 import MenuImageCropEditor from "@/components/business/MenuImageCropEditor";
 
 import {
@@ -113,6 +114,7 @@ function BusinessMenuPageWithSearchParams() {
   const [menuName, setMenuName] = useState("");
   const [menuCategory, setMenuCategory] = useState("");
   const [menuItemsTab, setMenuItemsTab] = useState<MenuItemsTab>("all");
+  const [menuItemsEditMode, setMenuItemsEditMode] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [searchFilter, setSearchFilter] = useState("");
   const [menuPrice, setMenuPrice] = useState("");
@@ -563,6 +565,16 @@ function BusinessMenuPageWithSearchParams() {
   const visibleMenuItems = menuItemsTab === "archived" ? archivedMenuItems : activeMenuItems;
   const availableMenuCount = activeMenuItems.filter((item) => item.availability).length;
   const unavailableMenuCount = activeMenuItems.length - availableMenuCount;
+  const reorderableCategoryCounts = visibleMenuItems.reduce<Record<string, number>>((counts, item) => {
+    const category = item.category || "Other";
+    counts[category] = (counts[category] || 0) + 1;
+    return counts;
+  }, {});
+  const canReorderMenuItems = canEditMenu
+    && menuItemsTab === "all"
+    && categoryFilter === "All"
+    && searchFilter.trim() === ""
+    && Object.values(reorderableCategoryCounts).some((count) => count > 1);
 
   return (
     <>
@@ -609,6 +621,22 @@ function BusinessMenuPageWithSearchParams() {
                   {visibleMenuItems.length} items
                 </p>
               </div>
+              {canEditMenu && menuItemsTab !== "archived" && (
+                <button
+                  type="button"
+                  disabled={!canReorderMenuItems}
+                  aria-pressed={menuItemsEditMode}
+                  onClick={() => setMenuItemsEditMode((editing) => !editing)}
+                  title={canReorderMenuItems ? undefined : "Show all items without filters to reorder them"}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                    menuItemsEditMode
+                      ? "bg-blue-700 text-white hover:bg-blue-800"
+                      : "border border-slate-300 text-slate-700 hover:bg-slate-50"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {menuItemsEditMode ? "Done" : "Edit"}
+                </button>
+              )}
 
               <div className="w-full">
                 <label className="hidden text-sm text-slate-600 sm:block">
@@ -724,10 +752,12 @@ function BusinessMenuPageWithSearchParams() {
                       <SortableList
                         items={items}
                         onReorder={handleReorderMenuItems}
-                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6"
-                        disabled={!canEditMenu || menuItemsTab !== "all" || categoryFilter !== "All" || searchFilter.trim() !== "" || items.length < 2}
+                        className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"
+                        disabled={!canReorderMenuItems || !menuItemsEditMode || items.length < 2}
                         label={`Reorder ${category} menu items`}
                         handleInside
+                        showHandle={menuItemsEditMode && canReorderMenuItems}
+                        strategy={rectSortingStrategy}
                         renderItem={(item, dragHandle) => (
                           <BusinessMenuCard
                             key={item.id}

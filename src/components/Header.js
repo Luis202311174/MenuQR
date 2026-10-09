@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import { getStoredReceipts, clearStoredReceipts } from "@/utils/receiptManager";
-import { clearStoredLowStockNotifications } from "@/utils/lowStockNotifications";
+import {
+  getStoredLowStockNotifications,
+} from "@/utils/lowStockNotifications";
 import {
   getStoredNotifications,
   clearStoredNotifications,
@@ -30,6 +32,7 @@ export default function Header() {
   const router = useRouter();
   const [unreadReceipts, setUnreadReceipts] = useState(0);
   const [storedNotifications, setStoredNotifications] = useState([]);
+  const [lowStockNotifications, setLowStockNotifications] = useState([]);
   const [showBell, setShowBell] = useState(false);
   const [notifierMuted, setNotifierMuted] = useState(false);
 
@@ -111,6 +114,7 @@ export default function Header() {
         await cleanupStaleNotifications();
         // Then load the fresh list
         setStoredNotifications(getStoredNotifications());
+        setLowStockNotifications(getStoredLowStockNotifications());
       } catch (e) {
         console.error("Error loading notifications:", e);
         setStoredNotifications([]);
@@ -156,14 +160,26 @@ export default function Header() {
     router.push(notification.href);
   };
 
+  const handleLowStockNotificationClick = () => {
+    setShowBell(false);
+    if (pathname.startsWith("/business/")) {
+      window.dispatchEvent(new CustomEvent("openLowStockAlertModal"));
+      return;
+    }
+
+    sessionStorage.setItem("openLowStockAlert", "true");
+    router.push("/business/inventory");
+  };
+
   const homeHref = "/";
   const dashboardHref = isStaff || role === "owner" ? "/business/dashboard" : "/user-home";
   const dashboardLabel = isStaff || role === "owner" ? "My Dashboard" : "Menu Dashboard";
   const storedReceipts = getStoredReceipts();
   const visibleNotifications = Array.isArray(storedNotifications)
-    ? storedNotifications.filter((n) => !isAcknowledgedToday(n))
+    ? storedNotifications.filter((n) => n.type !== "inventory" && !isAcknowledgedToday(n))
     : [];
-  const notificationCount = storedReceipts.length + visibleNotifications.length;
+  const hasLowStockAlert = lowStockNotifications.length > 0;
+  const notificationCount = storedReceipts.length + visibleNotifications.length + (hasLowStockAlert ? 1 : 0);
 
   // When the bell is closed, mark any visible notifications as acknowledged for today
   useEffect(() => {
@@ -278,11 +294,8 @@ export default function Header() {
                       <h4 className="font-semibold">Notifications</h4>
                       <button
                         onClick={() => {
-                          try {
-                            acknowledgeAllNotifications();
-                          } catch (e) {}
+                          acknowledgeAllNotifications();
                           clearStoredReceipts();
-                          clearStoredLowStockNotifications();
                           setUnreadReceipts(0);
                           setStoredNotifications(getStoredNotifications());
                           setShowBell(false);
@@ -293,10 +306,32 @@ export default function Header() {
                       </button>
                     </div>
                     <div className="max-h-60 overflow-y-auto">
-                      {storedNotifications.length === 0 && storedReceipts.length === 0 ? (
+                      {!hasLowStockAlert && visibleNotifications.length === 0 && storedReceipts.length === 0 ? (
                         <p className="text-xs text-slate-500">No notifications</p>
                       ) : (
                         <>
+                          {hasLowStockAlert && (
+                            <button
+                              type="button"
+                              onClick={handleLowStockNotificationClick}
+                              className="mb-2 flex w-full items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                              <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-lg bg-white text-amber-600 shadow-sm">
+                                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3h.008M10.3 3.86 2.92 16.64A2 2 0 0 0 4.65 19.6h14.7a2 2 0 0 0 1.73-2.96L13.7 3.86a2 2 0 0 0-3.46 0Z" />
+                                </svg>
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-semibold text-slate-900">Low stock alert</span>
+                                <span className="block text-xs text-slate-600">
+                                  {lowStockNotifications.length} {lowStockNotifications.length === 1 ? "item needs" : "items need"} restocking
+                                </span>
+                              </span>
+                              <svg className="h-4 w-4 flex-shrink-0 text-amber-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L10.94 10 7.23 6.29a.75.75 0 1 1 1.06-1.06l4.24 4.24a.75.75 0 0 1 0 1.06l-4.24 4.24a.75.75 0 0 1-1.08 0Z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          )}
                           {visibleNotifications.length > 0 && (
                             <div className="space-y-2">
                               {visibleNotifications.slice().reverse().map((notif) => (
@@ -314,7 +349,7 @@ export default function Header() {
                           )}
 
                           {storedReceipts.length > 0 && (
-                            <div className={storedNotifications.length > 0 ? 'mt-3' : ''}>
+                            <div className={visibleNotifications.length > 0 || hasLowStockAlert ? 'mt-3' : ''}>
                               {storedReceipts.slice().reverse().map((r, idx) => (
                                 <button
                                   key={r.id || idx}

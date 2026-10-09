@@ -491,37 +491,55 @@ export default function BusinessMenuCard({ item, categoryNames, onUpdated, dragH
 
   return (
     <>
-      <div className="group flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg sm:rounded-[28px]">
+      <div className="flex min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg sm:rounded-3xl">
         {dragHandle}
-        <div className="min-w-0 flex-1">
-        <div className="flex items-stretch sm:hidden">
-          <div className="flex min-w-0 flex-1 items-center gap-3 p-2.5">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-              {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  style={{ objectPosition: item.image_position || "center" }}
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-400">
-                  {item.name.slice(0, 1).toUpperCase()}
-                </div>
+        <article className="min-w-0 flex-1 overflow-hidden">
+          <div className="group relative aspect-square w-full overflow-hidden bg-slate-100">
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt={item.name}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                style={{ objectPosition: item.image_position || "center" }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-slate-400 sm:text-xs">
+                No image
+              </div>
+            )}
+            {(!item.availability || (item.is_trackable && Number(item.current_stock ?? 0) <= 0)) && (
+              <span className="absolute left-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[9px] font-semibold text-white sm:left-3 sm:top-3 sm:text-xs">
+                Sold out
+              </span>
+            )}
+          </div>
+
+          <div className="min-w-0 p-2 pt-2 sm:p-3 sm:pt-3">
+            <h3 className="line-clamp-1 text-[11px] font-semibold leading-snug text-slate-900 sm:text-sm">
+              {item.name}
+            </h3>
+
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-1">
+              <p className="min-w-0 truncate text-[9px] text-slate-500 sm:text-xs">
+                {item.category || "Other"}
+              </p>
+              {item.is_trackable && (
+                <span className="shrink-0 text-[9px] text-slate-500 sm:text-[11px]">
+                  {Number(item.current_stock ?? 0)} left
+                </span>
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate text-sm font-semibold leading-tight text-slate-900">{item.name}</h3>
-              <p className="mt-1 truncate text-xs text-slate-500">
-                {item.category || "Other"} · ₱{item.price != null ? Number(item.price).toFixed(2) : "0.00"}
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-1.5">
+
+            <p className="mt-1 text-xs font-bold text-slate-900 sm:text-base">
+              ₱{item.price != null ? Number(item.price).toFixed(2) : "0.00"}
+            </p>
+
+            <div className="mt-2 flex gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={openEdit}
                 disabled={!canEditThisMenuItem}
-                className="rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex-1 rounded-lg bg-slate-900 px-2 py-1.5 text-[9px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-3 sm:py-2 sm:text-xs"
               >
                 Edit
               </button>
@@ -529,86 +547,13 @@ export default function BusinessMenuCard({ item, categoryNames, onUpdated, dragH
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
                 disabled={!canDeleteThisMenuItem}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[9px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-3 sm:py-2 sm:text-xs"
               >
                 Delete
               </button>
             </div>
           </div>
-        </div>
-
-        <div className="hidden sm:block">
-          <div className="relative h-40 overflow-hidden bg-slate-100">
-            {item.image_url ? (
-              <img
-                src={item.image_url}
-                alt={item.name}
-                className="w-full h-full object-cover"
-                style={{ objectPosition: item.image_position || "center" }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
-                No image available
-              </div>
-            )}
-
-            <div className="absolute left-2.5 top-2.5 max-w-[calc(100%-1.25rem)] truncate rounded-full bg-white/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-700 shadow-sm sm:left-4 sm:top-4 sm:max-w-[calc(100%-2rem)] sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
-              {item.category || "Other"}
-            </div>
-          </div>
-
-        <div className="hidden h-full flex-col gap-2.5 p-4 sm:flex sm:gap-3">
-          <div className="flex flex-col gap-2.5 sm:gap-3">
-            <div className="flex items-start justify-between gap-2 sm:gap-3">
-              <div className="min-w-0">
-                <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-slate-900 sm:text-base">
-                  {item.name}
-                </h3>
-                <p className="mt-1 line-clamp-2 text-[11px] text-slate-500 sm:line-clamp-3 sm:text-xs">
-                  {item.menu_desc || "No description"}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <span
-                  className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] sm:px-2.5 sm:text-[11px] sm:tracking-[0.16em] ${
-                    item.availability
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700"
-                  }`}>
-                  {item.availability ? "Active" : "Sold out"}
-                </span>
-                <div className="flex gap-1.5 sm:gap-2">
-                  <button
-                    onClick={openEdit}
-                    disabled={!canEditThisMenuItem}
-                    className="rounded-xl bg-slate-900 px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteModal(true)}
-                    disabled={!canDeleteThisMenuItem}
-                    className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto flex items-center justify-between gap-3">
-              <div>
-                <p className="text-base font-bold text-slate-900 sm:text-lg">₱{item.price != null ? Number(item.price).toFixed(2) : "0.00"}</p>
-                {item.calories != null && (
-                  <p className="text-xs text-slate-500">~{item.calories} cal</p>
-                )}
-              </div>
-            </div>
-          </div>
-          </div>
-          </div>
-        </div>
+        </article>
       </div>
 
       {showEditModal && (

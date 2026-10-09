@@ -15,10 +15,12 @@ import {
 } from "@dnd-kit/core";
 import {
   arrayMove,
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  type SortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -33,6 +35,7 @@ type SortableListProps<T extends SortableItem> = {
   label?: string;
   handleInside?: boolean;
   showHandle?: boolean;
+  strategy?: SortingStrategy;
 };
 
 function SortableRow({
@@ -107,6 +110,7 @@ export default function SortableList<T extends SortableItem>({
   label = "Reorder items",
   handleInside = false,
   showHandle = true,
+  strategy = verticalListSortingStrategy,
 }: SortableListProps<T>) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -127,7 +131,7 @@ export default function SortableList<T extends SortableItem>({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={items.map((item) => item.id)} strategy={strategy}>
         <div role="list" aria-label={label} className={className}>
           {items.map((item) => (
             <SortableRow key={item.id} id={item.id} disabled={disabled} handleInside={handleInside} showHandle={showHandle}>

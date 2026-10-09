@@ -1,0 +1,452 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.users (
+  id uuid NOT NULL,
+  role USER-DEFINED NOT NULL DEFAULT 'user'::user_role,
+  created_at timestamp with time zone DEFAULT now(),
+  fname text,
+  lname text,
+  age integer,
+  address text,
+  email text,
+  phone text,
+  latitude double precision,
+  longitude double precision,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.businesses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  owner_id uuid,
+  name text NOT NULL,
+  description text,
+  logo_url text,
+  address text,
+  contact_info text,
+  created_at timestamp with time zone DEFAULT now(),
+  slug text UNIQUE,
+  store_category USER-DEFINED,
+  store_hours text,
+  other_ctgry text,
+  latitude double precision,
+  longitude double precision,
+  view_count integer DEFAULT 0,
+  buss_email text,
+  cash_enabled boolean DEFAULT true,
+  gcash_enabled boolean DEFAULT false,
+  reward_promo_enabled boolean DEFAULT false,
+  target_min_spend numeric DEFAULT 0,
+  reward_custom_code character varying,
+  reward_coupon_discount_type character varying DEFAULT 'percentage'::character varying CHECK (reward_coupon_discount_type::text = ANY (ARRAY['percentage'::character varying, 'fixed'::character varying]::text[])),
+  reward_coupon_discount_value numeric DEFAULT 0,
+  reward_coupon_usage_limit integer DEFAULT 1 CHECK (reward_coupon_usage_limit > 0),
+  reward_coupon_expires_at timestamp with time zone,
+  reward_coupon_description text,
+  reward_coupon_redemption_minimum numeric,
+  milestone_promo_enabled boolean DEFAULT false,
+  milestone_custom_code character varying,
+  milestone_coupon_discount_type character varying DEFAULT 'percentage'::character varying CHECK (milestone_coupon_discount_type::text = ANY (ARRAY['percentage'::character varying, 'fixed'::character varying]::text[])),
+  milestone_coupon_discount_value numeric DEFAULT 0,
+  milestone_coupon_usage_limit integer DEFAULT 1 CHECK (milestone_coupon_usage_limit > 0),
+  milestone_coupon_expires_at timestamp with time zone,
+  milestone_coupon_description text,
+  milestone_coupon_redemption_minimum numeric,
+  CONSTRAINT businesses_pkey PRIMARY KEY (id),
+  CONSTRAINT businesses_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.business_staff (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid,
+  user_id uuid,
+  role text DEFAULT 'staff'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT business_staff_pkey PRIMARY KEY (id),
+  CONSTRAINT business_staff_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id),
+  CONSTRAINT business_staff_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.menu_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  name text NOT NULL,
+  category text NOT NULL,
+  other_category text,
+  price numeric,
+  availability boolean DEFAULT true,
+  image_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  menu_desc text,
+  daily_limit integer DEFAULT 0,
+  current_stock integer,
+  is_trackable boolean DEFAULT false,
+  last_inventory_reset timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  calories integer,
+  protein numeric,
+  carbs numeric,
+  fat numeric,
+  fiber numeric,
+  sugar numeric,
+  sodium integer,
+  serving_size text,
+  allergens ARRAY DEFAULT '{}'::text[],
+  image_position character varying DEFAULT 'center'::character varying,
+  CONSTRAINT menu_items_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_items_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.saved_menus (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  menu_item_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT saved_menus_pkey PRIMARY KEY (id),
+  CONSTRAINT saved_menus_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT saved_menus_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_items(id)
+);
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  user_id uuid,
+  items jsonb NOT NULL,
+  total_amount numeric NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::order_status,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  table_id uuid,
+  session_id uuid,
+  is_paid boolean DEFAULT false,
+  payment_method text,
+  reference_numb text,
+  counted_in_sales boolean DEFAULT false,
+  total_guests integer DEFAULT 0,
+  senior_pwd_count integer DEFAULT 0,
+  discount_amount numeric DEFAULT 0.00,
+  discount_approved boolean DEFAULT false,
+  coupon_id uuid,
+  coupon_discount numeric DEFAULT 0,
+  promo_code character varying,
+  reward_coupon_awarded boolean DEFAULT false,
+  reward_coupon_awarded_at timestamp with time zone,
+  reward_coupon_code character varying,
+  reward_coupon_claim_id uuid,
+  milestone_coupon_awarded boolean DEFAULT false,
+  milestone_coupon_awarded_at timestamp with time zone,
+  milestone_coupon_code character varying,
+  milestone_coupon_claim_id uuid,
+  order_number integer NOT NULL DEFAULT nextval('orders_order_number_seq'::regclass),
+  amount_received numeric,
+  change_amount numeric,
+  order_duration_ms integer,
+  most_ordered_item text,
+  spend_per_order numeric,
+  customer_behavior jsonb,
+  e_receipt_url text,
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT orders_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id),
+  CONSTRAINT orders_table_id_fkey FOREIGN KEY (table_id) REFERENCES public.tables(id),
+  CONSTRAINT orders_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id),
+  CONSTRAINT orders_reward_coupon_claim_id_fkey FOREIGN KEY (reward_coupon_claim_id) REFERENCES public.coupon_claims(id),
+  CONSTRAINT orders_milestone_coupon_claim_id_fkey FOREIGN KEY (milestone_coupon_claim_id) REFERENCES public.coupon_claims(id)
+);
+CREATE TABLE public.tables (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  table_number text NOT NULL,
+  qr_code text UNIQUE,
+  status USER-DEFINED NOT NULL DEFAULT 'available'::table_status_enum,
+  current_session_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tables_pkey PRIMARY KEY (id),
+  CONSTRAINT tables_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.table_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_id uuid,
+  started_at timestamp with time zone DEFAULT now(),
+  ended_at timestamp with time zone,
+  active boolean DEFAULT true,
+  last_session_ended_at timestamp with time zone,
+  device_id text,
+  CONSTRAINT table_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT table_sessions_table_id_fkey FOREIGN KEY (table_id) REFERENCES public.tables(id)
+);
+CREATE TABLE public.business_socials (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL UNIQUE,
+  fb text,
+  fp text,
+  ig text,
+  gr text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT business_socials_pkey PRIMARY KEY (id),
+  CONSTRAINT business_socials_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.daily_sales (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  date date NOT NULL,
+  total_orders integer DEFAULT 0,
+  total_sales numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT daily_sales_pkey PRIMARY KEY (id),
+  CONSTRAINT daily_sales_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.order_ratings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL UNIQUE,
+  business_id uuid NOT NULL,
+  rating smallint NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT order_ratings_pkey PRIMARY KEY (id),
+  CONSTRAINT order_ratings_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id),
+  CONSTRAINT order_ratings_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.menu_item_option_groups (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  menu_item_id uuid NOT NULL,
+  name text NOT NULL,
+  is_required boolean DEFAULT false,
+  min_select integer DEFAULT 0,
+  max_select integer DEFAULT 1,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT menu_item_option_groups_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_item_option_groups_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_items(id)
+);
+CREATE TABLE public.menu_item_options (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  group_id uuid NOT NULL,
+  name text NOT NULL,
+  price_modifier numeric DEFAULT 0,
+  is_available boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT menu_item_options_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_item_options_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.menu_item_option_groups(id)
+);
+CREATE TABLE public.menu_item_bundles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  menu_item_id uuid NOT NULL,
+  name text NOT NULL,
+  bundle_price numeric NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT menu_item_bundles_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_item_bundles_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_items(id)
+);
+CREATE TABLE public.menu_item_bundle_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bundle_id uuid NOT NULL,
+  group_name text NOT NULL,
+  option_name text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT menu_item_bundle_items_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_item_bundle_items_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.menu_item_bundles(id)
+);
+CREATE TABLE public.inventory_audit (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  menu_item_id uuid NOT NULL,
+  previous_stock integer,
+  new_stock integer,
+  change_reason text,
+  changed_by uuid,
+  changed_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT inventory_audit_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_audit_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id),
+  CONSTRAINT inventory_audit_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_items(id),
+  CONSTRAINT inventory_audit_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.coupons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  code character varying NOT NULL,
+  discount_type character varying NOT NULL CHECK (discount_type::text = ANY (ARRAY['percentage'::character varying, 'fixed'::character varying]::text[])),
+  discount_value numeric NOT NULL CHECK (discount_value > 0::numeric),
+  description text,
+  is_active boolean DEFAULT true,
+  usage_limit integer DEFAULT 1 CHECK (usage_limit > 0),
+  usage_count integer DEFAULT 0,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT coupons_pkey PRIMARY KEY (id),
+  CONSTRAINT coupons_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.coupon_usage (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  coupon_id uuid NOT NULL,
+  order_id uuid NOT NULL,
+  user_id uuid,
+  used_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT coupon_usage_pkey PRIMARY KEY (id),
+  CONSTRAINT coupon_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT coupon_usage_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id),
+  CONSTRAINT coupon_usage_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.coupon_claims (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  coupon_id uuid NOT NULL,
+  order_id uuid NOT NULL,
+  user_id uuid,
+  coupon_code text NOT NULL,
+  claimed_at timestamp with time zone NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT 'awarded'::text,
+  CONSTRAINT coupon_claims_pkey PRIMARY KEY (id),
+  CONSTRAINT coupon_claims_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT coupon_claims_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id),
+  CONSTRAINT coupon_claims_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id),
+  CONSTRAINT coupon_claims_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.staff_accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  full_name text NOT NULL,
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  role text NOT NULL DEFAULT 'custom'::text,
+  status text NOT NULL DEFAULT 'active'::text,
+  last_login_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staff_accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_accounts_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.staff_permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  staff_id uuid NOT NULL,
+  module_name text NOT NULL,
+  can_view boolean NOT NULL DEFAULT false,
+  can_create boolean NOT NULL DEFAULT false,
+  can_edit boolean NOT NULL DEFAULT false,
+  can_delete boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staff_permissions_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_permissions_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff_accounts(id)
+);
+CREATE TABLE public.staff_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  staff_id uuid NOT NULL,
+  business_id uuid NOT NULL,
+  token_hash text NOT NULL UNIQUE,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  CONSTRAINT staff_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_sessions_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff_accounts(id),
+  CONSTRAINT staff_sessions_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.staff_users (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  business_id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'custom'::text,
+  status text NOT NULL DEFAULT 'active'::text,
+  last_login_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staff_users_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT staff_users_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.staff_shift_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  staff_id uuid NOT NULL,
+  business_id uuid NOT NULL,
+  action text NOT NULL CHECK (action = ANY (ARRAY['start'::text, 'break'::text, 'end'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staff_shift_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_shift_logs_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff_accounts(id),
+  CONSTRAINT staff_shift_logs_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.order_activity_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  business_id uuid NOT NULL,
+  staff_id uuid,
+  action text NOT NULL,
+  actor_name text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  owner_id uuid,
+  CONSTRAINT order_activity_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_owner FOREIGN KEY (owner_id) REFERENCES public.users(id),
+  CONSTRAINT fk_orders FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT fk_businesses FOREIGN KEY (business_id) REFERENCES public.businesses(id),
+  CONSTRAINT fk_staff FOREIGN KEY (staff_id) REFERENCES public.staff_accounts(id)
+);
+CREATE TABLE public.inventory_notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  menu_item_id uuid NOT NULL,
+  menu_item_name text,
+  notification_type text NOT NULL DEFAULT 'low_stock'::text,
+  message text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  acknowledged boolean NOT NULL DEFAULT false,
+  CONSTRAINT inventory_notifications_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  order_id uuid,
+  amount numeric NOT NULL,
+  currency text DEFAULT 'PHP'::text,
+  method text,
+  provider text,
+  reference_numb text,
+  status text DEFAULT 'completed'::text,
+  metadata jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.menu_categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  name text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT menu_categories_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_categories_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.option_groups (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id uuid NOT NULL,
+  name text NOT NULL,
+  is_required boolean NOT NULL DEFAULT false,
+  min_select integer NOT NULL DEFAULT 0 CHECK (min_select >= 0),
+  max_select integer NOT NULL DEFAULT 1 CHECK (max_select >= 1),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  is_reusable boolean NOT NULL DEFAULT true,
+  CONSTRAINT option_groups_pkey PRIMARY KEY (id),
+  CONSTRAINT option_groups_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
+);
+CREATE TABLE public.option_choices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  group_id uuid NOT NULL,
+  name text NOT NULL,
+  price_modifier numeric NOT NULL DEFAULT 0,
+  is_available boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT option_choices_pkey PRIMARY KEY (id),
+  CONSTRAINT option_choices_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.option_groups(id)
+);
+CREATE TABLE public.item_option_groups (
+  menu_item_id uuid NOT NULL,
+  option_group_id uuid NOT NULL,
+  position integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT item_option_groups_pkey PRIMARY KEY (menu_item_id, option_group_id),
+  CONSTRAINT item_option_groups_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_items(id),
+  CONSTRAINT item_option_groups_option_group_id_fkey FOREIGN KEY (option_group_id) REFERENCES public.option_groups(id)
+);
+
+
+table_status_enum	available, occupied, reserved, maintenance
+business_category	restaurant, stall, cafe, other
+user_role	user, owner, staff
+menu_category	Meals, Beverage, Solo, Dessert, Extras, other
+order_status	pending, pending_payment, received, ready, completed, served, paid, cancelled, preparing
