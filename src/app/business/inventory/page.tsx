@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useBusinessAuth } from "@/hooks/useBusinessAuth";
@@ -59,6 +59,7 @@ export default function BusinessInventoryPage() {
   const [loading, setLoading] = useState(true);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
   const { inventory } = useInventory({ businessId: business?.id, enabled: Boolean(business?.id) });
 
   useEffect(() => {
@@ -154,6 +155,21 @@ export default function BusinessInventoryPage() {
     return "bg-emerald-50 text-emerald-700";
   };
 
+  const groupedInventory = useMemo(() => {
+    const query = searchFilter.trim().toLocaleLowerCase();
+    const filteredItems = menuItems.filter((item) =>
+      !query ||
+      item.name.toLocaleLowerCase().includes(query) ||
+      (item.category || "No category").toLocaleLowerCase().includes(query)
+    );
+
+    return filteredItems.reduce<Record<string, MenuItem[]>>((groups, item) => {
+      const category = item.category || "No category";
+      (groups[category] ??= []).push(item);
+      return groups;
+    }, {});
+  }, [menuItems, searchFilter]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -205,6 +221,20 @@ export default function BusinessInventoryPage() {
                 )}
               </div>
 
+              <div className="mb-5">
+                <label htmlFor="inventory-search" className="mb-2 block text-sm font-semibold text-gray-700">
+                  Search inventory
+                </label>
+                <input
+                  id="inventory-search"
+                  type="search"
+                  value={searchFilter}
+                  onChange={(event) => setSearchFilter(event.target.value)}
+                  placeholder="Search by item or category..."
+                  className="block w-full rounded-2xl border border-gray-200 bg-slate-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:bg-white"
+                />
+              </div>
+
               <div className="space-y-4">
                 {menuItems.length === 0 ? (
                   <div className="text-center py-12">
@@ -215,105 +245,75 @@ export default function BusinessInventoryPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-3 md:hidden">
-                      {menuItems.map((item) => {
-                        const stockValue = inventory[item.id]?.stock ?? item.current_stock ?? null;
-                        const stockInfo = getStockStatus(item, stockValue);
-                        return (
-                          <article key={item.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                {item.image_url ? (
-                                  <img src={item.image_url} alt="" className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="grid h-full w-full place-items-center text-[10px] text-gray-400">No image</div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h3 className="truncate font-semibold text-gray-900">{item.name}</h3>
-                                <p className="mt-0.5 truncate text-xs text-gray-500">{item.category || "No category"}</p>
-                              </div>
-                              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStockBadgeClass(stockInfo.status)}`}>
-                                {stockInfo.status}
-                              </span>
-                            </div>
-                            <div className="mt-3 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
-                              <div className="px-2 text-center">
-                                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Current stock</p>
-                                <p className="mt-1 text-sm font-semibold text-gray-900">
-                                  {item.is_trackable ? stockValue ?? 0 : "—"}
-                                </p>
-                              </div>
-                              <div className="px-2 text-center">
-                                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Daily limit</p>
-                                <p className="mt-1 text-sm font-semibold text-gray-900">{item.daily_limit || 0}</p>
-                              </div>
-                              <div className="px-2 text-center">
-                                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Tracking</p>
-                                <p className={`mt-1 text-sm font-semibold ${item.is_trackable ? "text-emerald-700" : "text-gray-500"}`}>
-                                  {item.is_trackable ? "On" : "Off"}
-                                </p>
-                              </div>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-
-                    <div className="hidden overflow-hidden rounded-xl border border-gray-200 md:block">
-                      <table className="w-full border-collapse text-left">
-                        <thead className="bg-gray-50">
-                          <tr className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            <th scope="col" className="px-4 py-3">Menu item</th>
-                            <th scope="col" className="px-4 py-3">Stock status</th>
-                            <th scope="col" className="px-4 py-3 text-right">Current stock</th>
-                            <th scope="col" className="px-4 py-3 text-right">Daily limit</th>
-                            <th scope="col" className="px-4 py-3 text-right">Tracking</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 bg-white">
-                          {menuItems.map((item) => {
-                            const stockValue = inventory[item.id]?.stock ?? item.current_stock ?? null;
-                            const stockInfo = getStockStatus(item, stockValue);
-                            return (
-                              <tr key={item.id} className="transition hover:bg-gray-50">
-                                <td className="px-4 py-3">
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                      {item.image_url ? (
-                                        <img src={item.image_url} alt="" className="h-full w-full object-cover" />
-                                      ) : (
-                                        <div className="grid h-full w-full place-items-center text-[9px] text-gray-400">No image</div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="truncate font-semibold text-gray-900">{item.name}</p>
-                                      <p className="mt-0.5 truncate text-xs text-gray-500">{item.category || "No category"}</p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStockBadgeClass(stockInfo.status)}`}>
-                                    {stockInfo.status}
+                    {Object.keys(groupedInventory).length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+                        No inventory items match “{searchFilter}”.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {Object.entries(groupedInventory)
+                          .sort(([first], [second]) => first.localeCompare(second))
+                          .map(([category, items]) => (
+                            <details key={category} className="group overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-gray-50 px-4 py-4 font-semibold text-gray-900 hover:bg-gray-100 [&::-webkit-details-marker]:hidden sm:px-5">
+                                <span className="flex min-w-0 items-center gap-3">
+                                  <span className="truncate">{category}</span>
+                                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-500 shadow-sm">
+                                    {items.length} {items.length === 1 ? "item" : "items"}
                                   </span>
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                  {item.is_trackable ? stockValue ?? 0 : "—"}
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium text-gray-900">{item.daily_limit || 0}</td>
-                                <td className="px-4 py-3 text-right">
-                                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                                    item.is_trackable ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"
-                                  }`}>
-                                    {item.is_trackable ? "Enabled" : "Disabled"}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                </span>
+                                <svg className="h-5 w-5 shrink-0 text-gray-500 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                  <path fillRule="evenodd" d="M5.22 7.22a.75.75 0 011.06 0L10 10.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 8.28a.75.75 0 010-1.06z" clipRule="evenodd" />
+                                </svg>
+                              </summary>
+                              <div className="grid gap-3 border-t border-gray-200 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
+                                {items.map((item) => {
+                                  const stockValue = inventory[item.id]?.stock ?? item.current_stock ?? null;
+                                  const stockInfo = getStockStatus(item, stockValue);
+                                  return (
+                                    <article key={item.id} className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                                      <div className="flex min-w-0 items-center gap-3 p-3">
+                                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                          {item.image_url ? (
+                                            <img src={item.image_url} alt="" className="h-full w-full object-cover" />
+                                          ) : (
+                                            <div className="grid h-full w-full place-items-center text-[10px] text-gray-400">No image</div>
+                                          )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <h3 className="truncate font-semibold text-gray-900">{item.name}</h3>
+                                          <p className="mt-0.5 truncate text-xs text-gray-500">
+                                            ₱{Number(item.price || 0).toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStockBadgeClass(stockInfo.status)}`}>
+                                          {stockInfo.status}
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-100 bg-gray-50 py-2.5">
+                                        <div className="px-2 text-center">
+                                          <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500">Current stock</p>
+                                          <p className="mt-1 text-sm font-semibold text-gray-900">{item.is_trackable ? stockValue ?? 0 : "—"}</p>
+                                        </div>
+                                        <div className="px-2 text-center">
+                                          <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500">Daily limit</p>
+                                          <p className="mt-1 text-sm font-semibold text-gray-900">{item.daily_limit ?? 0}</p>
+                                        </div>
+                                        <div className="px-2 text-center">
+                                          <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500">Tracking</p>
+                                          <p className={`mt-1 text-sm font-semibold ${item.is_trackable ? "text-emerald-700" : "text-gray-500"}`}>
+                                            {item.is_trackable ? "On" : "Off"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </article>
+                                  );
+                                })}
+                              </div>
+                            </details>
+                          ))}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
