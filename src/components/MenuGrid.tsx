@@ -1,7 +1,5 @@
 ﻿"use client";
 
-import React, { useState } from "react";
-import MenuItemModal from "./MenuItemModal";
 import { useSingleItemInventory } from "@/hooks/useInventory";
 
 type MenuItem = {
@@ -31,37 +29,17 @@ type MenuItem = {
   allergens?: string[];
 };
 
-type CartItemWithOptions = MenuItem & {
-  menu_item_id: string;
-  name: string;
-  qty: number;
-  base_price: number;
-  selected_options: {
-    group_name: string;
-    option_name: string;
-    price_modifier: number;
-  }[];
-};
-
 export default function MenuGrid({
   items,
-  onAddToCart,
-  viewItem,
-  setViewItem,
+  onOpenItem,
   isDineIn,
   businessId,
 }: {
   items: MenuItem[];
-  onAddToCart?: (item: CartItemWithOptions) => void;
-  viewItem?: MenuItem | null;
-  setViewItem: (item: MenuItem | null) => void;
+  onOpenItem: (item: MenuItem) => void;
   isDineIn?: boolean;
   businessId?: string;
 }) {
-  const handleOpenItem = (item: MenuItem) => {
-    setViewItem(item);
-  };
-
   return (
     <div className="grid flex-1 grid-cols-2 gap-x-3 gap-y-4 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
       {items.map((item) => (
@@ -69,19 +47,10 @@ export default function MenuGrid({
           key={item.id}
           item={item}
           businessId={businessId}
-          onOpenItem={handleOpenItem}
+          onOpenItem={onOpenItem}
           isDineIn={isDineIn}
         />
       ))}
-
-      {viewItem && (
-        <MenuItemModal
-          viewItem={viewItem}
-          setViewItem={setViewItem}
-          onAddToCart={onAddToCart}
-          businessId={businessId}
-        />
-      )}
     </div>
   );
 }

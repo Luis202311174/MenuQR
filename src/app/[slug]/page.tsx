@@ -5,6 +5,7 @@
   import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
   import { faShoppingCart } from "@fortawesome/free-solid-svg-icons";
   import MenuGrid from "@/components/MenuGrid";
+  import MenuItemModal from "@/components/MenuItemModal";
   import SlugSidebar from "@/components/SlugSidebar";
   import BusinessHeader from "@/components/business/BusinessHeader";
   import OrdersButton from "@/components/OrdersButton";
@@ -1358,9 +1359,7 @@ export default function BusinessPage() {
                         </div>
                         <MenuGrid
                           items={items}
-                          onAddToCart={handleAddToCart}
-                          viewItem={viewItem}
-                          setViewItem={handleViewItem}
+                          onOpenItem={handleViewItem}
                           isDineIn={isDineIn}
                           businessId={business?.id}
                         />
@@ -1473,6 +1472,15 @@ export default function BusinessPage() {
           businessAddress={business?.address ?? undefined}
           menuData={displayedMenuItems}
         />
+
+        {viewItem && (
+          <MenuItemModal
+            viewItem={viewItem}
+            setViewItem={setViewItem}
+            onAddToCart={handleAddToCart}
+            businessId={business?.id}
+          />
+        )}
 
         <CheckoutModal
           isOpen={showCheckoutModal}
