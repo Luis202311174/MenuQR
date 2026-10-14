@@ -82,10 +82,20 @@ export default function OrderDetailModal({
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Customer</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">{order.customer_name || order.user_id || "Guest"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Service Type</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {order.service_type === "dine_in"
+                      ? "Dine In"
+                      : order.service_type === "take_out"
+                        ? "Take Out"
+                        : "Not recorded"}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500">Table</p>
@@ -178,4 +188,3 @@ export default function OrderDetailModal({
     </div>
   );
 }
-

@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import PageShell from "@/components/PageShell";
 import { useStaffSession } from "@/hooks/useStaffSession";
 import { getStaffStatusLabel } from "@/lib/staffPermissions";
+import {
+  invalidateStaffSessionCache,
+  loadStaffSession,
+} from "@/utils/staffSessionClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarDays,
@@ -88,9 +92,9 @@ export default function StaffDashboardPage() {
 
   const refreshStaffInfo = async () => {
     try {
-      const res = await fetch("/api/staff/session", { credentials: "include" });
-      if (!res.ok) return;
-      const data = await res.json();
+      invalidateStaffSessionCache();
+      const data = await loadStaffSession();
+      if (!data) return;
       setStaffInfo(data);
     } catch (error) {
       console.warn("Unable to refresh staff session:", error);

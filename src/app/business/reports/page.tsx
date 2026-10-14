@@ -16,6 +16,7 @@ import {
   Tooltip,
   Legend,
   ArcElement,
+  Filler,
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -53,7 +54,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 );
 
 type ChartPoint = { x: number; y: number; value: number };
@@ -75,6 +77,14 @@ interface ChartData {
   labels: string[];
   datasets: any[];
 }
+
+type ServiceType = "dine_in" | "take_out";
+
+const getServiceTypeLabel = (serviceType?: string | null) => {
+  if (serviceType === "dine_in") return "Dine In";
+  if (serviceType === "take_out") return "Take Out";
+  return "Not recorded";
+};
 
 export default function BusinessReportsPage() {
   const router = useRouter();
@@ -189,6 +199,30 @@ export default function BusinessReportsPage() {
     };
   }, [dailySalesData]);
 
+  const serviceTypeSummary = useMemo(() => {
+    const counts = rawOrders.reduce<Record<string, number>>(
+      (summary, order) => {
+        const label = getServiceTypeLabel(order.service_type);
+        summary[label] = (summary[label] ?? 0) + 1;
+        return summary;
+      },
+      {},
+    );
+    const total = rawOrders.length;
+
+    return {
+      total,
+      rows: (["Dine In", "Take Out", "Not recorded"] as const).map((label) => {
+        const count = counts[label] ?? 0;
+        return {
+          label,
+          count,
+          percentage: total > 0 ? `${((count / total) * 100).toFixed(1)}%` : "0.0%",
+        };
+      }),
+    };
+  }, [rawOrders]);
+
   /* =========================
      AUTH + BUSINESS INIT
   ========================= */
@@ -277,7 +311,8 @@ export default function BusinessReportsPage() {
           user_id,
           items,
           payment_method,
-          table_id
+          table_id,
+          service_type
         `)
         .eq("business_id", businessId)
         .gte("created_at", startDate.toISOString())
@@ -585,7 +620,8 @@ export default function BusinessReportsPage() {
           user_id,
           items,
           payment_method,
-          table_id
+          table_id,
+          service_type
         `)
         .eq("business_id", businessId)
         .gte("created_at", fromDate.toISOString())
@@ -647,10 +683,15 @@ export default function BusinessReportsPage() {
       const salesByHour = Object.entries(salesByHourMap)
         .map(([label, data]) => ({ label, ...data }));
 
-      const dineInOrders = orders.filter((order: any) => order.table_id).length;
-      const takeoutOrders = orders.length - dineInOrders;
-      const dineInRatio = orders.length > 0 ? `${((dineInOrders / orders.length) * 100).toFixed(0)}%` : "0%";
-      const takeoutRatio = orders.length > 0 ? `${((takeoutOrders / orders.length) * 100).toFixed(0)}%` : "0%";
+      const serviceTypeCounts = ordersForExport.reduce(
+        (counts: Record<ServiceType | "not_recorded", number>, order: any) => {
+          if (order.service_type === "dine_in") counts.dine_in += 1;
+          else if (order.service_type === "take_out") counts.take_out += 1;
+          else counts.not_recorded += 1;
+          return counts;
+        },
+        { dine_in: 0, take_out: 0, not_recorded: 0 },
+      );
 
       const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       const margin = 15;
@@ -722,8 +763,22 @@ export default function BusinessReportsPage() {
       maybeAddPage(26);
       drawRow(["Metric", "Value", "Ratio"], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3], { header: true, fill: true, fillColor: "#4a7ebb", textColor: "#ffffff" });
       drawRow(["Total Sales", formatPdfCurrency(metrics.totalRevenue), ""], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3], { fill: true, fillColor: "#EAF3FB" });
-      drawRow(["Total Transactions", orders.length.toString(), ""], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3]);
-      drawRow(["Dine In vs Takeout", `${dineInOrders} / ${takeoutOrders}`, `${dineInRatio} / ${takeoutRatio}`], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3], { fill: true, fillColor: "#EAF3FB" });
+      drawRow(["Total Transactions", ordersForExport.length.toString(), ""], [contentWidth * 0.35, contentWidth * 0.35, contentWidth * 0.3]);
+      y += 4;
+
+      drawSectionTitle("Service Type Breakdown");
+      maybeAddPage(34);
+      drawRow(["Service Type", "Transactions", "Share"], [contentWidth * 0.4, contentWidth * 0.3, contentWidth * 0.3], { header: true, fill: true, fillColor: "#4a7ebb", textColor: "#ffffff" });
+      [
+        ["Dine In", serviceTypeCounts.dine_in],
+        ["Take Out", serviceTypeCounts.take_out],
+        ["Not recorded", serviceTypeCounts.not_recorded],
+      ].forEach(([label, count], index) => {
+        const percentage = ordersForExport.length > 0
+          ? `${((Number(count) / ordersForExport.length) * 100).toFixed(1)}%`
+          : "0.0%";
+        drawRow([String(label), String(count), percentage], [contentWidth * 0.4, contentWidth * 0.3, contentWidth * 0.3], { fill: index % 2 === 0, fillColor: "#EAF3FB" });
+      });
       y += 4;
 
       // payment breakdown
@@ -798,6 +853,7 @@ export default function BusinessReportsPage() {
           status,
           user_id,
           table_id,
+          service_type,
           items,
           table:table_id(table_number)
         `)
@@ -878,6 +934,7 @@ export default function BusinessReportsPage() {
           user_id,
           customer_name,
           table_id,
+          service_type,
           items,
           payment_method,
           gcash_ref,
@@ -1130,6 +1187,38 @@ export default function BusinessReportsPage() {
                       color="bg-red-500"
                     />
                   </div>
+
+                  <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+                    <div className="mb-4">
+                      <h3 className="text-base font-semibold text-slate-900 sm:text-lg">Orders by Service Type</h3>
+                      <p className="text-xs text-slate-600 sm:text-sm">
+                        Recorded service selection for paid and completed orders in this date range.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {serviceTypeSummary.rows.map(({ label, count, percentage }) => (
+                        <div
+                          key={label}
+                          className={`rounded-2xl border p-4 ${
+                            label === "Dine In"
+                              ? "border-sky-200 bg-sky-50"
+                              : label === "Take Out"
+                                ? "border-orange-200 bg-orange-50"
+                                : "border-slate-200 bg-slate-50"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">{label}</p>
+                          <div className="mt-2 flex items-baseline justify-between gap-2">
+                            <p className="text-2xl font-bold text-slate-900">{count.toLocaleString()}</p>
+                            <p className="text-sm font-medium text-slate-600">{percentage}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[11px] text-slate-500">
+                      {serviceTypeSummary.total.toLocaleString()} orders included. Orders without a saved service type are identified as “Not recorded.”
+                    </p>
+                  </section>
 
                   {/* Charts Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-8">

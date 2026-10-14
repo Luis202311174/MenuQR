@@ -11,6 +11,7 @@ type DailySalesOrderRow = {
   status: string;
   user_id?: string;
   table_id?: string;
+  service_type?: "dine_in" | "take_out" | null;
   items?: any;
   table?: { table_number?: string | number | null };
   discount_amount?: number | null;
@@ -284,4 +285,3 @@ export default function DailySalesReportModal({
     </div>
   );
 }
-

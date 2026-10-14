@@ -92,6 +92,7 @@ type Business = {
 
 type SubmittedCheckoutData = {
   discountType: "none" | "senior" | "pwd" | "promo";
+  serviceType: "dine_in" | "take_out";
   totalGuests: number;
   seniorCount: number;
   discountAmount: number;
@@ -808,6 +809,7 @@ export default function BusinessPage() {
 
     const handleCheckoutSubmit = async (orderData: {
       discountType: "none" | "senior" | "pwd" | "promo";
+      serviceType: "dine_in" | "take_out";
       totalGuests: number;
       seniorCount: number;
       discountAmount: number;
@@ -832,6 +834,7 @@ export default function BusinessPage() {
         cartCount: cartItems.length,
         cartTotal,
         paymentMethod: orderData.paymentMethod,
+        serviceType: orderData.serviceType,
         discountType: orderData.discountType,
         totalGuests: orderData.totalGuests,
       });
@@ -894,6 +897,7 @@ export default function BusinessPage() {
           totalAmount: cartTotal,
           tableId,
           sessionId,
+          serviceType: orderData.serviceType,
           userId: userId ?? undefined,
           isPaid: isPaid,
           totalGuests: orderData.totalGuests,
@@ -954,9 +958,11 @@ export default function BusinessPage() {
           cartTotal,
           discountAmount: orderData.discountAmount,
           paymentMethod: orderData.paymentMethod,
+          serviceType: orderData.serviceType,
         });
         setSubmittedOrderDetails({
           discountType: orderData.discountType,
+          serviceType: orderData.serviceType,
           totalGuests: orderData.totalGuests,
           seniorCount: orderData.seniorCount,
           discountAmount: orderData.discountAmount,
@@ -971,8 +977,8 @@ export default function BusinessPage() {
         setCheckoutSubmitted(true);
         setCheckoutStatusMessage(
           rewardEligible
-            ? "Order submitted successfully! This order qualifies for a reward coupon once completed."
-            : "Order submitted successfully! Your order is now with the restaurant."
+            ? `Your ${orderData.serviceType === "dine_in" ? "dine-in" : "takeout"} order was submitted successfully and qualifies for a reward coupon once completed.`
+            : `Your ${orderData.serviceType === "dine_in" ? "dine-in" : "takeout"} order was submitted successfully and is now with the restaurant.`
         );
         setShowOrderMoreModal(false);
         setNotification({ message: "Order submitted successfully! Waiting for payment confirmation and discounts.", type: "success" });

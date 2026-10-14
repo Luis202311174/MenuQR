@@ -18,6 +18,7 @@ export type CreateOrderParams = {
   totalAmount: number;
   tableId: string;
   sessionId: string;
+  serviceType?: "dine_in" | "take_out";
   userId?: string;
   isPaid?: boolean; // New parameter to indicate if order is paid
   totalGuests?: number;
@@ -56,6 +57,7 @@ export async function createOrder({
   totalAmount,
   tableId,
   sessionId,
+  serviceType = "dine_in",
   userId,
   isPaid = false, // Default to unpaid
   totalGuests,
@@ -159,6 +161,7 @@ export async function createOrder({
       status: "pending",
       table_id: tableId,
       session_id: sessionId,
+      service_type: serviceType,
       is_paid: isPaid,
       total_guests: totalGuests ?? 0,
       senior_pwd_count: seniorPwdCount ?? 0,

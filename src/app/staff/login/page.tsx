@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { invalidateStaffSessionCache } from "@/utils/staffSessionClient";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function StaffLoginPage() {
         return;
       }
 
+      invalidateStaffSessionCache();
       const result = await response.json();
       router.push(result.redirect || "/business/dashboard");
     } catch (error) {

@@ -15,9 +15,9 @@ import {
   isAcknowledgedToday,
 } from "@/utils/notificationManager";
 import { cleanupStaleNotifications } from "@/utils/notificationCleanup";
+import { invalidateStaffSessionCache, loadStaffSession } from "@/utils/staffSessionClient";
 import Image from "next/image";
 import Link from "next/link";
-import { useStaffSession } from "@/hooks/useStaffSession";
 
 
 export default function Header() {
@@ -37,7 +37,10 @@ export default function Header() {
   const [notifierMuted, setNotifierMuted] = useState(false);
 
   useEffect(() => {
+    let roleLookupTimer;
     const loadSession = async () => {
+      setRole(null);
+      setIsStaff(false);
       try {
         const { data } = await supabase.auth.getSession();
 
@@ -45,12 +48,15 @@ export default function Header() {
         setUser(data.session?.user);
 
         if (data.session?.user) {
-          const { data: u } = await supabase
+          const { data: u, error } = await supabase
             .from("users")
             .select("role")
             .eq("id", data.session.user.id)
             .single();
 
+          if (error) {
+            console.error("Unable to resolve header user role:", error);
+          }
           setRole(u?.role || null);
         }
       } catch (error) {
@@ -63,16 +69,10 @@ export default function Header() {
       }
 
       try {
-        const resp = await fetch("/api/staff/session", {
-          credentials: "include",
-        });
-
-        if (resp.ok) {
-          setIsStaff(true);
-        } else {
-          setIsStaff(false);
-        }
+        const staffSession = await loadStaffSession();
+        setIsStaff(!!staffSession);
       } catch (err) {
+        console.error("Unable to resolve header staff session:", err);
         setIsStaff(false);
       }
     }; loadSession();
@@ -83,19 +83,34 @@ export default function Header() {
         setUser(session?.user);
 
         if (session?.user) {
-          supabase
-            .from("users")
-            .select("role")
-            .eq("id", session.user.id)
-            .single()
-            .then(({ data: u }) => setRole(u?.role || null));
+          setRole(null);
+          if (roleLookupTimer) clearTimeout(roleLookupTimer);
+          roleLookupTimer = setTimeout(() => {
+            void supabase
+              .from("users")
+              .select("role")
+              .eq("id", session.user.id)
+              .single()
+              .then(({ data: u, error }) => {
+                if (error) {
+                  console.error("Unable to resolve header user role:", error);
+                  setRole(null);
+                  return;
+                }
+                setRole(u?.role || null);
+              });
+          }, 0);
         } else {
+          if (roleLookupTimer) clearTimeout(roleLookupTimer);
           setRole(null);
         } setRoleChecked(true);
       }
     );
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      if (roleLookupTimer) clearTimeout(roleLookupTimer);
+      listener.subscription.unsubscribe();
+    };
   }, [pathname]);
 
   useEffect(() => {
@@ -161,6 +176,7 @@ export default function Header() {
   };
 
   const handleLowStockNotificationClick = () => {
+    if (role !== "owner" && !isStaff) return;
     setShowBell(false);
     if (pathname.startsWith("/business/")) {
       window.dispatchEvent(new CustomEvent("openLowStockAlertModal"));
@@ -178,7 +194,8 @@ export default function Header() {
   const visibleNotifications = Array.isArray(storedNotifications)
     ? storedNotifications.filter((n) => n.type !== "inventory" && !isAcknowledgedToday(n))
     : [];
-  const hasLowStockAlert = lowStockNotifications.length > 0;
+  const hasLowStockAlert =
+    (role === "owner" || isStaff) && lowStockNotifications.length > 0;
   const notificationCount = storedReceipts.length + visibleNotifications.length + (hasLowStockAlert ? 1 : 0);
 
   // When the bell is closed, mark any visible notifications as acknowledged for today
@@ -239,6 +256,7 @@ export default function Header() {
                     } catch (err) {
                       console.error('Staff logout failed', err);
                     }
+                    invalidateStaffSessionCache();
                     window.location.href = '/';
                   }}
                   className="transition hover:text-slate-900"
@@ -443,6 +461,7 @@ export default function Header() {
                     } catch (err) {
                       console.error('Staff logout failed', err);
                     }
+                    invalidateStaffSessionCache();
                     window.location.href = '/';
                   }}
                   className="text-left text-sm font-semibold text-[#102A43] transition hover:text-slate-900"

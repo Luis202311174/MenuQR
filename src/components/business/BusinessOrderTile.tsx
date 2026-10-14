@@ -12,6 +12,7 @@ type Order = {
   created_at: string;
   total_amount: number;
   items: any[];
+  service_type?: "dine_in" | "take_out" | null;
   table_id?: string | null;
   session_id?: string | null;
   is_paid?: boolean;
@@ -357,6 +358,17 @@ const BusinessOrderTile: React.FC<Props> = ({
                   }`}
                 >
                   {order.is_paid ? "Paid" : "Unpaid"}
+                </span>
+
+                {/* SERVICE TYPE */}
+                <span
+                  className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-semibold leading-none sm:px-2.5 sm:text-[10px] ${
+                    order.service_type === "take_out"
+                      ? "border-orange-200 bg-orange-100 text-orange-700"
+                      : "border-sky-200 bg-sky-100 text-sky-700"
+                  }`}
+                >
+                  {order.service_type === "take_out" ? "Take Out" : "Dine In"}
                 </span>
 
                 {/* PAYMENT METHOD */}

@@ -7,6 +7,7 @@ export type OrderData = {
   items: any[];
   total_amount: number;
   status: "pending" | "pending_payment" | "received" | "preparing" |"ready" | "completed" | "paid" | "served" | "cancelled" | "none";
+  service_type?: "dine_in" | "take_out";
   table_id?: string | null;
   session_id?: string | null;
   is_paid?: boolean;

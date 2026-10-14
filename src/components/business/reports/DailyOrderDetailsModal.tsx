@@ -9,6 +9,7 @@ export interface DailySalesOrderRow {
   status: string;
   user_id?: string;
   items?: any;
+  service_type?: "dine_in" | "take_out" | null;
   table?: { table_number?: string | number | null };
   table_id?: string;
   coupon_id?: string | null;
@@ -101,6 +102,7 @@ export default function DailyOrderDetailsModal({
                       <th className="px-4 py-3 text-left font-semibold">Order #</th>
                       <th className="px-4 py-3 text-left font-semibold">Time</th>
                       <th className="px-4 py-3 text-left font-semibold">Status</th>
+                      <th className="px-4 py-3 text-left font-semibold">Service Type</th>
                       <th className="px-4 py-3 text-right font-semibold">Discount</th>
                       <th className="px-4 py-3 text-right font-semibold">Total</th>
                       <th className="px-4 py-3 text-center font-semibold">Action</th>
@@ -117,6 +119,13 @@ export default function DailyOrderDetailsModal({
                           })}
                         </td>
                         <td className="px-4 py-3 text-slate-600 capitalize">{order.status}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {order.service_type === "dine_in"
+                            ? "Dine In"
+                            : order.service_type === "take_out"
+                              ? "Take Out"
+                              : "Not recorded"}
+                        </td>
                         <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(order.discount_amount || 0)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-slate-900">
                           {formatCurrency((order.total_amount || 0) - (order.discount_amount || 0))}
@@ -179,4 +188,3 @@ export default function DailyOrderDetailsModal({
     </div>
   );
 }
-

@@ -34,12 +34,15 @@ type CartItem = {
 type CheckoutStep =
   | "cart-review"
   | "discount"
-  | "guests"
+  | "service"
   | "payment"
   | "summary";
 
+type ServiceType = "dine_in" | "take_out";
+
 type SubmittedOrderDetails = {
   discountType: "none" | "senior" | "pwd" | "promo";
+  serviceType: ServiceType;
   totalGuests: number;
   seniorCount: number;
   discountAmount: number;
@@ -82,6 +85,7 @@ interface CheckoutModalProps {
   onClose: () => void;
   onSubmitOrder: (orderData: {
     discountType: "none" | "senior" | "pwd" | "promo";
+    serviceType: ServiceType;
     totalGuests: number;
     seniorCount: number;
     discountAmount: number;
@@ -122,6 +126,7 @@ export default function CheckoutModal({
   const [discountType, setDiscountType] = useState<
     "none" | "senior" | "pwd" | "promo"
   >("none");
+  const [serviceType, setServiceType] = useState<ServiceType>("dine_in");
   const [totalGuests, setTotalGuests] = useState(1);
   const [seniorCount, setSeniorCount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "gcash">("cash");
@@ -140,6 +145,10 @@ export default function CheckoutModal({
     couponId?: string;
   } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) setServiceType("dine_in");
+  }, [isOpen]);
 
   const handleGcashReceiptSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
@@ -251,9 +260,9 @@ export default function CheckoutModal({
   const perGuestShare = cartTotal / Math.max(1, totalGuests);
   const hasCartItems = cartItems.length > 0;
   const isGuestTotalInvalid =
-    currentStep === "guests" && guestError === "Enter the number of guests.";
+    currentStep === "service" && guestError === "Enter the number of guests.";
   const isSeniorCountInvalid =
-    currentStep === "guests" &&
+    currentStep === "service" &&
     (discountType === "senior" || discountType === "pwd") &&
     guestError?.includes("Senior");
   const rewardThreshold =
@@ -292,7 +301,7 @@ export default function CheckoutModal({
     const steps: CheckoutStep[] = [
       "cart-review",
       "discount",
-      "guests",
+      "service",
       "payment",
       "summary",
     ];
@@ -321,7 +330,7 @@ export default function CheckoutModal({
       return;
     }
 
-    if (currentStep === "guests") {
+    if (currentStep === "service") {
       if (totalGuests < 1) {
         setGuestError("Enter the number of guests.");
         return;
@@ -354,7 +363,7 @@ export default function CheckoutModal({
     const steps: CheckoutStep[] = [
       "cart-review",
       "discount",
-      "guests",
+      "service",
       "payment",
       "summary",
     ];
@@ -384,6 +393,7 @@ export default function CheckoutModal({
 
         await onSubmitOrder({
         discountType: effectiveDiscountType,
+        serviceType,
         totalGuests,
         seniorCount: seniorCountValue,
         discountAmount,
@@ -411,8 +421,8 @@ export default function CheckoutModal({
         return "Review Your Order";
       case "discount":
         return "Discount Information";
-      case "guests":
-        return "Number of Guests";
+      case "service":
+        return "Service & Guests";
       case "payment":
         return "Payment Method";
       case "summary":
@@ -426,7 +436,7 @@ export default function CheckoutModal({
     const steps: CheckoutStep[] = [
       "cart-review",
       "discount",
-      "guests",
+      "service",
       "payment",
       "summary",
     ];
@@ -448,9 +458,9 @@ export default function CheckoutModal({
         icon: faTag,
       },
       {
-        id: "guests",
-        title: "Guests",
-        description: "Number of diners",
+        id: "service",
+        title: "Service & Guests",
+        description: "Choose dine-in or takeout",
         icon: faUsers,
       },
       {
@@ -509,6 +519,12 @@ export default function CheckoutModal({
 
         {submissionComplete && submittedOrderDetails ? (
           <div className="rounded-xl lg:rounded-2xl border border-slate-200 bg-slate-50 px-3 lg:px-4 py-2 lg:py-3 mx-4 lg:mx-6 mt-2 lg:mt-3 text-xs lg:text-sm text-slate-700">
+            <div className="flex justify-between">
+              <span>Service Type</span>
+              <span className="font-semibold text-slate-900">
+                {submittedOrderDetails.serviceType === "dine_in" ? "Dine In" : "Take Out"}
+              </span>
+            </div>
             <div className="flex justify-between">
               <span>Subtotal</span>
               <span>₱{submittedOrderDetails.cartTotal.toFixed(2)}</span>
@@ -781,12 +797,59 @@ export default function CheckoutModal({
             </div>
           )}
 
-          {/* Guests Step */}
-          {currentStep === "guests" && (
+          {/* Service and Guests Step */}
+          {currentStep === "service" && (
             <div className="space-y-3 lg:space-y-5">
+              <div className="space-y-2">
+                <p className="text-xs lg:text-sm font-semibold text-slate-700">
+                  How would you like your order?
+                </p>
+                {[
+                  {
+                    type: "dine_in" as const,
+                    label: "Dine In",
+                    description: "Enjoy your order at the restaurant.",
+                  },
+                  {
+                    type: "take_out" as const,
+                    label: "Take Out",
+                    description: "Your order will be prepared to take away.",
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.type}
+                    type="button"
+                    onClick={() => setServiceType(option.type)}
+                    aria-pressed={serviceType === option.type}
+                    className={`w-full rounded-xl lg:rounded-2xl border-2 p-3 lg:p-4 text-left transition ${
+                      serviceType === option.type
+                        ? "border-[#4f65ff] bg-blue-50"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm lg:text-base font-semibold text-slate-900">
+                          {option.label}
+                        </p>
+                        <p className="text-xs lg:text-sm text-slate-600">
+                          {option.description}
+                        </p>
+                      </div>
+                      {serviceType === option.type && (
+                        <FontAwesomeIcon
+                          icon={faCheck}
+                          className="text-[#4f65ff] text-sm lg:text-base"
+                        />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
               <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 lg:p-4 shadow-sm">
                 <p className="text-xs lg:text-sm text-slate-600 mb-2">
-                  How many guests will dine?
+                  How many people are included in this order?
                 </p>
                 <div className="flex items-center justify-center gap-2 lg:gap-3">
                   <button
@@ -828,7 +891,7 @@ export default function CheckoutModal({
                   </button>
                 </div>
                 <p className="mt-2 text-center text-xs lg:text-sm text-slate-500">
-                  Guest(s)
+                  People
                 </p>
               </div>
 
@@ -1074,7 +1137,13 @@ export default function CheckoutModal({
 
               <div className="rounded-lg lg:rounded-2xl bg-slate-50 p-3 lg:p-4 space-y-1.5 lg:space-y-2">
                 <div className="flex justify-between text-xs lg:text-sm">
-                  <span className="text-slate-600">Guests</span>
+                  <span className="text-slate-600">Service Type</span>
+                  <span className="font-semibold text-slate-900">
+                    {serviceType === "dine_in" ? "Dine In" : "Take Out"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs lg:text-sm">
+                  <span className="text-slate-600">People</span>
                   <span className="font-semibold text-slate-900">
                     {totalGuests}
                   </span>

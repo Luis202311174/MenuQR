@@ -91,6 +91,7 @@ CREATE TABLE public.menu_items (
   serving_size text,
   allergens ARRAY DEFAULT '{}'::text[],
   image_position character varying DEFAULT 'center'::character varying,
+  sort_order integer NOT NULL DEFAULT 0,
   CONSTRAINT menu_items_pkey PRIMARY KEY (id),
   CONSTRAINT menu_items_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
 );
@@ -406,6 +407,7 @@ CREATE TABLE public.menu_categories (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  sort_order integer NOT NULL DEFAULT 0,
   CONSTRAINT menu_categories_pkey PRIMARY KEY (id),
   CONSTRAINT menu_categories_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
 );
@@ -420,6 +422,7 @@ CREATE TABLE public.option_groups (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   is_active boolean NOT NULL DEFAULT true,
   is_reusable boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
   CONSTRAINT option_groups_pkey PRIMARY KEY (id),
   CONSTRAINT option_groups_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id)
 );
@@ -431,6 +434,7 @@ CREATE TABLE public.option_choices (
   is_available boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  sort_order integer NOT NULL DEFAULT 0,
   CONSTRAINT option_choices_pkey PRIMARY KEY (id),
   CONSTRAINT option_choices_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.option_groups(id)
 );

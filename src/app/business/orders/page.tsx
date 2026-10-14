@@ -72,6 +72,7 @@ type Order = {
   created_at: string;
   total_amount: number;
   items: any[];
+  service_type?: "dine_in" | "take_out" | null;
   table_id?: string | null;
   session_id?: string | null;
   is_paid?: boolean;

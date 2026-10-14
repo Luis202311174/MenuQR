@@ -21,6 +21,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    let roleLookupTimer: ReturnType<typeof setTimeout> | undefined;
     const init = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -51,24 +52,31 @@ export default function Home() {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
-        // check role on state change as well
-        supabase
-          .from("users")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data: user }) => {
-            if (user?.role === "owner") {
-              router.push("/business");
-              return;
-            }
-          });
+        if (roleLookupTimer) clearTimeout(roleLookupTimer);
+        roleLookupTimer = setTimeout(() => {
+          void supabase
+            .from("users")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+            .then(({ data: user, error }) => {
+              if (error) {
+                console.error("Unable to resolve user role after sign-in:", error);
+                return;
+              }
+              if (user?.role === "owner") router.push("/business");
+            });
+        }, 0);
         setUserName(session.user.user_metadata?.full_name || session.user.email);
       } else {
+        if (roleLookupTimer) clearTimeout(roleLookupTimer);
         setUserName(null);
       }
     });
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      if (roleLookupTimer) clearTimeout(roleLookupTimer);
+      listener.subscription.unsubscribe();
+    };
   }, [router]);
 
   // Scroll Animation Observer

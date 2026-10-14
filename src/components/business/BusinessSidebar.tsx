@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useStaffSession } from "@/hooks/useStaffSession";
+import { useBusinessAuth } from "@/hooks/useBusinessAuth";
+import { getStoredLowStockNotifications } from "@/utils/lowStockNotifications";
 
 import {
   getSidebarVisibility,
@@ -25,6 +27,7 @@ import {
   faSliders,
   faBars,
   faXmark,
+  faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 
 type BusinessSidebarProps = {
@@ -44,7 +47,9 @@ export default function BusinessSidebar({ ordersCount, variant = "desktop" }: Bu
   const router = useRouter();
   const pathname = usePathname();
   const { staffSession } = useStaffSession();
+  const { checked: businessAuthChecked, businessId } = useBusinessAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasLowStockWarning, setHasLowStockWarning] = useState(false);
 
   const ordersLabel = ordersCount !== undefined ? `Orders (${ordersCount})` : "Orders";
   const navItems: SidebarItem[] = [
@@ -72,6 +77,21 @@ export default function BusinessSidebar({ ordersCount, variant = "desktop" }: Bu
     }
     return getSidebarVisibility(staffSession, item.module);
   });
+
+  useEffect(() => {
+    if (!businessAuthChecked || !businessId) {
+      setHasLowStockWarning(false);
+      return;
+    }
+
+    const syncLowStockWarning = () => {
+      setHasLowStockWarning(getStoredLowStockNotifications().length > 0);
+    };
+
+    syncLowStockWarning();
+    window.addEventListener("lowStockNotificationsUpdated", syncLowStockWarning);
+    return () => window.removeEventListener("lowStockNotificationsUpdated", syncLowStockWarning);
+  }, [businessAuthChecked, businessId]);
 
   const currentNavItem = visibleNavItems.find((item) =>
     pathname === item.path || pathname.startsWith(`${item.path}/`)
@@ -112,6 +132,15 @@ export default function BusinessSidebar({ ordersCount, variant = "desktop" }: Bu
             <FontAwesomeIcon icon={item.icon} className="text-sm" />
           </span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {item.path === "/business/inventory" && hasLowStockWarning && (
+            <span
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-amber-600 shadow-sm"
+              aria-label="Low stock warning"
+              title="Low stock warning"
+            >
+              <FontAwesomeIcon icon={faTriangleExclamation} className="text-xs" aria-hidden="true" />
+            </span>
+          )}
           {isActive && <span className="h-2 w-2 shrink-0 rounded-full bg-white" aria-hidden="true" />}
         </button>
       );
@@ -135,6 +164,15 @@ export default function BusinessSidebar({ ordersCount, variant = "desktop" }: Bu
           <FontAwesomeIcon icon={item.icon} className="text-[11px] sm:text-xs" />
         </span>
         <span className="capitalize text-[11px] sm:text-xs">{item.label}</span>
+        {item.path === "/business/inventory" && hasLowStockWarning && (
+          <span
+            className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-amber-600 shadow-sm"
+            aria-label="Low stock warning"
+            title="Low stock warning"
+          >
+            <FontAwesomeIcon icon={faTriangleExclamation} className="text-xs" aria-hidden="true" />
+          </span>
+        )}
       </button>
     );
   };

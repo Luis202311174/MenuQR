@@ -12,12 +12,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 const rawGetSession = supabase.auth.getSession.bind(supabase.auth) as typeof supabase.auth.getSession;
+let getSessionRequest: ReturnType<typeof rawGetSession> | null = null;
 
-supabase.auth.getSession = async (...args) => {
-  try {
-    return await rawGetSession(...args);
-  } catch (error) {
-    console.warn("Supabase auth.getSession failed:", error);
-    return { data: { session: null }, error } as Awaited<ReturnType<typeof rawGetSession>>;
+supabase.auth.getSession = (...args) => {
+  if (!getSessionRequest) {
+    const request = rawGetSession(...args).catch((error) => {
+      console.warn("Supabase auth.getSession failed:", error);
+      return { data: { session: null }, error } as Awaited<ReturnType<typeof rawGetSession>>;
+    });
+    getSessionRequest = request.finally(() => {
+      getSessionRequest = null;
+    });
   }
-}
+
+  return getSessionRequest;
+};

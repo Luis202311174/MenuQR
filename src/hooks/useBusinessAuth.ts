@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { StaffPermissionAction } from "@/lib/staffPermissions";
 import { hasStaffPermission, type StaffModuleKey, type StaffSessionData } from "@/lib/staffPermissions";
+import { loadStaffSession } from "@/utils/staffSessionClient";
 
 interface BusinessAuthState {
   checked: boolean;
@@ -30,14 +31,8 @@ export function useBusinessAuth(
 
     const resolveAuth = async () => {
       try {
-        const response = await fetch("/api/staff/session", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (response.ok) {
-          const staffSession = (await response.json()) as StaffSessionData;
-
+        const staffSession = await loadStaffSession();
+        if (staffSession) {
           if (!canceled) {
             setAuthState({
               checked: true,

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInStaffWithGoogle } from '../../lib/staffAuth';
+import { invalidateStaffSessionCache } from "@/utils/staffSessionClient";
 
 // Theme colors
 const COLORS = {
@@ -69,6 +70,7 @@ export default function StaffLoginPage() {
         const errorText = await response.text();
         setError(errorText || 'Login failed');
       } else {
+        invalidateStaffSessionCache();
         router.push('/business/staff-dashboard');
       }
     } catch (err) {

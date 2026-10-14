@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { StaffSessionData } from "@/lib/staffPermissions";
+import {
+  loadStaffSession,
+  subscribeToStaffSessionInvalidation,
+} from "@/utils/staffSessionClient";
 
 export function useStaffSession(enabled: boolean = true) {
   const [staffSession, setStaffSession] = useState<StaffSessionData | null>(null);
@@ -15,19 +19,9 @@ export function useStaffSession(enabled: boolean = true) {
 
     let cancelled = false;
 
-    const loadSession = async () => {
+    const loadSession = async (forceRefresh = false) => {
       try {
-        const response = await fetch("/api/staff/session", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          setStaffSession(null);
-          return;
-        }
-
-        const data = (await response.json()) as StaffSessionData;
+        const data = await loadStaffSession({ forceRefresh });
         if (!cancelled) {
           setStaffSession(data);
         }
@@ -43,10 +37,14 @@ export function useStaffSession(enabled: boolean = true) {
       }
     };
 
-    loadSession();
+    void loadSession();
+    const unsubscribe = subscribeToStaffSessionInvalidation(() => {
+      void loadSession();
+    });
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [enabled]);
 
