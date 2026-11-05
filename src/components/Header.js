@@ -586,13 +586,20 @@ export default function Header() {
 
       {/* REGISTER MODAL */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 px-4 z-50">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:items-center sm:p-6">
           {/* Modal */}
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-5xl w-full relative">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="register-modal-title"
+            className="relative my-auto w-full max-w-5xl overflow-y-auto rounded-3xl bg-white shadow-2xl"
+            style={{ maxHeight: "calc(100dvh - 1.5rem)" }}
+          >
             {/* Close button */}
             <button
               onClick={() => setShowModal(false)}
-              className="absolute top-6 right-6 text-white hover:text-gray-100 text-2xl font-semibold z-10"
+              aria-label="Close registration modal"
+              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-2xl font-semibold text-[#102A43] shadow-sm transition hover:bg-white sm:right-5 sm:top-5"
             >
               ×
             </button>
@@ -600,40 +607,40 @@ export default function Header() {
             {/* Container */}
             <div className="grid md:grid-cols-2">
               {/* Left Side - Logo and Text */}
-              <div className="bg-white p-12 flex flex-col items-center justify-center">
+              <div className="flex flex-col items-center justify-center bg-white px-5 pb-5 pt-8 sm:p-8 md:p-12">
                 <Image
                   src="/hero-icon.png"
                   alt="MenuQR Logo"
                   width={300}
                   height={240}
-                  className="mb-8"
+                  className="mb-3 h-auto w-28 sm:mb-5 sm:w-40 md:mb-8 md:w-full"
                 />
-                <h3 className="text-5xl font-bold text-[#111] mb-3 text-center">MenuQR</h3>
-                <p className="text-2xl text-[#333] text-center font-semibold">Save Your Favorites!</p>
+                <h3 className="mb-1 text-center text-3xl font-bold text-[#102A43] sm:mb-3 sm:text-4xl md:text-5xl">MenuQR</h3>
+                <p className="text-center text-base font-semibold text-[#333] sm:text-xl md:text-2xl">Save Your Favorites!</p>
               </div>
 
-              {/* Right Side - Registration Options (Red Background) */}
-              <div className="bg-[#E23838] p-12 flex flex-col justify-center">
+              {/* Right Side - Registration Options */}
+              <div className="flex flex-col justify-center bg-[#102A43] px-4 py-6 sm:p-8 md:p-12">
                 {/* Title */}
-                <h2 className="text-center text-4xl font-bold text-white mb-10">
+                <h2 id="register-modal-title" className="mb-5 text-center text-2xl font-bold text-white sm:mb-8 sm:text-3xl md:mb-10 md:text-4xl">
                   Register as
                 </h2>
 
                 {/* Options Grid */}
-                <div className="grid grid-cols-2 gap-6 mb-10">
+                <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-8 sm:gap-5 md:mb-10 md:gap-6">
                   {/* Business Owner Option */}
                   <Link
                     href="/signup-auth?role=owner"
                     onClick={() => handleSelectRole("owner")}
-                    className="flex flex-col items-center p-8 bg-gray-300 rounded-2xl hover:bg-gray-400 transition-all duration-300 hover:scale-105 group cursor-pointer"
+                    className="group flex cursor-pointer flex-col items-center rounded-2xl bg-white p-3 transition-all duration-300 hover:scale-105 hover:bg-[#eef4ff] sm:p-5 md:p-8"
                   >
                     {/* Icon */}
-                    <div className="mb-4 text-7xl">
+                    <div className="mb-2 text-4xl sm:mb-3 sm:text-6xl md:mb-4 md:text-7xl">
                       🏪
                     </div>
                     
                     {/* Title */}
-                    <h3 className="text-xl font-bold text-[#111] text-center">
+                    <h3 className="text-center text-sm font-bold text-[#102A43] sm:text-lg md:text-xl">
                       Business
                     </h3>
                   </Link>
@@ -642,22 +649,22 @@ export default function Header() {
                   <Link
                     href="/signup-auth?role=user"
                     onClick={() => handleSelectRole("user")}
-                    className="flex flex-col items-center p-8 bg-gray-300 rounded-2xl hover:bg-gray-400 transition-all duration-300 hover:scale-105 group cursor-pointer"
+                    className="group flex cursor-pointer flex-col items-center rounded-2xl bg-white p-3 transition-all duration-300 hover:scale-105 hover:bg-[#eef4ff] sm:p-5 md:p-8"
                   >
                     {/* Icon */}
-                    <div className="mb-4 text-7xl">
+                    <div className="mb-2 text-4xl sm:mb-3 sm:text-6xl md:mb-4 md:text-7xl">
                       👤
                     </div>
                     
                     {/* Title */}
-                    <h3 className="text-xl font-bold text-[#111] text-center">
+                    <h3 className="text-center text-sm font-bold text-[#102A43] sm:text-lg md:text-xl">
                       User
                     </h3>
                   </Link>
                 </div>
 
                 {/* Description */}
-                <p className="text-center text-white text-base leading-relaxed">
+                <p className="text-center text-sm leading-relaxed text-white sm:text-base">
                   We offer two registration choices to ensure that both Business Owners get the management tools they need to update menus, and Customers get the personalized features needed to save and view their favorite spots.
                 </p>
               </div>
