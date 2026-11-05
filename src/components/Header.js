@@ -490,13 +490,6 @@ export default function Header() {
 
         <div className={`${mobileMenuOpen ? "block" : "hidden"} border-t border-slate-200 bg-slate-50 md:hidden`}>
           <div className="mx-auto flex max-w-[1400px] flex-col gap-2 px-6 py-4">
-            <Link
-              href={homeHref}
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-semibold text-[#102A43] transition hover:text-slate-900"
-            >
-              Home
-            </Link>
             {!(roleChecked && (role === 'owner' || isStaff)) && (
               <Link
                 href={homeHref}
@@ -551,13 +544,6 @@ export default function Header() {
                 >
                   Log out
                 </button>
-                <Link
-                  href={dashboardHref}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:bg-slate-900"
-                >
-                  Dashboard
-                </Link>
               </>
             ) : (
               <div className="flex flex-col gap-2 mt-2">
