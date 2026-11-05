@@ -50,3 +50,34 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 # MenuQR
+
+## Platform administrator setup
+
+Platform-admin access is separate from business-owner and staff permissions. There
+is no public administrator registration page. Apply
+[`migrations/add_platform_admins.sql`](./migrations/add_platform_admins.sql) in
+the Supabase SQL editor, then grant access manually:
+
+1. In Supabase Auth, ensure the intended administrator has an email/password
+   sign-in credential. You can set a password for an existing Auth user or
+   create the Auth user in the Supabase dashboard. The admin page does not
+   provide public account registration.
+2. In the Supabase SQL editor, run the commented `INSERT` example at the bottom
+   of the migration, replacing `admin@example.com` with that account's email.
+   The account's UUID is looked up in `auth.users`; do not store the password in
+   the application or migration.
+3. Sign in at `/admin/login` with that email and password. Only accounts present in
+   `public.platform_admins` can use the platform-admin API.
+
+The service-role key must remain server-side as `SUPABASE_SERVICE_ROLE_KEY`.
+The admin API checks the signed-in Supabase user and the database grant on every
+request. MenuQR users can be edited and sign-in can be disabled or re-enabled,
+but accounts cannot be deleted from this screen. Orders and payment records are
+read-only except for order status corrections; order history and activity logs
+cannot be deleted. Other admin creates, edits, and deletes are recorded in
+`platform_admin_audit_logs` (field names only, not submitted values). Other
+deletions remain subject to the database's foreign-key constraints.
+
+The admin home starts with a restaurant directory. Select a restaurant to work
+with its scoped profile, menu, orders, staff, promotions, and operations records;
+use the sidebar's restaurant control to return to the directory or switch stores.

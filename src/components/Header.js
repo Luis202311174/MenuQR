@@ -35,12 +35,29 @@ export default function Header() {
   const [lowStockNotifications, setLowStockNotifications] = useState([]);
   const [showBell, setShowBell] = useState(false);
   const [notifierMuted, setNotifierMuted] = useState(false);
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
     let roleLookupTimer;
     const loadSession = async () => {
       setRole(null);
       setIsStaff(false);
+      if (isAdminRoute) {
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          setSession(data.session);
+          setUser(data.session?.user);
+        } catch (error) {
+          console.warn("Header Supabase auth session failed:", error);
+          setSession(null);
+          setUser(null);
+        } finally {
+          setRoleChecked(true);
+        }
+        return;
+      }
+
       try {
         const { data } = await supabase.auth.getSession();
 
@@ -81,6 +98,14 @@ export default function Header() {
       (event, session) => {
         setSession(session);
         setUser(session?.user);
+
+        if (isAdminRoute) {
+          if (roleLookupTimer) clearTimeout(roleLookupTimer);
+          setRole(null);
+          setIsStaff(false);
+          setRoleChecked(true);
+          return;
+        }
 
         if (session?.user) {
           setRole(null);
@@ -213,6 +238,45 @@ export default function Header() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBell]);
+
+  if (isAdminRoute) {
+    return (
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-slate-50">
+        <div className="mx-auto flex min-h-[72px] max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <Link href="/admin" className="flex items-center gap-3">
+            <Image src="/hero-icon.png" alt="MenuQR logo" width={42} height={42} className="h-10 w-10 object-contain" />
+            <span className="text-xl font-bold text-slate-900 sm:text-2xl">MenuQR</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-sm font-semibold text-[#102A43] sm:inline">
+              Platform administration
+            </span>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("adminNavigationToggle"))}
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-[#102A43] transition hover:bg-white lg:hidden"
+            >
+              Sections
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                  console.error("Platform administrator sign-out failed:", error);
+                  return;
+                }
+                router.replace("/admin/login");
+              }}
+              className="rounded-full bg-[#102A43] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <>
