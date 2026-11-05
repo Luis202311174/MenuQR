@@ -9,6 +9,7 @@ interface PageShellProps {
   backHref?: string;
   children: ReactNode;
   className?: string;
+  showInventoryNotifier?: boolean;
 }
 
 export default function PageShell({
@@ -18,10 +19,11 @@ export default function PageShell({
   backHref,
   children,
   className = "",
+  showInventoryNotifier = true,
 }: PageShellProps) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <BusinessInventoryNotifier />
+      {showInventoryNotifier && <BusinessInventoryNotifier />}
       <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-8">
         <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
           {(title || subtitle || action || backHref) && (

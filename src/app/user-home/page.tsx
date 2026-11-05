@@ -116,7 +116,7 @@ export default function UserHome() {
         <p className="text-xs sm:text-sm text-slate-600 mb-1 line-clamp-2">{item.address}</p>
         <p className="text-xs sm:text-sm text-slate-600 mb-3 line-clamp-1">{item.contact}</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <a href={`/${item.slug}`} className="rounded-[18px] bg-[#E23838] px-2.5 py-1.5 text-[9px] sm:text-[10px] font-bold text-[#F2FF00] hover:bg-[#c22f2f] transition-all text-center">
+          <a href={`/${item.slug}`} className="rounded-[18px] bg-[#102A43] px-2.5 py-1.5 text-[9px] sm:text-[10px] font-bold text-white hover:bg-[#0b1d30] transition-all text-center">
             Visit Menu
           </a>
           <button 
@@ -260,7 +260,7 @@ export default function UserHome() {
                   onClick={() => setActivePanel(panel as any)}
                   className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-xs font-semibold transition ${
                     activePanel === panel
-                      ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white shadow-md shadow-[#4f65ff]/15"
+                      ? "bg-gradient-to-r from-[#102A43] to-[#1d4d70] text-white shadow-md shadow-[#102A43]/15"
                       : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                   }`}
                 >
@@ -278,7 +278,11 @@ export default function UserHome() {
 
         {/* Main Content */}
         <div className="overflow-y-auto">
-          <PageShell title="Welcome" subtitle={`Hello, ${displayName}!`}>
+          <PageShell
+            title="Welcome"
+            subtitle={`Hello, ${displayName}!`}
+            showInventoryNotifier={false}
+          >
             <div className="space-y-6">
               <div className="lg:hidden rounded-3xl border border-slate-200 bg-white p-3 shadow-sm flex items-center justify-between">
                 <div>
@@ -287,7 +291,7 @@ export default function UserHome() {
                 </div>
                 <button
                   onClick={() => setMobileNavOpen(true)}
-                  className="rounded-full bg-[#4f65ff] px-3 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-[#3a52d5] transition"
+                  className="rounded-full bg-[#102A43] px-3 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-[#0b1d30] transition"
                 >
                   Menu
                 </button>
@@ -328,7 +332,7 @@ export default function UserHome() {
                           }}
                           className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[12px] sm:text-sm font-semibold transition ${
                             activePanel === panel
-                              ? "bg-gradient-to-r from-[#4f65ff] to-[#8e7ffd] text-white"
+                              ? "bg-gradient-to-r from-[#102A43] to-[#1d4d70] text-white"
                               : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                           }`}
                         >
