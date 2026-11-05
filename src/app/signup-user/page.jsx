@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import flags from "react-phone-number-input/flags";
 
 import { supabase } from "../../lib/supabaseClient";
 
@@ -58,11 +60,10 @@ export default function SignupUserPage() {
       );
     }
 
-    const phoneRegex = /^\+639\d{9}$/;
-    if (!phoneRegex.test(contactNumber.trim())) {
+    if (!isValidPhoneNumber(contactNumber.trim())) {
       setLoading(false);
       return alert(
-        "Contact number must start with +639 and be followed by 9 digits."
+        "Please enter a valid contact number for the selected country."
       );
     }
 
@@ -111,14 +112,14 @@ export default function SignupUserPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F3ED] px-4 py-10">
+    <div className="min-h-screen bg-gradient-to-b from-[#eef4ff] via-[#f9fbff] to-white px-4 py-10">
       <div className="max-w-[1200px] mx-auto grid gap-8 lg:grid-cols-[1fr_1.2fr] items-center">
         <div className="rounded-[32px] border border-slate-200 bg-white p-10 shadow-sm">
           <div className="mb-6">
-            <p className="text-sm uppercase tracking-[0.4em] font-semibold text-[#E23838]">
+            <p className="text-sm uppercase tracking-[0.4em] font-semibold text-[#102A43]">
               Food Lover Signup
             </p>
-            <h1 className="text-4xl font-bold text-slate-900 mt-3">
+            <h1 className="text-4xl font-bold text-[#102A43] mt-3">
               Welcome to MenuQR
             </h1>
           </div>
@@ -127,8 +128,8 @@ export default function SignupUserPage() {
           </p>
         </div>
 
-        <div className="rounded-[32px] overflow-hidden bg-[#E23838] shadow-sm">
-          <div className="bg-[#c22f2f] p-10 text-white">
+        <div className="rounded-[32px] overflow-hidden bg-[#102A43] shadow-sm">
+          <div className="bg-gradient-to-r from-[#102A43] to-[#1d4d70] p-10 text-white">
             <h2 className="text-3xl font-bold">Complete your profile</h2>
             <p className="text-slate-200 mt-3 max-w-xl">
               Fill in your details to finish creating your account and start browsing menus.
@@ -146,7 +147,7 @@ export default function SignupUserPage() {
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#E23838] focus:ring-2 focus:ring-[#F2FF00]/40"
+                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#102A43] focus:ring-2 focus:ring-[#102A43]/20"
                     required
                   />
                 </div>
@@ -158,31 +159,33 @@ export default function SignupUserPage() {
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#E23838] focus:ring-2 focus:ring-[#F2FF00]/40"
+                    className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#102A43] focus:ring-2 focus:ring-[#102A43]/20"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-semibold text-slate-700">
+                <label
+                  htmlFor="contact-number"
+                  className="text-sm font-semibold text-slate-700"
+                >
                   Contact Number
                 </label>
-                <input
+                <PhoneInput
+                  id="contact-number"
                   type="tel"
-                  placeholder="+639171234567"
+                  autoComplete="tel"
+                  defaultCountry="PH"
                   value={contactNumber}
-                  onChange={(e) => {
-                    let digits = e.target.value.replace(/\D/g, "");
-                    if (digits.startsWith("0")) digits = digits.substring(1);
-                    if (digits.startsWith("9")) digits = "+63" + digits;
-                    else if (digits.startsWith("63")) digits = "+" + digits;
-                    else if (!digits.startsWith("+63")) digits = "+63" + digits;
-                    setContactNumber(digits);
-                  }}
-                  className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 text-slate-900 outline-none focus:border-[#E23838] focus:ring-2 focus:ring-[#F2FF00]/40"
+                  onChange={(value) => setContactNumber(value || "")}
+                  flags={flags}
+                  className="PhoneInput mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-slate-900 outline-none transition focus-within:border-[#102A43] focus-within:ring-2 focus-within:ring-[#102A43]/20"
                   required
                 />
+                <p className="mt-2 text-sm text-slate-500">
+                  Choose a country code or enter an international number.
+                </p>
               </div>
 
               <div>
@@ -219,14 +222,14 @@ export default function SignupUserPage() {
                   type="checkbox"
                   checked={agreePrivacy}
                   onChange={(e) => setAgreePrivacy(e.target.checked)}
-                  className="h-5 w-5 rounded border-slate-300 text-[#E23838] focus:ring-[#E23838]"
+                  className="h-5 w-5 rounded border-slate-300 text-[#102A43] focus:ring-[#102A43]"
                 />
                 <p className="text-sm text-slate-600">
                   I agree to the{" "}
                   <button
                     type="button"
                     onClick={() => setShowPrivacy(true)}
-                    className="font-semibold text-[#E23838] underline"
+                    className="font-semibold text-[#102A43] underline"
                   >
                     privacy policy
                   </button>
@@ -243,7 +246,7 @@ export default function SignupUserPage() {
               <button
                 type="submit"
                 disabled={loading || !agreePrivacy}
-                className="w-full rounded-full bg-[#E23838] px-6 py-4 text-lg font-bold text-[#F2FF00] shadow-md transition hover:bg-[#c22f2f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full bg-[#102A43] px-6 py-4 text-lg font-bold text-white shadow-md transition hover:bg-[#0b1d30] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? "Creating..." : "Create Account"}
               </button>
@@ -339,7 +342,7 @@ export default function SignupUserPage() {
                       <h3 className="text-xl font-semibold text-slate-900 mb-3">Contact</h3>
                       <p className="text-slate-700 leading-7">
                         If you have any privacy questions or requests, email the MenuQR team at{" "}
-                        <a href="mailto:projectmenuqr@gmail.com" className="font-semibold text-[#E23838] underline">
+                        <a href="mailto:projectmenuqr@gmail.com" className="font-semibold text-[#102A43] underline">
                           projectmenuqr@gmail.com
                         </a>.
                       </p>

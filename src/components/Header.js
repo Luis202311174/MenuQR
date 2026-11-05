@@ -69,7 +69,7 @@ export default function Header() {
             .from("users")
             .select("role")
             .eq("id", data.session.user.id)
-            .single();
+            .maybeSingle();
 
           if (error) {
             console.error("Unable to resolve header user role:", error);
@@ -115,7 +115,7 @@ export default function Header() {
               .from("users")
               .select("role")
               .eq("id", session.user.id)
-              .single()
+              .maybeSingle()
               .then(({ data: u, error }) => {
                 if (error) {
                   console.error("Unable to resolve header user role:", error);
